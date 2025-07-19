@@ -749,22 +749,52 @@ function atualizarOrdemFila(PDO $pdo, int $rodada, array $novaOrdemFila): bool {
  * @return bool True em caso de sucesso, false em caso de falha.
  */
 function atualizarOrdemMusicasCantor(PDO $pdo, int $idCantor, array $novaOrdemMusicas): bool {
+    // Se não há músicas para reordenar, retorna sucesso.
+    if (empty($novaOrdemMusicas)) {
+        return true;
+    }
+
     $pdo->beginTransaction();
     try {
-        // Prepara a query para atualizar a ordem de um item específico
-        $stmt = $pdo->prepare("UPDATE musicas_cantor SET ordem_na_lista = ? WHERE id = ? AND id_cantor = ?");
+        // Define os status que impedem a reordenação
+        $restricted_statuses = ['cantou', 'em_execucao', 'selecionada_para_rodada'];
 
+        // 1. Obter os status atuais de todas as músicas que estão sendo potencialmente reordenadas
+        $ids_musicas_cantor = array_keys($novaOrdemMusicas);
+        // Cria placeholders para a query IN clause (?, ?, ?, ...)
+        $placeholders = implode(',', array_fill(0, count($ids_musicas_cantor), '?'));
+
+        $stmtCheckStatus = $pdo->prepare("SELECT id, status FROM musicas_cantor WHERE id IN ($placeholders) AND id_cantor = ?");
+        // Combina os IDs das músicas e o ID do cantor para a execução da query
+        $stmtCheckStatus->execute(array_merge($ids_musicas_cantor, [$idCantor]));
+        // Busca os resultados como um array associativo [id => status] para fácil lookup
+        $currentStatuses = $stmtCheckStatus->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        // Prepara a query para atualizar a ordem de um item específico
+        $stmtUpdate = $pdo->prepare("UPDATE musicas_cantor SET ordem_na_lista = ? WHERE id = ? AND id_cantor = ?");
+
+        // 2. Iterar sobre a nova ordem e aplicar as atualizações APENAS se o status permitir
         foreach ($novaOrdemMusicas as $musicaCantorId => $novaPosicao) {
             // Garante que os IDs e posições são inteiros válidos.
             $musicaCantorId = (int) $musicaCantorId;
             $novaPosicao = (int) $novaPosicao;
 
-            // Executa a atualização para cada item.
-            // A condição `AND id_cantor = ?` garante que só atualizamos músicas daquele cantor.
-            if (!$stmt->execute([$novaPosicao, $musicaCantorId, $idCantor])) {
-                $pdo->rollBack(); // Se uma atualização falhar, reverte todas
-                error_log("Erro ao executar UPDATE para musicas_cantor ID: $musicaCantorId, nova_posicao: $novaPosicao, cantor ID: $idCantor");
-                return false;
+            // Verifica se a música existe e se seu status NÃO é um dos restritos
+            if (isset($currentStatuses[$musicaCantorId]) && !in_array($currentStatuses[$musicaCantorId], $restricted_statuses)) {
+                // Se o status permitir, executa a atualização
+                if (!$stmtUpdate->execute([$novaPosicao, $musicaCantorId, $idCantor])) {
+                    $pdo->rollBack(); // Se uma atualização falhar, reverte todas
+                    error_log("Erro ao executar UPDATE para musicas_cantor ID: $musicaCantorId, nova_posicao: $novaPosicao, cantor ID: $idCantor");
+                    return false;
+                }
+            } else {
+                // Se a música tem um status restrito ou não foi encontrada para este cantor,
+                // vamos logar isso e continuar, ou você pode optar por reverter tudo aqui.
+                // Como o frontend já impede o arrasto, isso serve mais como uma camada de segurança.
+                error_log("Tentativa de reordenar música com status restrito ou ID inválido para o cantor $idCantor: musica_cantor_id=$musicaCantorId, status=" . ($currentStatuses[$musicaCantorId] ?? 'N/A'));
+                // Se você quiser que a transação inteira falhe se qualquer item restrito for enviado:
+                // $pdo->rollBack();
+                // return false;
             }
         }
 

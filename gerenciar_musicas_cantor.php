@@ -202,12 +202,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                             <?php
                                 $statusClass = '';
                                 $statusText = '';
+                                $statusSortable = '';
                                 switch($musica['status']) {
-                                    case 'aguardando': $statusClass = 'badge-info'; $statusText = 'Aguardando'; break;
-                                    case 'cantou': $statusClass = 'badge-success'; $statusText = 'Cantou'; break;
-                                    case 'pulou': $statusClass = 'badge-warning'; $statusText = 'Pulou'; break;
-                                    case 'selecionada_para_rodada': $statusClass = 'badge-primary'; $statusText = 'Selecionada para a rodada atual'; break;
-                                    case 'em_execucao': $statusClass = 'badge-danger'; $statusText = 'EM EXECUÇÃO'; break;
+                                    case 'aguardando': $statusClass = 'badge-info'; $statusText = 'Aguardando'; $statusSortable = 'aguardando'; break;
+                                    case 'cantou': $statusClass = 'badge-success'; $statusText = 'Cantou'; $statusSortable = 'cantou'; break;
+                                    case 'pulou': $statusClass = 'badge-warning'; $statusText = 'Pulou'; $statusSortable = 'pulou'; break;
+                                    case 'selecionada_para_rodada': $statusClass = 'badge-primary'; $statusText = 'Selecionada para a rodada atual'; $statusSortable = 'selecionada_para_rodada'; break;
+                                    case 'em_execucao': $statusClass = 'badge-danger'; $statusText = 'EM EXECUÇÃO'; $statusSortable = 'em_execucao'; break;
                                     default: $statusClass = 'badge-muted'; $statusText = 'Desconhecido';
                                 }
                                 $isCurrentlyPlaying = ($musica['status'] == 'em_execucao');
@@ -215,7 +216,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                             <li class="queue-item <?php echo $isCurrentlyPlaying ? 'list-group-item-danger' : ''; ?>"
                                 data-musica-cantor-id="<?php echo htmlspecialchars($musica['musica_cantor_id']); ?>"
                                 data-id-musica="<?php echo htmlspecialchars($musica['id_musica']); ?>"
-                                data-id-cantor="<?php echo htmlspecialchars($cantor_selecionado_id); ?>">
+                                data-id-cantor="<?php echo htmlspecialchars($cantor_selecionado_id); ?>"
+                                data-status="<?php echo $statusSortable; ?>">
                                 <div>
                                     <span class="ordem-numero"><?php echo htmlspecialchars($musica['ordem_na_lista']); ?>.</span>
                                     <span><?php echo htmlspecialchars($musica['titulo']); ?> (<?php echo htmlspecialchars($musica['artista']); ?>) - Código: <?php echo htmlspecialchars($musica['codigo']); ?></span>
@@ -251,7 +253,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
 
     <script>
-    $(document).ready(function() {
+$(document).ready(function() {
     let isDragging = false; // Flag para indicar se o sortable está sendo arrastado
 
     // Funções auxiliares (manter como estão)
@@ -269,60 +271,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     // Inicialize o Autocomplete (manter como está, está funcional)
     $("#search_musica").autocomplete({
-            source: function(request, response) {
-                $.ajax({
-                    url: 'api.php', // Endpoint da sua API
-                    type: 'GET',
-                    dataType: 'json',
-                    data: {
-                        action: 'search_musicas', // Nova ação para o backend
-                        term: request.term // Termo digitado pelo usuário
-                    },
-                    success: function(data) {
-                        // MODIFICADO: Verifica se o array de dados está vazio
-                        if (data.length === 0) {
-                            response([{ label: "Nenhum resultado encontrado!", value: "" }]); // Exibe a mensagem
-                        } else {
-                            response($.map(data, function(item) {
-                                return {
-                                    // O label original, que será destacado posteriormente pelo _renderItem
-                                    label: item.titulo + ' (' + item.artista + ')',
-                                    value: item.id_musica,
-                                    titulo: item.titulo,
-                                    artista: item.artista,
-                                    codigo: item.codigo // Adicione o código se for usar
-                                };
-                            }));
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error("Erro na busca de músicas:", status, error);
-                        // MODIFICADO: Exibir mensagem de erro ao usuário se houver problema na requisição
-                        response([{ label: "Erro ao buscar resultados.", value: "" }]);
+        source: function(request, response) {
+            $.ajax({
+                url: 'api.php', // Endpoint da sua API
+                type: 'GET',
+                dataType: 'json',
+                data: {
+                    action: 'search_musicas', // Nova ação para o backend
+                    term: request.term // Termo digitado pelo usuário
+                },
+                success: function(data) {
+                    if (data.length === 0) {
+                        response([{ label: "Nenhum resultado encontrado!", value: "" }]);
+                    } else {
+                        response($.map(data, function(item) {
+                            return {
+                                label: item.titulo + ' (' + item.artista + ')',
+                                value: item.id_musica,
+                                titulo: item.titulo,
+                                artista: item.artista,
+                                codigo: item.codigo
+                            };
+                        }));
                     }
-                });
-            },
-            minLength: 1, // Mudei para 2 para ser mais eficiente na busca por autocomplete
-            select: function(event, ui) {
-                // MODIFICADO: Se o item selecionado for a mensagem "Nenhum resultado encontrado!", não faz nada
-                if (ui.item.value === "") {
-                    event.preventDefault(); // Impede que o valor seja inserido no campo
-                    return false;
+                },
+                error: function(xhr, status, error) {
+                    console.error("Erro na busca de músicas:", status, error);
+                    response([{ label: "Erro ao buscar resultados.", value: "" }]);
                 }
-                // Quando uma música é selecionada, preenche o campo hidden com o ID
-                $('#id_musica').val(ui.item.value);
-                // MODIFICADO: Remove as tags <strong> do label antes de colocar no campo de texto
-                $(this).val(ui.item.label.replace(/<strong>|<\/strong>/g, ''));
-                return false; // Previne que o valor do label seja automaticamente colocado no campo de texto
-            },
-            focus: function(event, ui) {
-                // MODIFICADO: Previne que o valor do label seja automaticamente colocado no campo de texto ao navegar com setas
-                if (ui.item.value === "") {
-                    event.preventDefault();
-                }
+            });
+        },
+        minLength: 1,
+        select: function(event, ui) {
+            if (ui.item.value === "") {
+                event.preventDefault();
                 return false;
             }
-        });
+            $('#id_musica').val(ui.item.value);
+            $(this).val(ui.item.label.replace(/<strong>|<\/strong>/g, ''));
+            return false;
+        },
+        focus: function(event, ui) {
+            if (ui.item.value === "") {
+                event.preventDefault();
+            }
+            return false;
+        }
+    });
 
     if ($("#search_musica").data("ui-autocomplete")) {
         $("#search_musica").data("ui-autocomplete")._renderItem = function(ul, item) {
@@ -360,29 +355,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
     });
 
-    // Inicialização e lógica do Sortable
+    // Inicialização do Sortable (mover para a função de atualização para ser reinicializado)
     const $sortableList = $("#sortable-musicas-cantor");
 
-    if ($sortableList.length) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const idCantorAtual = urlParams.get('cantor_id');
+    let refreshIntervalId; // Variável para armazenar o ID do intervalo
+
+    // Função que encapsula a lógica de renderização e reinicialização do Sortable
+    function inicializarOuAtualizarSortable() {
+        // 1. Destruir o Sortable existente se ele estiver inicializado
+        if ($sortableList.hasClass('ui-sortable')) {
+            $sortableList.sortable("destroy");
+            console.log("Sortable destruído.");
+        }
+
+        // 2. Inicializar o Sortable
         $sortableList.sortable({
             axis: "y",
             placeholder: "ui-sortable-placeholder",
             helper: "clone",
             revert: 200,
             cursor: "grabbing",
+            // Esta é a linha crucial que será reavaliada cada vez que o Sortable é reinicializado
+            items: "li:not([data-status='cantou']):not([data-status='em_execucao']):not([data-status='selecionada_para_rodada'])",
             start: function(event, ui) {
                 isDragging = true;
-                // Desabilita as atualizações da lista quando o arrasto começa
-                clearInterval(refreshIntervalId); 
+                clearInterval(refreshIntervalId); // Desabilita o polling durante o drag
             },
             stop: function(event, ui) {
                 isDragging = false;
-                // Reabilita as atualizações após o arrasto parar
-                refreshIntervalId = setInterval(atualizarListaMusicasCantor, 3000); 
+                // Reabilita o polling após o drag parar
+                refreshIntervalId = setInterval(atualizarListaMusicasCantor, 3000);
             },
             update: function(event, ui) {
-                // Se a atualização foi disparada por drag and drop (e não por um refresh externo)
-                if (this === ui.item.parent()[0]) { // Verifica se a atualização é no próprio sortable
+                if (this === ui.item.parent()[0]) {
                     var novaOrdem = {};
                     var idCantor = <?php echo json_encode($cantor_selecionado_id); ?>;
 
@@ -405,9 +412,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         success: function(response) {
                             if (response.success) {
                                 console.log('Ordem das músicas do cantor atualizada com sucesso no servidor!', response.message);
-                                // Força uma atualização para refletir a ordem do servidor
-                                // Isso é crucial para sincronizar o DOM com o banco de dados após o drag
-                                atualizarListaMusicasCantor(); 
+                                // Força uma atualização para refletir a ordem do servidor e reavaliar Sortable
+                                atualizarListaMusicasCantor();
                             } else {
                                 alert('Erro ao atualizar a ordem das músicas do cantor: ' + response.message);
                                 $sortableList.sortable('cancel');
@@ -422,27 +428,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 }
             }
         });
-        $sortableList.disableSelection();
+        $sortableList.disableSelection(); // Desabilita a seleção de texto para não atrapalhar o drag
+        console.log("Sortable reinicializado.");
     }
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const idCantorAtual = urlParams.get('cantor_id');
-    let refreshIntervalId; // Variável para armazenar o ID do intervalo
-
-    // Só tenta buscar atualizações se um cantor estiver selecionado
+    // Função principal de atualização da lista de músicas
     if (idCantorAtual) {
         function atualizarListaMusicasCantor() {
-            // Se estiver arrastando, não faça nada. O intervalo foi parado em `start`.
             if (isDragging) {
                 console.log("Drag em progresso, pulando atualização da lista.");
                 return;
             }
             
-            // É seguro desabilitar o sortable aqui, já que o isDragging garante que não estamos no meio de um drag
-            // Mas reabilitaremos no `complete`
-            if ($sortableList.sortable("instance") && $sortableList.sortable("option", "disabled") === false) {
-                 $sortableList.sortable("disable");
-            }
+            // Não desabilite/reabilite aqui, pois o Sortable será destruído e reinicializado.
+            // Apenas certifique-se de que a AJAX não está concorrendo com o drag.
 
             $.ajax({
                 url: 'api.php',
@@ -473,44 +472,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                             });
 
                             let newOrderMusicaIds = [];
-                            let fragment = document.createDocumentFragment(); // Para otimizar a atualização do DOM
+                            let fragment = document.createDocumentFragment();
 
                             musicasAPI.forEach(function(musica) {
-                                const musicaCantorId = musica.id; // Isso vem do banco como mc.id
+                                const musicaCantorId = musica.id;
                                 let $item = currentDomItems[musicaCantorId];
 
                                 const isCurrentlyPlaying = (musicaEmExecucaoGeral &&
-                                                            musica.id_musica == musicaEmExecucaoGeral.id_musica &&
-                                                            musica.id_cantor == musicaEmExecucaoGeral.id_cantor);
-                                                            
+                                    musica.id_musica == musicaEmExecucaoGeral.id_musica &&
+                                    musica.id_cantor == musicaEmExecucaoGeral.id_cantor);
+                                
                                 let statusClass = '';
                                 let statusText = '';
+                                let statusSortable = ''; 
                                 switch(musica.status) {
-                                    case 'aguardando': statusClass = 'badge-info'; statusText = 'Aguardando'; break;
-                                    case 'cantou': statusClass = 'badge-success'; statusText = 'Cantou'; break;
-                                    case 'pulou': statusClass = 'badge-warning'; statusText = 'Pulou'; break;
-                                    case 'selecionada_para_rodada': statusClass = 'badge-primary'; statusText = 'Selecionada para a rodada atual'; break;
-                                    case 'em_execucao': statusClass = 'badge-danger'; statusText = 'EM EXECUÇÃO'; break;
-                                    default: statusClass = 'badge-muted'; statusText = 'Desconhecido';
+                                    case 'aguardando': statusClass = 'badge-info'; statusText = 'Aguardando'; statusSortable = 'aguardando'; break;
+                                    case 'cantou': statusClass = 'badge-success'; statusText = 'Cantou'; statusSortable = 'cantou'; break;
+                                    case 'pulou': statusClass = 'badge-warning'; statusText = 'Pulou'; statusSortable = 'pulou'; break;
+                                    case 'selecionada_para_rodada': statusClass = 'badge-primary'; statusText = 'Selecionada para a rodada atual'; statusSortable = 'selecionada_para_rodada'; break;
+                                    case 'em_execucao': statusClass = 'badge-danger'; statusText = 'EM EXECUÇÃO'; statusSortable = 'em_execucao'; break;
+                                    default: statusClass = 'badge-muted'; statusText = 'Desconhecido'; statusSortable = 'desconhecido';
                                 }
 
                                 if (!$item) {
                                     // Cria um novo item se não existir no DOM
-                                    $item = $(`<li class="queue-item" data-musica-cantor-id="${musicaCantorId}" data-id-musica="${musica.id_musica}" data-id-cantor="${musica.id_cantor}">
-                                            <div>
-                                                <span class="ordem-numero"></span>
-                                                <span></span>
-                                                <br>
-                                                <small><strong>Status:</strong> <span class="status-text badge"></span></small>
-                                            </div>
-                                            <form method="POST">
-                                                <input type="hidden" name="action" value="remove_musica_cantor">
-                                                <input type="hidden" name="musica_cantor_id" value="${musicaCantorId}">
-                                                <input type="hidden" name="cantor_id" value="${idCantorAtual}">
-                                                <button type="submit">Remover</button>
-                                            </form>
-                                        </li>`);
-                                    currentDomItems[musicaCantorId] = $item; // Adiciona ao cache
+                                    $item = $(`<li class="queue-item" data-musica-cantor-id="${musicaCantorId}" data-id-musica="${musica.id_musica}" data-id-cantor="${musica.id_cantor}" data-status="${statusSortable}">
+                                        <div>
+                                            <span class="ordem-numero"></span>
+                                            <span></span>
+                                            <br>
+                                            <small><strong>Status:</strong> <span class="status-text badge"></span></small>
+                                        </div>
+                                        <form method="POST">
+                                            <input type="hidden" name="action" value="remove_musica_cantor">
+                                            <input type="hidden" name="musica_cantor_id" value="${musicaCantorId}">
+                                            <input type="hidden" name="cantor_id" value="${idCantorAtual}">
+                                            <button type="submit">Remover</button>
+                                        </form>
+                                    </li>`);
+                                    currentDomItems[musicaCantorId] = $item;
                                 }
 
                                 // Atualiza o conteúdo e classes do item existente ou recém-criado
@@ -518,14 +518,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                 $item.find('div > span:eq(1)').text(`${musica.titulo} (${musica.artista}) - Código: ${musica.codigo}`);
                                 $item.find('.status-text').text(statusText).removeClass().addClass(`status-text badge ${statusClass}`);
                                 
+                                // As linhas cruciais para atualizar o data-status no HTML
+                                $item.data('status', statusSortable); // Atualiza o cache do jQuery
+                                $item.attr('data-status', statusSortable); // Atualiza o atributo no DOM
+
                                 if (isCurrentlyPlaying) {
                                     $item.addClass('list-group-item-danger');
                                 } else {
                                     $item.removeClass('list-group-item-danger');
                                 }
 
-                                // Adiciona o item (existente ou novo) ao fragmento na ordem correta
-                                fragment.appendChild($item[0]); // Pega o elemento DOM nativo do jQuery object
+                                fragment.appendChild($item[0]);
                                 newOrderMusicaIds.push(musicaCantorId);
                             });
 
@@ -536,7 +539,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                 }
                             });
 
-                            // Limpa a lista atual e anexa o fragmento (melhor performance)
                             $musicasListContainer.empty().append(fragment);
                         }
                     } else {
@@ -547,21 +549,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     console.error("Erro na requisição AJAX:", textStatus, errorThrown);
                 },
                 complete: function() {
-                    // Reabilitar o sortable APÓS todas as manipulações do DOM
-                    if ($sortableList.sortable("instance")) {
-                        $sortableList.sortable("enable");
-                    }
+                    // Após a atualização do DOM, reinicialize o Sortable
+                    inicializarOuAtualizarSortable();
                 }
             });
         }
 
-        // Chame a função uma vez no carregamento para popular/atualizar a lista
+        // Chame a função uma vez no carregamento para popular/atualizar a lista e inicializar o Sortable
         atualizarListaMusicasCantor();
 
         // Configure o intervalo para atualizações futuras
         refreshIntervalId = setInterval(atualizarListaMusicasCantor, 3000); // A cada 3 segundos
     }
 });
-    </script>
+</script>
 </body>
 </html>

@@ -158,7 +158,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
             box-shadow: 0 5px 15px rgba(0,0,0,0.2); /* Sombra para o item sendo arrastado */
             opacity: 0.8;
         }
-        .queue-item.ui-sortable-placeholder {
+        #sortable-queue .ui-sortable-placeholder {
             background-color: #e0e0e0;
             border: 1px dashed #ccc;
             visibility: visible !important;
@@ -616,7 +616,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
                         if (response.success) {
                             console.log('Ordem da fila atualizada com sucesso no servidor!', response.message);
                             // Opcional: Atualizar apenas a exibição sem recarregar a página inteira
-                            location.reload(); // Se preferir recarregar a página para garantir consistência
+                            //location.reload(); // Se preferir recarregar a página para garantir consistência
                         } else {
                             alert('Erro ao atualizar a ordem da fila: ' + response.message);
                             // Se der erro no backend, reverte a ordem visual no frontend
