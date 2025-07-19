@@ -4,7 +4,7 @@ Este é um sistema de gerenciamento de fila de karaokê simples, desenvolvido em
 
 ## 🚀 Funcionalidades
 
-* **Gerenciamento de Cantores:** Adicione e gerencie os cantores participantes.
+* **Gerenciamento de Cantores:** Adicione e gerencie os cantores participantes a fila.
 * **Cadastro de Músicas:** Cadastre músicas com título, artista, código e trecho.
 * **Listas de Músicas por Cantor:** Cada cantor pode ter sua própria lista de músicas desejadas.
     * **Pesquisa Inteligente:** Pesquisa de músicas com autocomplete por título, artista, código ou trecho da música.
