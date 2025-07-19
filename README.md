@@ -1,6 +1,6 @@
 # 🎤 Fila Karaokê
 
-Este é um sistema de gerenciamento de fila de karaokê simples, desenvolvido em PHP com PDO para interação com o banco de dados (SQLite por padrão, mas configurável para outros SGBDs), e jQuery UI para uma interface interativa no frontend.
+Este é um sistema de gerenciamento de fila de karaokê simples, desenvolvido em PHP com PDO para interação com o banco de dados MySQL, e jQuery UI para uma interface interativa no frontend.
 
 ## 🚀 Funcionalidades
 
