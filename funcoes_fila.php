@@ -641,9 +641,7 @@ function trocarMusicaNaFilaAtual(PDO $pdo, $filaId, $novaMusicaId) {
     try {
         $pdo->beginTransaction(); // Inicia transação para garantir atomicidade
 
-        // 1. Verificar se a filaId existe e o status é 'aguardando' ou 'em_execucao'.
-        // Alterado de 'cantando' para 'em_execucao' para padronizar
-        // Adicionado musica_cantor_id para rastrear a origem da música na fila
+        // 1. Obter informações do item da fila original
         $stmtGetOldMusicInfo = $pdo->prepare("SELECT id_cantor, id_musica, musica_cantor_id FROM fila_rodadas WHERE id = ? AND (status = 'aguardando' OR status = 'em_execucao')");
         $stmtGetOldMusicInfo->execute([$filaId]);
         $filaItem = $stmtGetOldMusicInfo->fetch(PDO::FETCH_ASSOC);
@@ -658,10 +656,9 @@ function trocarMusicaNaFilaAtual(PDO $pdo, $filaId, $novaMusicaId) {
         $musicaOriginalId = $filaItem['id_musica'];
         $musicaCantorOriginalId = $filaItem['musica_cantor_id']; // ID da tabela musicas_cantor, se aplicável
         
-        // APENAS se a música original veio de musicas_cantor, tentamos resetar seu status
-        if ($musicaCantorOriginalId !== null) { // Verifica se há um ID de musicas_cantor associado
-            // Encontrar a ordem_na_lista da música original que estava na fila
-            // Não é mais necessário buscar pela ordem, pois temos o ID direto da tabela musicas_cantor
+        // --- Lógica para a MÚSICA ORIGINAL (saindo da fila) ---
+        // APENAS se a música original veio de musicas_cantor, tentamos resetar seu status para 'aguardando'
+        if ($musicaCantorOriginalId !== null) { 
             $stmtGetOriginalOrder = $pdo->prepare("SELECT ordem_na_lista FROM musicas_cantor WHERE id = ?");
             $stmtGetOriginalOrder->execute([$musicaCantorOriginalId]);
             $ordemMusicaOriginal = $stmtGetOriginalOrder->fetchColumn();
@@ -673,7 +670,6 @@ function trocarMusicaNaFilaAtual(PDO $pdo, $filaId, $novaMusicaId) {
                 error_log("DEBUG: Cantor " . $idCantor . " teve proximo_ordem_musica resetado para " . $ordemMusicaOriginal . " após troca de música (fila_id: " . $filaId . ").");
                 
                 // Atualiza o status da música ORIGINAL na tabela musicas_cantor de volta para 'aguardando'
-                // Usamos o musica_cantor_id diretamente para garantir que a linha correta seja atualizada
                 $stmtUpdateOriginalMusicaCantorStatus = $pdo->prepare("UPDATE musicas_cantor SET status = 'aguardando' WHERE id = ?");
                 $stmtUpdateOriginalMusicaCantorStatus->execute([$musicaCantorOriginalId]);
                 error_log("DEBUG: Status da música original (musicas_cantor_id: " . $musicaCantorOriginalId . ") do cantor " . $idCantor . " resetado para 'aguardando' na tabela musicas_cantor.");
@@ -685,27 +681,43 @@ function trocarMusicaNaFilaAtual(PDO $pdo, $filaId, $novaMusicaId) {
             error_log("DEBUG: Música original (ID: " . $musicaOriginalId . ") do item da fila (ID: " . $filaId . ") não possui um musica_cantor_id associado, não há status para resetar em musicas_cantor.");
         }
 
+        // --- Lógica para a NOVA MÚSICA (entrando na fila) ---
+        // Antes de atualizar a fila_rodadas, precisamos decidir o musica_cantor_id da nova música.
+        $novaMusicaCantorId = null;
+        $novaMusicaStatusExistente = null;
 
-        // 4. Atualiza o id_musica na tabela fila_rodadas com a nova música
-        // 5. Opcional: Se a nova música também for proveniente de musicas_cantor, você precisará passar
-        // o ID dela também para que fila_rodadas possa armazená-lo.
-        // Por enquanto, assumimos que a nova música não é inicialmente da musicas_cantor.
-        $stmtUpdateFila = $pdo->prepare("UPDATE fila_rodadas SET id_musica = ?, musica_cantor_id = NULL WHERE id = ?"); // Define musica_cantor_id como NULL para a nova música
-        $result = $stmtUpdateFila->execute([$novaMusicaId, $filaId]);
+        // Verificar se a nova música existe na lista musicas_cantor para este cantor
+        $stmtCheckNewMusicInCantorList = $pdo->prepare("SELECT id, status FROM musicas_cantor WHERE id_cantor = ? AND id_musica = ? LIMIT 1");
+        $stmtCheckNewMusicInCantorList->execute([$idCantor, $novaMusicaId]);
+        $newMusicInCantorList = $stmtCheckNewMusicInCantorList->fetch(PDO::FETCH_ASSOC);
+
+        if ($newMusicInCantorList) {
+            $novaMusicaCantorId = $newMusicInCantorList['id'];
+            $novaMusicaStatusExistente = $newMusicInCantorList['status'];
+            
+            // Atualizar o status da NOVA música na tabela musicas_cantor
+            // SOMENTE se não for 'cantou' ou 'em_execucao' (se você quiser evitar sobrescrever esses)
+            // Ou, para o seu caso, se o status existente for 'aguardando', 'selecionada_para_rodada'
+            if ($novaMusicaStatusExistente == 'aguardando') { // ou outros status que podem ser sobrescritos
+                 $stmtUpdateNewMusicaCantorStatus = $pdo->prepare("UPDATE musicas_cantor SET status = 'selecionada_para_rodada' WHERE id = ?");
+                 $stmtUpdateNewMusicaCantorStatus->execute([$novaMusicaCantorId]);
+                 error_log("DEBUG: Status da nova música (musicas_cantor_id: " . $novaMusicaCantorId . ") do cantor " . $idCantor . " atualizado para 'selecionada_para_rodada' na tabela musicas_cantor.");
+            } else {
+                 error_log("DEBUG: Status da nova música (musicas_cantor_id: " . $novaMusicaCantorId . ", status: " . $novaMusicaStatusExistente . ") do cantor " . $idCantor . " NÃO foi alterado em musicas_cantor, pois já tinha um status final ou não elegível para mudança.");
+            }
+        } else {
+            error_log("DEBUG: Nova música (ID: " . $novaMusicaId . ") não encontrada na lista musicas_cantor para o cantor " . $idCantor . ". Não há status para atualizar em musicas_cantor.");
+            // Se a música não está na lista do cantor, ela não tem um musica_cantor_id para ser atualizado.
+            // Aqui você poderia, opcionalmente, inseri-la na musicas_cantor com status 'selecionada_para_rodada'
+            // se o comportamento desejado for que qualquer música selecionada para a fila seja adicionada à lista do cantor.
+            // Por enquanto, ela só existirá na fila_rodadas.
+        }
+
+        // 4. Atualiza o id_musica e musica_cantor_id na tabela fila_rodadas com a nova música
+        $stmtUpdateFila = $pdo->prepare("UPDATE fila_rodadas SET id_musica = ?, musica_cantor_id = ? WHERE id = ?");
+        $result = $stmtUpdateFila->execute([$novaMusicaId, $novaMusicaCantorId, $filaId]); // Passa o novaMusicaCantorId
 
         if ($result) {
-            
-            // Se a NOVA música já existe na tabela musicas_cantor para este cantor, atualize seu status.
-            // Isso pode ser um pouco complicado, pois a "nova música" pode ter vindo de "musicas" e não de "musicas_cantor".
-            // Se você quer que a nova música agora apareça como 'selecionada_para_rodada' *na lista do cantor*,
-            // você precisaria primeiro garantir que ela seja adicionada a musicas_cantor se ainda não estiver lá,
-            // ou atualizar o registro existente se ela já estiver.
-            // Por simplicidade, este trecho foi mantido, mas considere o fluxo de "Adicionar Nova Música ao Cantor".
-            $stmtUpdateNewMusicaCantorStatus = $pdo->prepare("UPDATE musicas_cantor SET status = 'selecionada_para_rodada' WHERE id_cantor = ? AND id_musica = ?");
-            $stmtUpdateNewMusicaCantorStatus->execute([$idCantor, $novaMusicaId]);
-            error_log("DEBUG: Status da nova música " . $novaMusicaId . " do cantor " . $idCantor . " atualizado para 'selecionada_para_rodada' na tabela musicas_cantor (se existente).");
-
-            
             $pdo->commit();
             return true;
         } else {
