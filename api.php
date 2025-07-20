@@ -115,6 +115,23 @@ switch ($action) {
             $response['message'] = 'Dados inválidos ou incompletos para atualizar a ordem das músicas do cantor.';
         }
         break;
+		
+	case 'atualizar_ordem_fila':
+        // Ação para POST
+        $rodada = filter_var($_POST['rodada'], FILTER_VALIDATE_INT);
+        $novaOrdemFila = $_POST['nova_ordem_fila'] ?? [];
+
+        if ($rodada !== false && $rodada > 0 && is_array($novaOrdemFila) && !empty($novaOrdemFila)) {
+            if (atualizarOrdemFila($pdo, $rodada, $novaOrdemFila)) {
+                $response['success'] = true;
+                $response['message'] = 'Ordem da fila atualizada com sucesso!';
+            } else {
+                $response['message'] = 'Falha ao atualizar a ordem da fila no banco de dados.';
+            }
+        } else {
+            $response['message'] = 'Dados inválidos ou incompletos para atualizar a ordem da fila.';
+        }
+        break;	
 
     case 'pular_musica':
         // Ação para POST
