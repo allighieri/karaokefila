@@ -1060,6 +1060,7 @@ try {
 
 /**
  * Reseta o 'proximo_ordem_musica' de todos os cantores para 1,
+ * o status de todas as músicas para 'aguardando' e o 'timestamp_ultima_execucao' para NULL,
  * e trunca as tabelas 'controle_rodada' e 'fila_rodadas'.
  * Isso efetivamente reinicia todo o estado da fila do karaokê.
  * @param PDO $pdo Objeto PDO de conexão com o banco de dados.
@@ -1077,10 +1078,10 @@ function resetarTudoFila(PDO $pdo): bool { // Adicionei o tipo de retorno bool
         $stmtCantores->execute();
         error_log("DEBUG: Todos os 'proximo_ordem_musica' dos cantores foram resetados para 1.");
 
-        // 2. Resetar 'status' de todas as músicas para 'aguardando' na tabela musicas_cantor
-        $stmtMusicasCantorStatus = $pdo->prepare("UPDATE musicas_cantor SET status = 'aguardando'");
+        // 2. Resetar 'status' e 'timestamp_ultima_execucao' de todas as músicas na tabela musicas_cantor
+        $stmtMusicasCantorStatus = $pdo->prepare("UPDATE musicas_cantor SET status = 'aguardando', timestamp_ultima_execucao = NULL");
         $stmtMusicasCantorStatus->execute();
-        error_log("DEBUG: Todos os 'status' na tabela musicas_cantor foram resetados para 'aguardando'.");
+        error_log("DEBUG: Todos os 'status' na tabela musicas_cantor foram resetados para 'aguardando' e 'timestamp_ultima_execucao' para NULL.");
 
         // 3. Truncar tabela 'fila_rodadas'
         // TRUNCATE TABLE faz um commit implícito, então as operações acima já serão salvas.
@@ -1100,7 +1101,7 @@ function resetarTudoFila(PDO $pdo): bool { // Adicionei o tipo de retorno bool
         error_log("DEBUG: Tabela 'controle_rodada' reinicializada com rodada 1.");
 
 
-        error_log("DEBUG: Reset completo da fila (cantores, fila_rodadas, controle_rodada) realizado com sucesso.");
+        error_log("DEBUG: Reset completo da fila (cantores, musicas_cantor, fila_rodadas, controle_rodada) realizado com sucesso.");
         return true;
 
     } catch (PDOException $e) {

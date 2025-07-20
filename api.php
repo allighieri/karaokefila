@@ -99,6 +99,22 @@ switch ($action) {
         $response['message'] = 'ID da fila inválido.';
     }
     break;
+	case 'atualizar_ordem_musicas_cantor':
+        // Ação para POST
+        $idCantor = filter_var($_POST['id_cantor'], FILTER_VALIDATE_INT);
+        $novaOrdemMusicas = $_POST['nova_ordem_musicas'] ?? [];
+
+        if ($idCantor !== false && $idCantor > 0 && is_array($novaOrdemMusicas) && !empty($novaOrdemMusicas)) {
+            if (atualizarOrdemMusicasCantor($pdo, $idCantor, $novaOrdemMusicas)) {
+                $response['success'] = true;
+                $response['message'] = 'Ordem das músicas do cantor atualizada com sucesso!';
+            } else {
+                $response['message'] = 'Falha ao atualizar a ordem das músicas do cantor no banco de dados.';
+            }
+        } else {
+            $response['message'] = 'Dados inválidos ou incompletos para atualizar a ordem das músicas do cantor.';
+        }
+        break;
 
     case 'pular_musica':
         // Ação para POST
@@ -149,23 +165,19 @@ switch ($action) {
         break;
 
     case 'get_musicas_cantor_atualizadas':
-    header('Content-Type: application/json'); // Garante que a resposta seja JSON
+    header('Content-Type: application/json');
 
     $idCantor = filter_var($_GET['id_cantor'] ?? $_POST['id_cantor'], FILTER_VALIDATE_INT);
 
     if ($idCantor !== false) {
         try {
-            // Obter a rodada atual do sistema para filtrar a fila
             $rodadaAtual = getRodadaAtual($pdo);
+            error_log("DEBUG get_musicas_cantor_atualizadas (START): Rodada Atual Detectada: " . $rodadaAtual);
 
-            // 1. Obter a música que está "em_execucao" na tabela 'fila_rodadas'
-            //    Esta é a ÚNICA fonte de verdade para a música em execução global.
             $musicaEmExecucaoGeral = getMusicaEmExecucao($pdo);
-            $mcIdEmExecucao = $musicaEmExecucaoGeral['musica_cantor_id'] ?? null; // ID da musicas_cantor que está em execução
+            $mcIdEmExecucao = $musicaEmExecucaoGeral['musica_cantor_id'] ?? null;
+            error_log("DEBUG get_musicas_cantor_atualizadas: Musica em Execucao Geral (mc_id): " . ($mcIdEmExecucao ?? 'Nenhuma'));
 
-            // 2. Busque as músicas do cantor.
-            //    AQUI, removemos a subconsulta COALESCE para o status_final,
-            //    pois vamos DETERMINAR o status no PHP com base na regra de prioridade.
             $stmt = $pdo->prepare("
                 SELECT
                     mc.id AS musica_cantor_id,
@@ -175,47 +187,84 @@ switch ($action) {
                     m.titulo,
                     m.artista,
                     m.codigo,
-                    mc.status AS status_musicas_cantor, -- Pega o status diretamente da musicas_cantor
-                    COALESCE(fr.status, 'N/A') AS status_fila_rodadas -- Pega o status da fila_rodadas se existir
+                    mc.status AS status_musicas_cantor,
+                    COALESCE(
+                        (SELECT fr.status
+                         FROM fila_rodadas fr
+                         WHERE fr.musica_cantor_id = mc.id
+                           AND fr.rodada >= :current_rodada
+                         ORDER BY fr.rodada DESC, fr.timestamp_adicao DESC LIMIT 1
+                        ),
+                        'N/A'
+                    ) AS status_fila_rodadas_recente
                 FROM musicas_cantor mc
                 JOIN musicas m ON mc.id_musica = m.id
-                LEFT JOIN fila_rodadas fr ON fr.musica_cantor_id = mc.id AND fr.rodada = :current_rodada
                 WHERE mc.id_cantor = :id_cantor
                 ORDER BY mc.ordem_na_lista ASC
             ");
             
             $stmt->execute([
                 ':id_cantor' => $idCantor,
-                ':current_rodada' => $rodadaAtual // Passa a rodada atual para o JOIN
+                ':current_rodada' => $rodadaAtual
             ]);
             $musicasCantor = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // 3. Processar e ajustar o status para o frontend com base na prioridade
-            foreach ($musicasCantor as &$musica) { // Usamos & para modificar o array original
-                // A prioridade é SEMPRE a música que está de fato em execução GLOBALMENTE na fila
-                if ($mcIdEmExecucao !== null && $musica['musica_cantor_id'] == $mcIdEmExecucao) {
-                    $musica['status'] = 'em_execucao';
-                } 
-                // Se não é a música globalmente em execução, então olhamos para os status locais
-                else {
-                    // Se a música está na fila da rodada atual e tem um status específico lá
-                    if ($musica['status_fila_rodadas'] !== 'N/A') { // 'N/A' se não encontrou na fila_rodadas
-                        $musica['status'] = $musica['status_fila_rodadas'];
-                    } else {
-                        // Caso contrário, usa o status da tabela musicas_cantor
-                        $musica['status'] = $musica['status_musicas_cantor'];
-                    }
-                }
-                // Remover as colunas auxiliares
-                unset($musica['status_musicas_cantor']);
-                unset($musica['status_fila_rodadas']);
+            // LOG DE DEBUG ADICIONAL AQUI:
+            // Itere sobre os resultados brutos da query para ver o status_fila_rodadas_recente
+            error_log("DEBUG get_musicas_cantor_atualizadas: Detalhes dos status da query:");
+            foreach ($musicasCantor as $m) {
+                error_log("  MC ID: " . $m['musica_cantor_id'] .
+                          ", Titulo: " . $m['titulo'] .
+                          ", MC_status: " . $m['status_musicas_cantor'] .
+                          ", Fila_status_recente: " . $m['status_fila_rodadas_recente']);
             }
-            unset($musica); // Quebra a referência do último elemento
+            // Fim do LOG ADICIONAL
+
+            foreach ($musicasCantor as &$musica) {
+                $finalStatus = $musica['status_musicas_cantor']; // Começa com o status da tabela musicas_cantor como base
+
+                // 1. Prioridade máxima: Música em execução global (getMusicaEmExecucao)
+                if ($mcIdEmExecucao !== null && $musica['musica_cantor_id'] == $mcIdEmExecucao) {
+                    $finalStatus = 'em_execucao';
+                    error_log("DEBUG: Musica " . $musica['titulo'] . " (" . $musica['musica_cantor_id'] . ") definida como 'em_execucao' (prioridade global).");
+                } 
+                // 2. Prioridade secundária: Status da fila_rodadas, mas SÓ SE não for 'N/A' e não for 'aguardando'
+                //    ou se for 'cantou'/'pulou' (estados finais da fila que devem ter prioridade sobre o status base de MC)
+                else if ($musica['status_fila_rodadas_recente'] !== 'N/A') {
+                    // Se o status da fila for 'cantou' ou 'pulou', ele deve sobrescrever o de musicas_cantor
+                    if ($musica['status_fila_rodadas_recente'] === 'cantou' || $musica['status_fila_rodadas_recente'] === 'pulou') {
+                        $finalStatus = $musica['status_fila_rodadas_recente'];
+                        error_log("DEBUG: Musica " . $musica['titulo'] . " (" . $musica['musica_cantor_id'] . ") definida como '" . $finalStatus . "' (da fila_rodadas - cantou/pulou).");
+                    } 
+                    // Se o status da fila for 'aguardando', ele NÃO DEVE sobrescrever 'selecionada_para_rodada' de musicas_cantor
+                    // Ele só sobrescreverá se o MC_status for algo como 'aguardando_na_lista' ou similar.
+                    // Mas como você disse que MC_status já é 'selecionada_para_rodada', não queremos que 'aguardando' da fila sobrescreva.
+                    // Se houver outros status relevantes na fila (além de em_execucao, cantou, pulou, aguardando), adicione-os aqui.
+                    // Por agora, com 'aguardando' como o único outro status na fila para fins de exibição, 
+                    // mantemos a prioridade do MC_status para 'selecionada_para_rodada'.
+                    else if ($musica['status_fila_rodadas_recente'] === 'aguardando' && $musica['status_musicas_cantor'] === 'selecionada_para_rodada') {
+                         $finalStatus = 'selecionada_para_rodada'; // Força o status correto se a fila disse 'aguardando' mas MC disse 'selecionada'
+                         error_log("DEBUG: Musica " . $musica['titulo'] . " (" . $musica['musica_cantor_id'] . ") mantida como 'selecionada_para_rodada' (MC_status tem precedência sobre aguardando da fila).");
+                    }
+                     // Em outros casos onde o status da fila é relevante e não é aguardando, mas também não é cantou/pulou/em_execucao (ex: proxima_na_fila)
+                     else {
+                         $finalStatus = $musica['status_fila_rodadas_recente'];
+                         error_log("DEBUG: Musica " . $musica['titulo'] . " (" . $musica['musica_cantor_id'] . ") definida como '" . $finalStatus . "' (da fila_rodadas - outro status).");
+                     }
+                }
+                // Se a fila_rodadas_recente for 'N/A', já estamos usando o status_musicas_cantor como base, o que é correto.
+
+                $musica['status'] = $finalStatus;
+
+                unset($musica['status_musicas_cantor']);
+                unset($musica['status_fila_rodadas_recente']);
+            }
+            unset($musica);
 
             $response = [
                 'success' => true,
                 'musicas' => $musicasCantor,
-                'musica_em_execucao_geral' => $musicaEmExecucaoGeral // Mantém esta informação, útil para o frontend
+                'musica_em_execucao_geral' => $musicaEmExecucaoGeral
             ];
             echo json_encode($response);
             exit();
