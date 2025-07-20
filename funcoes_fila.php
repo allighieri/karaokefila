@@ -1093,7 +1093,7 @@ try {
  * @param PDO $pdo Objeto PDO de conexão com o banco de dados.
  * @return bool True se o reset completo foi bem-sucedido, false caso contrário.
  */
-function resetarTudoFila(PDO $pdo): bool { // Adicionei o tipo de retorno bool
+function resetarTudoFila(PDO $pdo): bool {
     try {
         // Não usamos transação aqui porque TRUNCATE TABLE faz um COMMIT implícito.
         // Se uma falhar, as anteriores já foram commitadas.
@@ -1110,29 +1110,30 @@ function resetarTudoFila(PDO $pdo): bool { // Adicionei o tipo de retorno bool
         $stmtMusicasCantorStatus->execute();
         error_log("DEBUG: Todos os 'status' na tabela musicas_cantor foram resetados para 'aguardando'.");
 
-        // 3. Truncar tabela 'fila_rodadas'
-        // TRUNCATE TABLE faz um commit implícito, então as operações acima já serão salvas.
+        // 3. Resetar 'timestamp_ultima_execucao' para NULL na tabela musicas_cantor
+        $stmtMusicasCantorTimestamp = $pdo->prepare("UPDATE musicas_cantor SET timestamp_ultima_execucao = NULL");
+        $stmtMusicasCantorTimestamp->execute();
+        error_log("DEBUG: Todos os 'timestamp_ultima_execucao' na tabela musicas_cantor foram resetados para NULL.");
+
+        // 4. Truncar tabela 'fila_rodadas'
         $stmtFila = $pdo->prepare("TRUNCATE TABLE fila_rodadas");
         $stmtFila->execute();
         error_log("DEBUG: Tabela 'fila_rodadas' truncada.");
 
-        // 4. Truncar tabela 'controle_rodada'
+        // 5. Truncar tabela 'controle_rodada'
         $stmtControle = $pdo->prepare("TRUNCATE TABLE controle_rodada");
         $stmtControle->execute();
         error_log("DEBUG: Tabela 'controle_rodada' truncada.");
         
         // Reinicializa controle_rodada, pois TRUNCATE a esvazia.
-        // A lógica do script principal já faz um INSERT IGNORE, mas é bom garantir aqui também.
         $stmtControleInsert = $pdo->prepare("INSERT IGNORE INTO controle_rodada (id, rodada_atual) VALUES (1, 1)");
         $stmtControleInsert->execute();
         error_log("DEBUG: Tabela 'controle_rodada' reinicializada com rodada 1.");
 
-
-        error_log("DEBUG: Reset completo da fila (cantores, fila_rodadas, controle_rodada) realizado com sucesso.");
+        error_log("DEBUG: Reset completo da fila (cantores, musicas_cantor, fila_rodadas, controle_rodada) realizado com sucesso.");
         return true;
 
     } catch (PDOException $e) {
-        // Não há transação para rolar de volta devido ao TRUNCATE
         error_log("Erro ao realizar o reset completo da fila: " . $e->getMessage());
         return false;
     }
