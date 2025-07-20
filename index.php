@@ -97,7 +97,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
             <div class="alert error"><?php echo htmlspecialchars($mensagem_erro); ?></div>
         <?php endif; ?>
                 
-        <h2>Próximo a Cantar</h2>
+       
 		<?php if ($musica_em_execucao): ?>
 			<div class="current-song">
 				<h3>CANTANDO AGORA</h3>
@@ -497,7 +497,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
             items: "li:not(.completed):not(.skipped):not(.active)", 
             placeholder: "ui-sortable-placeholder", // Classe CSS para o espaço reservado
             helper: "clone", // Cria uma cópia visual do item enquanto arrasta
-            revert: 200, // Efeito de retorno suave
+            //revert: 200, // Efeito de retorno suave
 			 
 
 
