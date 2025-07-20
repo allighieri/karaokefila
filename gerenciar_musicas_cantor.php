@@ -375,9 +375,8 @@ $(document).ready(function() {
             axis: "y",
             placeholder: "ui-sortable-placeholder",
             helper: "clone",
-            revert: 200,
+            //revert: 200,
             cursor: "grabbing",
-            // Esta é a linha crucial que será reavaliada cada vez que o Sortable é reinicializado
             items: "li:not([data-status='cantou']):not([data-status='em_execucao']):not([data-status='selecionada_para_rodada'])",
             start: function(event, ui) {
                 isDragging = true;

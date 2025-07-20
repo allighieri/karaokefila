@@ -83,99 +83,8 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
     <title>Gerenciador de Karaokê - MC Panel</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
-        h1, h2, h3 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 25px; }
-        .alert { padding: 10px; margin-bottom: 15px; border-radius: 5px; font-weight: bold; }
-        .alert.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .alert.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    <link rel="stylesheet" href="css/style_index.css">
 
-        .form-section { background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #eee; }
-        .form-section label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-section input[type="text"],
-        .form-section input[type="number"],
-        .form-section select {
-            width: calc(100% - 22px);
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        /* ALTERADO: Estilos para botões do Bootstrap */
-        .form-section button {
-            /* Removido estilos fixos para usar classes Bootstrap */
-            margin-right: 10px;
-        }
-        .current-song {
-            background-color: #e8f5e9;
-            border: 2px solid #4CAF50;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .current-song h3 { margin-top: 0; color: #2e7d32; border-bottom: none; }
-        .current-song p { margin: 5px 0; font-size: 1.1em; }
-        .current-song .actions button {
-            /* Removido estilos fixos para usar classes Bootstrap */
-            margin: 0 5px;
-        }
-        /* Os estilos .skip e outros podem ser mantidos se quiser sobrescrever Bootstrap */
-        .queue-list { list-style: none; padding: 0; }
-        .queue-item {
-            background-color: #f0f8ff;
-            border: 1px solid #e0e0e0;
-            padding: 10px 15px;
-            margin-bottom: 8px;
-            border-radius: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .queue-item.active { background-color: #cceeff; border-color: #3399ff; font-weight: bold; }
-        .queue-item.completed { background-color: #e0ffe0; color: #666; text-decoration: line-through; }
-		.queue-item.skipped {
-			background-color: #e0e0e0; /* Alterado para um tom de cinza mais neutro */
-			color: #666;
-			text-decoration: line-through;
-		}
-		.queue-info strong { color: #34495e; }
-		.queue-info small { color: #7f8c8d; }
-		
-		/* Estilo para a próxima música */
-		.queue-item.next-up {
-			background-color: #ffdddd; /* Um tom suave de vermelho */
-			border: 1px solid #ffaaaa; /* Borda mais escura para combinar */
-			/* Você pode adicionar outros estilos se desejar, como um texto mais escuro ou negrito */
-		}
-        
-        /* NOVO: Estilo para indicar que o item é arrastável */
-        .queue-item {
-            cursor: grab; /* Mude o cursor para indicar arrastável */
-        }
-        .queue-item.ui-sortable-helper {
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2); /* Sombra para o item sendo arrastado */
-            opacity: 0.8;
-        }
-        #sortable-queue .ui-sortable-placeholder {
-            background-color: #e0e0e0;
-            border: 1px dashed #ccc;
-            visibility: visible !important;
-            height: 50px; /* Ajuste conforme a altura média dos seus itens de fila */
-        }
-
-        /* NOVO: Garante que o autocomplete apareça acima do modal */
-        .ui-autocomplete {
-            z-index: 2000 !important; /* Um valor alto o suficiente para sobrepor o modal do Bootstrap */
-        }
-
-        /* Estilos para os radio buttons/checkboxes do modo de fila */
-        .form-check-inline {
-            margin-right: 15px;
-        }
-		
-    </style>
 </head>
 <body>
     <div class="container">
@@ -188,7 +97,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
             <div class="alert error"><?php echo htmlspecialchars($mensagem_erro); ?></div>
         <?php endif; ?>
                 
-        <h2>Próximo a Cantar</h2>
+       
 		<?php if ($musica_em_execucao): ?>
 			<div class="current-song">
 				<h3>CANTANDO AGORA</h3>
@@ -577,6 +486,8 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
                 }
             });
         };
+		
+
         
         // NOVO: Inicializa o jQuery UI Sortable para a fila
         $("#sortable-queue").sortable({
@@ -586,7 +497,9 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
             items: "li:not(.completed):not(.skipped):not(.active)", 
             placeholder: "ui-sortable-placeholder", // Classe CSS para o espaço reservado
             helper: "clone", // Cria uma cópia visual do item enquanto arrasta
-            revert: 200, // Efeito de retorno suave
+            //revert: 200, // Efeito de retorno suave
+			 
+
 
             // Evento disparado quando um item para de ser arrastado e a ordem é alterada
             update: function(event, ui) {
@@ -616,6 +529,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
                         if (response.success) {
                             console.log('Ordem da fila atualizada com sucesso no servidor!', response.message);
                             // Opcional: Atualizar apenas a exibição sem recarregar a página inteira
+							updateQueueVisualStatus();
                             //location.reload(); // Se preferir recarregar a página para garantir consistência
                         } else {
                             alert('Erro ao atualizar a ordem da fila: ' + response.message);
@@ -643,6 +557,53 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
 
         // Previne a seleção de texto ao arrastar, um problema comum com sortable
         $("#sortable-queue").disableSelection();
+		
+		function updateQueueVisualStatus() {
+			// 1. Primeiro, remove a classe 'next-up' de TODOS os itens.
+			// Isso garante que a estilização vermelha (se associada a 'next-up') seja removida.
+			$("#sortable-queue li").removeClass('next-up');
+
+			// 2. Remove o elemento 'strong' que contém 'Próxima música' e o '<br>' adjacente de TODOS os itens.
+			// Usamos uma iteração para garantir que removemos APENAS o strong que contém "Próxima música".
+			$("#sortable-queue li .queue-info strong").each(function() {
+				var $thisStrong = $(this);
+				// Verifica se o conteúdo do strong é exatamente "Próxima música"
+				// Ou se começa com "Próxima música" para ser mais flexível, dependendo de como o PHP gera.
+				if ($thisStrong.text().trim() === 'Próxima música') {
+					// Remove o elemento strong e a quebra de linha adjacente se ela existir
+					$thisStrong.next('br').remove(); // Remove o <br> que vem logo depois (se houver)
+					$thisStrong.remove(); // Remove o <strong>Próxima música</strong>
+				}
+			});
+
+			// 3. Encontra o novo primeiro item "aguardando" e adiciona o status "Próxima música".
+			var foundNext = false;
+			$("#sortable-queue li").each(function() {
+				var $item = $(this);
+
+				// Verifica se o item não é 'completed', nem 'skipped', nem 'active'
+				// e se ainda não encontramos o primeiro "próximo".
+				if (!$item.hasClass('completed') && !$item.hasClass('skipped') && !$item.hasClass('active') && !foundNext) {
+					// Adiciona a classe visual 'next-up'
+					$item.addClass('next-up');
+
+					// Adiciona o texto "Próxima música" no início do conteúdo da div .queue-info
+					var $queueInfo = $item.find('.queue-info').first();
+					
+					// Cria o elemento <strong> com o texto e o <br>
+					var $newNextUpText = $('<strong>Próxima música</strong><br>');
+
+					// Verifica se o texto já não está lá para evitar duplicação acidental
+					// (Embora o passo 2 deva ter removido, é uma verificação de segurança)
+					if (!$queueInfo.html().includes('Próxima música')) {
+						// Adiciona o novo texto no início do .queue-info
+						$queueInfo.prepend($newNextUpText);
+					}
+					
+					foundNext = true; // Marca que o próximo foi encontrado
+				}
+			});
+		}
     });
     </script>
 </body>
