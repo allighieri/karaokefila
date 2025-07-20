@@ -474,12 +474,11 @@ $(document).ready(function() {
                             let fragment = document.createDocumentFragment();
 
                             musicasAPI.forEach(function(musica) {
-                                const musicaCantorId = musica.id;
+                                const musicaCantorId = musica.musica_cantor_id;
                                 let $item = currentDomItems[musicaCantorId];
 
-                                const isCurrentlyPlaying = (musicaEmExecucaoGeral &&
-                                    musica.id_musica == musicaEmExecucaoGeral.id_musica &&
-                                    musica.id_cantor == musicaEmExecucaoGeral.id_cantor);
+                                const isCurrentlyPlaying = (musicaEmExecucaoGeral && 
+                                musica.musica_cantor_id == musicaEmExecucaoGeral.musica_cantor_id);
                                 
                                 let statusClass = '';
                                 let statusText = '';

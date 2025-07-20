@@ -225,9 +225,9 @@ function montarProximaRodada(PDO $pdo) {
                 (SELECT COUNT(fr.id) FROM fila_rodadas fr WHERE fr.id_cantor = c.id AND fr.status = 'cantou') AS total_cantos_cantor,
                 (SELECT MAX(fr.timestamp_fim_canto) FROM fila_rodadas fr WHERE fr.id_cantor = c.id AND fr.status = 'cantou') AS ultima_vez_cantou_cantor,
                 (SELECT MAX(fr_inner.timestamp_fim_canto)
-                 FROM fila_rodadas fr_inner
-                 JOIN cantores c_inner ON fr_inner.id_cantor = c_inner.id
-                 WHERE c_inner.id_mesa = m.id AND fr_inner.status = 'cantou') AS ultima_vez_cantou_mesa
+                   FROM fila_rodadas fr_inner
+                   JOIN cantores c_inner ON fr_inner.id_cantor = c_inner.id
+                   WHERE c_inner.id_mesa = m.id AND fr_inner.status = 'cantou') AS ultima_vez_cantou_mesa
             FROM cantores c
             JOIN mesas m ON c.id_mesa = m.id
             ORDER BY
@@ -355,7 +355,10 @@ function montarProximaRodada(PDO $pdo) {
 
                 if ($statusMesasNaRodada[$idMesa]['musicas_adicionadas'] < $maxMusicasMesa) {
                     $sqlProximaMusicaCantor = "
-                        SELECT mc.id_musica, mc.ordem_na_lista
+                        SELECT
+                            mc.id AS musica_cantor_id, -- <<< ADICIONADO AQUI
+                            mc.id_musica,
+                            mc.ordem_na_lista
                         FROM musicas_cantor mc
                         WHERE mc.id_cantor = :id_cantor
                         AND mc.ordem_na_lista >= :proximo_ordem_musica
@@ -371,9 +374,10 @@ function montarProximaRodada(PDO $pdo) {
                     $musicaData = $stmtProximaMusica->fetch(PDO::FETCH_ASSOC);
 
                     $musicaId = $musicaData ? $musicaData['id_musica'] : null;
+                    $musicaCantorId = $musicaData ? $musicaData['musica_cantor_id'] : null; // <<< CAPTURADO AQUI
                     $ordemMusicaSelecionada = $musicaData ? $musicaData['ordem_na_lista'] : null;
 
-                    if (!$musicaId) {
+                    if (!$musicaId || !$musicaCantorId) { // Verifique também o musicaCantorId
                         error_log("INFO: Cantor " . $cantorParaSelecionar['nome_cantor'] . " (ID: " . $idCantor . ") não possui mais músicas disponíveis (status 'aguardando' ou 'pulou') em sua lista (proximo_ordem_musica: " . $currentProximoOrdemMusica . "). Pulando-o para esta rodada.");
                         $cantoresQueJaCantaramNestaRodada[] = $idCantor;
                         continue;
@@ -382,14 +386,17 @@ function montarProximaRodada(PDO $pdo) {
                     $filaParaRodada[] = [
                         'id_cantor' => $idCantor,
                         'id_musica' => $musicaId,
+                        'musica_cantor_id' => $musicaCantorId, // <<< ADICIONADO AQUI NO ARRAY
                         'ordem_na_rodada' => $ordem++,
                         'rodada' => $proximaRodada
                     ];
                     
                     // IMPORTANTE: Aqui, o status da musicas_cantor é atualizado para 'selecionada_para_rodada'
-                    $stmtUpdateMusicaCantorStatus = $pdo->prepare("UPDATE musicas_cantor SET status = 'selecionada_para_rodada' WHERE id_cantor = ? AND id_musica = ?");
-                    $stmtUpdateMusicaCantorStatus->execute([$idCantor, $musicaId]);
-                    error_log("DEBUG: Status da música " . $musicaId . " do cantor " . $idCantor . " atualizado para 'selecionada_para_rodada' na tabela musicas_cantor.");
+                    // Lembre-se que o status na musicas_cantor é o status *desejado* ou atual de seleção.
+                    // O status da fila é o status *real* da rodada.
+                    $stmtUpdateMusicaCantorStatus = $pdo->prepare("UPDATE musicas_cantor SET status = 'selecionada_para_rodada' WHERE id = ?"); // Use 'id' para atualizar pelo ID único
+                    $stmtUpdateMusicaCantorStatus->execute([$musicaCantorId]); // <<< USE musicaCantorId
+                    error_log("DEBUG: Status da música_cantor_id " . $musicaCantorId . " do cantor " . $idCantor . " atualizado para 'selecionada_para_rodada' na tabela musicas_cantor.");
                     
                     $statusMesasNaRodada[$idMesa]['musicas_adicionadas']++;
                     $statusMesasNaRodada[$idMesa]['ultima_adicao_timestamp'] = microtime(true);
@@ -488,19 +495,22 @@ function montarProximaRodada(PDO $pdo) {
                 $firstItem = false;
 
                 // Também atualiza o status na tabela musicas_cantor para 'em_execucao'
-                $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'em_execucao', timestamp_ultima_execucao = NOW() WHERE id_cantor = ? AND id_musica = ?");
-                $stmtUpdateMusicasCantor->execute([$item['id_cantor'], $item['id_musica']]);
-                error_log("DEBUG: Status da primeira música (" . $item['id_musica'] . ") do cantor (" . $item['id_cantor'] . ") atualizado para 'em_execucao' na tabela musicas_cantor.");
+                // Use musica_cantor_id para garantir a atualização da entrada correta
+                $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'em_execucao', timestamp_ultima_execucao = NOW() WHERE id = ?"); // <<< USE 'id'
+                $stmtUpdateMusicasCantor->execute([$item['musica_cantor_id']]); // <<< USE musica_cantor_id
+                error_log("DEBUG: Status da primeira música (musica_cantor_id: " . $item['musica_cantor_id'] . ") atualizado para 'em_execucao' na tabela musicas_cantor.");
             } else {
                 // Para as demais músicas, garanta que não estão em_execucao, mas sim selecionadas
                 // (já foi feito no loop de montagem da fila, mas é bom ter certeza)
-                $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'selecionada_para_rodada' WHERE id_cantor = ? AND id_musica = ? AND status != 'em_execucao'");
-                $stmtUpdateMusicasCantor->execute([$item['id_cantor'], $item['id_musica']]);
+                // Use musica_cantor_id para garantir a atualização da entrada correta
+                $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'selecionada_para_rodada' WHERE id = ? AND status != 'em_execucao'"); // <<< USE 'id'
+                $stmtUpdateMusicasCantor->execute([$item['musica_cantor_id']]); // <<< USE musica_cantor_id
             }
             
-            $stmtInsert = $pdo->prepare("INSERT INTO fila_rodadas (id_cantor, id_musica, ordem_na_rodada, rodada, status, timestamp_inicio_canto) VALUES (?, ?, ?, ?, ?, " . $timestamp_inicio_canto . ")");
-            error_log("DEBUG: Inserindo na fila_rodadas: Cantor " . $item['id_cantor'] . ", Música " . $item['id_musica'] . ", Ordem " . $item['ordem_na_rodada'] . ", Rodada " . $item['rodada'] . ", Status " . $status);
-            $stmtInsert->execute([$item['id_cantor'], $item['id_musica'], $item['ordem_na_rodada'], $item['rodada'], $status]);
+            // INSIRA O musica_cantor_id NA TABELA FILA_RODADAS
+            $stmtInsert = $pdo->prepare("INSERT INTO fila_rodadas (id_cantor, id_musica, musica_cantor_id, ordem_na_rodada, rodada, status, timestamp_inicio_canto) VALUES (?, ?, ?, ?, ?, ?, " . $timestamp_inicio_canto . ")"); // <<< ADICIONADO musica_cantor_id
+            error_log("DEBUG: Inserindo na fila_rodadas: Cantor " . $item['id_cantor'] . ", Música " . $item['id_musica'] . ", MC ID " . $item['musica_cantor_id'] . ", Ordem " . $item['ordem_na_rodada'] . ", Rodada " . $item['rodada'] . ", Status " . $status);
+            $stmtInsert->execute([$item['id_cantor'], $item['id_musica'], $item['musica_cantor_id'], $item['ordem_na_rodada'], $item['rodada'], $status]); // <<< PASSADO O VALOR
         }
         error_log("DEBUG: Itens inseridos na fila_rodadas.");
 
@@ -554,6 +564,7 @@ function getProximaMusicaFila(PDO $pdo) {
         $sql = "
             SELECT
                 fr.id AS fila_id,
+				fr.musica_cantor_id, -- Adicionar este campo também
                 c.nome_cantor,
                 m.titulo AS titulo_musica,
                 m.artista AS artista_musica,
@@ -589,9 +600,13 @@ function getMusicaEmExecucao(PDO $pdo) {
         $sql = "
             SELECT
                 fr.id AS fila_id,
+                fr.id_cantor,         -- Adicionar para consistência
+                fr.id_musica,         -- Adicionar para consistência
+                fr.musica_cantor_id,  -- <<< ADICIONAR ESTA LINHA AQUI
                 c.nome_cantor,
                 m.titulo AS titulo_musica,
                 m.artista AS artista_musica,
+                m.codigo AS codigo_musica, -- Adicionar código da música se precisar
                 me.nome_mesa,
                 me.tamanho_mesa,
                 fr.status,
@@ -605,7 +620,7 @@ function getMusicaEmExecucao(PDO $pdo) {
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$rodadaAtual]);
-        return $stmt->fetch(PDO::FETCH_ASSOC); // Use FETCH_ASSOC para chaves de string
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     } catch (\PDOException $e) {
         error_log("Erro ao obter música em execução: " . $e->getMessage());
         return null;
@@ -899,8 +914,8 @@ function isRodadaAtualFinalizada(PDO $pdo) {
 function atualizarStatusMusicaFila(PDO $pdo, $filaId, $status) {
     error_log("DEBUG: Chamada atualizarStatusMusicaFila com filaId: " . $filaId . ", status: " . $status); // ADICIONADO
     try {
-        // Primeiro, obtenha o id_cantor e o id_musica associados a este filaId
-        $stmtGetInfo = $pdo->prepare("SELECT id_cantor, id_musica FROM fila_rodadas WHERE id = ?");
+        // Primeiro, obtenha o musica_cantor_id, id_cantor e id_musica associados a este filaId
+        $stmtGetInfo = $pdo->prepare("SELECT musica_cantor_id, id_cantor, id_musica FROM fila_rodadas WHERE id = ?");
         $stmtGetInfo->execute([$filaId]);
         $filaItem = $stmtGetInfo->fetch(PDO::FETCH_ASSOC);
 
@@ -909,8 +924,9 @@ function atualizarStatusMusicaFila(PDO $pdo, $filaId, $status) {
             return false;
         }
 
-        $idCantor = $filaItem['id_cantor'];
-        $idMusica = $filaItem['id_musica'];
+        $musicaCantorId = $filaItem['musica_cantor_id']; // <-- NOVO: Obter o ID da tabela musicas_cantor
+        $idCantor = $filaItem['id_cantor']; // Manter, pode ser útil para outras lógicas, mas não para o UPDATE final
+        $idMusica = $filaItem['id_musica']; // Manter, pode ser útil
 
         $pdo->beginTransaction();
 
@@ -929,28 +945,30 @@ function atualizarStatusMusicaFila(PDO $pdo, $filaId, $status) {
             // 2. Definir a nova música como 'em_execucao' na fila_rodadas.
             $stmt = $pdo->prepare("UPDATE fila_rodadas SET status = ?, timestamp_inicio_canto = NOW(), timestamp_fim_canto = NULL WHERE id = ?");
             $successFilaUpdate = $stmt->execute([$status, $filaId]);
-            error_log("DEBUG: Resultado do UPDATE fila_rodadas (em_execucao): " . ($successFilaUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmt->rowCount()); // ADICIONADO
+            error_log("DEBUG: Resultado do UPDATE fila_rodadas (em_execucao): " . ($successFilaUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmt->rowCount());
 
-            // 3. Atualizar o status NA TABELA musicas_cantor para 'em_execucao' SOMENTE para a música ATUALMENTE selecionada.
-            // As outras 'selecionada_para_rodada' devem permanecer assim.
-            $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'em_execucao', timestamp_ultima_execucao = NOW() WHERE id_cantor = ? AND id_musica = ?");
-            $successMusicasCantorUpdate = $stmtUpdateMusicasCantor->execute([$idCantor, $idMusica]);
-            error_log("DEBUG: Resultado do UPDATE musicas_cantor (em_execucao): " . ($successMusicasCantorUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmtUpdateMusicasCantor->rowCount()); // ADICIONADO
+            // 3. Atualizar o status NA TABELA musicas_cantor para 'em_execucao' SOMENTE para o registro ESPECÍFICO (musica_cantor_id).
+            $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'em_execucao', timestamp_ultima_execucao = NOW() WHERE id = ?"); // <-- ALTERADO AQUI!
+            $successMusicasCantorUpdate = $stmtUpdateMusicasCantor->execute([$musicaCantorId]); // <-- ALTERADO AQUI!
+            error_log("DEBUG: Resultado do UPDATE musicas_cantor (em_execucao): " . ($successMusicasCantorUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmtUpdateMusicasCantor->rowCount());
 
         } elseif ($status === 'cantou') {
             $stmt = $pdo->prepare("UPDATE fila_rodadas SET status = ?, timestamp_fim_canto = NOW() WHERE id = ?");
             $successFilaUpdate = $stmt->execute([$status, $filaId]);
-            error_log("DEBUG: Resultado do UPDATE fila_rodadas (cantou): " . ($successFilaUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmt->rowCount()); // ADICIONADO
+            error_log("DEBUG: Resultado do UPDATE fila_rodadas (cantou): " . ($successFilaUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmt->rowCount());
 
-            // Atualiza o status na tabela musicas_cantor para 'cantou'
-            $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'cantou' WHERE id_cantor = ? AND id_musica = ?");
-            $successMusicasCantorUpdate = $stmtUpdateMusicasCantor->execute([$idCantor, $idMusica]);
-            error_log("DEBUG: Resultado do UPDATE musicas_cantor (cantou): " . ($successMusicasCantorUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmtUpdateMusicasCantor->rowCount()); // ADICIONADO
+            // Atualiza o status na tabela musicas_cantor para 'cantou' para o registro ESPECÍFICO (musica_cantor_id).
+            $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'cantou' WHERE id = ?"); // <-- ALTERADO AQUI!
+            $successMusicasCantorUpdate = $stmtUpdateMusicasCantor->execute([$musicaCantorId]); // <-- ALTERADO AQUI!
+            error_log("DEBUG: Resultado do UPDATE musicas_cantor (cantou): " . ($successMusicasCantorUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmtUpdateMusicasCantor->rowCount());
 
         } elseif ($status === 'pulou') {
             // Reobter a ordem da música pulada para a atualização do proximo_ordem_musica
-            $stmtGetOrder = $pdo->prepare("SELECT ordem_na_lista FROM musicas_cantor WHERE id_cantor = ? AND id_musica = ? ORDER BY ordem_na_lista ASC LIMIT 1");
-            $stmtGetOrder->execute([$idCantor, $idMusica]);
+            // ATENÇÃO: Se houver duplicatas em musicas_cantor, esta lógica de ordem pode precisar de mais refinamento.
+            // O ideal seria que musica_cantor_id fosse o suficiente para identificar a ordem.
+            // Para manter a consistência com o ID específico, podemos buscar a ordem pela musica_cantor_id
+            $stmtGetOrder = $pdo->prepare("SELECT ordem_na_lista FROM musicas_cantor WHERE id = ?"); // <-- ALTERADO AQUI!
+            $stmtGetOrder->execute([$musicaCantorId]); // <-- ALTERADO AQUI!
             $ordemMusicaPulada = $stmtGetOrder->fetchColumn();
 
             if ($ordemMusicaPulada !== false) {
@@ -958,19 +976,19 @@ function atualizarStatusMusicaFila(PDO $pdo, $filaId, $status) {
                 $stmtUpdateCantorOrder->execute([$ordemMusicaPulada, $idCantor]);
                 error_log("DEBUG: Cantor " . $idCantor . " teve proximo_ordem_musica resetado para " . $ordemMusicaPulada . " após música pulada (fila_id: " . $filaId . ").");
             } else {
-                error_log("Alerta: Música pulada (ID: " . $idMusica . ") não encontrada na lista musicas_cantor para o cantor (ID: " . $idCantor . "). Não foi possível resetar o proximo_ordem_musica.");
+                error_log("Alerta: Música pulada (musica_cantor_id: " . $musicaCantorId . ") não encontrada na lista musicas_cantor. Não foi possível resetar o proximo_ordem_musica.");
                 $successMusicasCantorUpdate = false; // Sinaliza falha na parte de resetar a ordem
             }
 
             // Atualiza o status na tabela fila_rodadas para 'pulou'
             $stmt = $pdo->prepare("UPDATE fila_rodadas SET status = ?, timestamp_fim_canto = NOW() WHERE id = ?");
             $successFilaUpdate = $stmt->execute([$status, $filaId]);
-            error_log("DEBUG: Resultado do UPDATE fila_rodadas (pulou): " . ($successFilaUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmt->rowCount()); // ADICIONADO
+            error_log("DEBUG: Resultado do UPDATE fila_rodadas (pulou): " . ($successFilaUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmt->rowCount());
 
-            // Atualiza o status na tabela musicas_cantor para 'aguardando'
-            $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'aguardando' WHERE id_cantor = ? AND id_musica = ?");
-            $successMusicasCantorUpdate = $stmtUpdateMusicasCantor->execute([$idCantor, $idMusica]);
-            error_log("DEBUG: Resultado do UPDATE musicas_cantor (pulou): " . ($successMusicasCantorUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmtUpdateMusicasCantor->rowCount()); // ADICIONADO
+            // Atualiza o status na tabela musicas_cantor para 'aguardando' para o registro ESPECÍFICO (musica_cantor_id).
+            $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'aguardando' WHERE id = ?"); // <-- ALTERADO AQUI!
+            $successMusicasCantorUpdate = $stmtUpdateMusicasCantor->execute([$musicaCantorId]); // <-- ALTERADO AQUI!
+            error_log("DEBUG: Resultado do UPDATE musicas_cantor (pulou): " . ($successMusicasCantorUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmtUpdateMusicasCantor->rowCount());
 
         } else {
             error_log("Erro: Status inválido na função atualizarStatusMusicaFila: " . $status);
@@ -980,11 +998,11 @@ function atualizarStatusMusicaFila(PDO $pdo, $filaId, $status) {
 
         if ($successFilaUpdate && $successMusicasCantorUpdate) {
             $pdo->commit();
-            error_log("DEBUG: Transação commitada para fila_id: " . $filaId . ", status: " . $status); // ADICIONADO
+            error_log("DEBUG: Transação commitada para fila_id: " . $filaId . ", status: " . $status);
             return true;
         } else {
             $pdo->rollBack();
-            error_log("DEBUG: Transação revertida para fila_id: " . $filaId . ", status: " . $status . ". Fila success: " . ($successFilaUpdate ? 'true' : 'false') . ", MC success: " . ($successMusicasCantorUpdate ? 'true' : 'false')); // ADICIONADO
+            error_log("DEBUG: Transação revertida para fila_id: " . $filaId . ", status: " . $status . ". Fila success: " . ($successFilaUpdate ? 'true' : 'false') . ", MC success: " . ($successMusicasCantorUpdate ? 'true' : 'false'));
             return false;
         }
 

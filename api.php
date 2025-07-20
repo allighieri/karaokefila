@@ -148,82 +148,90 @@ switch ($action) {
         }
         break;
 
-    case 'atualizar_ordem_fila':
-        // Ação para POST
-        $rodada = filter_var($_POST['rodada'], FILTER_VALIDATE_INT);
-        $novaOrdemFila = $_POST['nova_ordem_fila'] ?? [];
+    case 'get_musicas_cantor_atualizadas':
+    header('Content-Type: application/json'); // Garante que a resposta seja JSON
 
-        if ($rodada !== false && $rodada > 0 && is_array($novaOrdemFila) && !empty($novaOrdemFila)) {
-            if (atualizarOrdemFila($pdo, $rodada, $novaOrdemFila)) {
-                $response['success'] = true;
-                $response['message'] = 'Ordem da fila atualizada com sucesso!';
-            } else {
-                $response['message'] = 'Falha ao atualizar a ordem da fila no banco de dados.';
-            }
-        } else {
-            $response['message'] = 'Dados inválidos ou incompletos para atualizar a ordem da fila.';
-        }
-        break;
+    $idCantor = filter_var($_GET['id_cantor'] ?? $_POST['id_cantor'], FILTER_VALIDATE_INT);
+
+    if ($idCantor !== false) {
+        try {
+            // Obter a rodada atual do sistema para filtrar a fila
+            $rodadaAtual = getRodadaAtual($pdo);
+
+            // 1. Obter a música que está "em_execucao" na tabela 'fila_rodadas'
+            //    Esta é a ÚNICA fonte de verdade para a música em execução global.
+            $musicaEmExecucaoGeral = getMusicaEmExecucao($pdo);
+            $mcIdEmExecucao = $musicaEmExecucaoGeral['musica_cantor_id'] ?? null; // ID da musicas_cantor que está em execução
+
+            // 2. Busque as músicas do cantor.
+            //    AQUI, removemos a subconsulta COALESCE para o status_final,
+            //    pois vamos DETERMINAR o status no PHP com base na regra de prioridade.
+            $stmt = $pdo->prepare("
+                SELECT
+                    mc.id AS musica_cantor_id,
+                    mc.id_musica,
+                    mc.id_cantor,
+                    mc.ordem_na_lista,
+                    m.titulo,
+                    m.artista,
+                    m.codigo,
+                    mc.status AS status_musicas_cantor, -- Pega o status diretamente da musicas_cantor
+                    COALESCE(fr.status, 'N/A') AS status_fila_rodadas -- Pega o status da fila_rodadas se existir
+                FROM musicas_cantor mc
+                JOIN musicas m ON mc.id_musica = m.id
+                LEFT JOIN fila_rodadas fr ON fr.musica_cantor_id = mc.id AND fr.rodada = :current_rodada
+                WHERE mc.id_cantor = :id_cantor
+                ORDER BY mc.ordem_na_lista ASC
+            ");
             
-    case 'atualizar_ordem_musicas_cantor':
-        // Ação para POST
-        $idCantor = filter_var($_POST['id_cantor'], FILTER_VALIDATE_INT);
-        $novaOrdemMusicas = $_POST['nova_ordem_musicas'] ?? [];
+            $stmt->execute([
+                ':id_cantor' => $idCantor,
+                ':current_rodada' => $rodadaAtual // Passa a rodada atual para o JOIN
+            ]);
+            $musicasCantor = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        if ($idCantor !== false && $idCantor > 0 && is_array($novaOrdemMusicas) && !empty($novaOrdemMusicas)) {
-            if (atualizarOrdemMusicasCantor($pdo, $idCantor, $novaOrdemMusicas)) {
-                $response['success'] = true;
-                $response['message'] = 'Ordem das músicas do cantor atualizada com sucesso!';
-            } else {
-                $response['message'] = 'Falha ao atualizar a ordem das músicas do cantor no banco de dados.';
+            // 3. Processar e ajustar o status para o frontend com base na prioridade
+            foreach ($musicasCantor as &$musica) { // Usamos & para modificar o array original
+                // A prioridade é SEMPRE a música que está de fato em execução GLOBALMENTE na fila
+                if ($mcIdEmExecucao !== null && $musica['musica_cantor_id'] == $mcIdEmExecucao) {
+                    $musica['status'] = 'em_execucao';
+                } 
+                // Se não é a música globalmente em execução, então olhamos para os status locais
+                else {
+                    // Se a música está na fila da rodada atual e tem um status específico lá
+                    if ($musica['status_fila_rodadas'] !== 'N/A') { // 'N/A' se não encontrou na fila_rodadas
+                        $musica['status'] = $musica['status_fila_rodadas'];
+                    } else {
+                        // Caso contrário, usa o status da tabela musicas_cantor
+                        $musica['status'] = $musica['status_musicas_cantor'];
+                    }
+                }
+                // Remover as colunas auxiliares
+                unset($musica['status_musicas_cantor']);
+                unset($musica['status_fila_rodadas']);
             }
-        } else {
-            $response['message'] = 'Dados inválidos ou incompletos para atualizar a ordem das músicas do cantor.';
+            unset($musica); // Quebra a referência do último elemento
+
+            $response = [
+                'success' => true,
+                'musicas' => $musicasCantor,
+                'musica_em_execucao_geral' => $musicaEmExecucaoGeral // Mantém esta informação, útil para o frontend
+            ];
+            echo json_encode($response);
+            exit();
+
+        } catch (PDOException $e) {
+            $response = ['success' => false, 'message' => "Erro ao buscar músicas do cantor: " . $e->getMessage()];
+            error_log("Erro em get_musicas_cantor_atualizadas: " . $e->getMessage());
+            echo json_encode($response);
+            exit();
         }
-        break;  
-	case 'get_musicas_cantor_atualizadas':
-		$idCantor = filter_var($_GET['id_cantor'] ?? $_POST['id_cantor'], FILTER_VALIDATE_INT);
-
-		if ($idCantor !== false) {
-			try {
-				// Busque as músicas do cantor, de forma similar ao que você faz no gerenciar_musicas_cantor.php
-				// Reutilize ou crie uma função em funcoes_fila.php para isso, se ainda não tiver.
-				// Exemplo: function getMusicasDoCantor($pdo, $idCantor) { ... }
-				$stmt = $pdo->prepare("
-					SELECT mc.id, mc.id_musica, mc.ordem_na_lista, mc.status,
-						   m.titulo, m.artista, m.codigo, c.nome_cantor, c.id_mesa
-					FROM musicas_cantor mc
-					JOIN musicas m ON mc.id_musica = m.id
-					JOIN cantores c ON mc.id_cantor = c.id -- Adicionado join para pegar id_cantor da fila_rodadas corretamente
-					WHERE mc.id_cantor = ?
-					ORDER BY mc.ordem_na_lista ASC
-				");
-				$stmt->execute([$idCantor]);
-				$musicasCantor = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-				// Adicione também a informação de qual música está em execução na fila principal
-				// Certifique-se de que getMusicaEmExecucao($pdo) esteja disponível em funcoes_fila.php
-				$musicaEmExecucaoGeral = getMusicaEmExecucao($pdo);
-
-				$response = [
-					'success' => true,
-					'musicas' => $musicasCantor,
-					'musica_em_execucao_geral' => $musicaEmExecucaoGeral // Adiciona esta informação
-				];
-				echo json_encode($response);
-				exit();
-
-			} catch (PDOException $e) {
-				$response['message'] = "Erro ao buscar músicas do cantor: " . $e->getMessage();
-				echo json_encode($response);
-				exit();
-			}
-		} else {
-			$response['message'] = 'ID do cantor inválido.';
-			echo json_encode($response);
-			exit();
-		}
-		break;		
+    } else {
+        $response = ['success' => false, 'message' => 'ID do cantor inválido.'];
+        echo json_encode($response);
+        exit();
+    }
+    break;		
 
     default:
         // Se a ação não for reconhecida, a $response padrão já é retornada
