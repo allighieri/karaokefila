@@ -196,6 +196,29 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
     </ul>
 <?php endif; ?>
 
+		<hr>
+		
+		<div class="form-section">
+            <h3>Montar Próxima Rodada</h3>
+            <p>Isso irá gerar uma nova fila com base nas prioridades e regras de mesa para a próxima rodada.</p>
+            <form method="POST">
+                <input type="hidden" name="action" value="montar_rodada">
+                <div class="form-group">
+                    <label>Escolha o modo da rodada:</label><br>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="modo_fila" id="modoMesa" value="mesa" checked>
+                        <label class="form-check-label" for="modoMesa">Por Mesa</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="modo_fila" id="modoCantor" value="cantor">
+                        <label class="form-check-label" for="modoCantor">Por Cantores</label>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Montar Nova Rodada</button>
+            </form>
+        </div>
+
+
         <hr>
         
         <div class="form-section">
@@ -225,25 +248,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
             </form>
         </div>
                 
-        <div class="form-section">
-            <h3>Montar Próxima Rodada</h3>
-            <p>Isso irá gerar uma nova fila com base nas prioridades e regras de mesa para a próxima rodada.</p>
-            <form method="POST">
-                <input type="hidden" name="action" value="montar_rodada">
-                <div class="form-group">
-                    <label>Escolha o modo da rodada:</label><br>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="modo_fila" id="modoMesa" value="mesa" checked>
-                        <label class="form-check-label" for="modoMesa">Por Mesa</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="modo_fila" id="modoCantor" value="cantor">
-                        <label class="form-check-label" for="modoCantor">Por Cantores</label>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary">Montar Nova Rodada</button>
-            </form>
-        </div>
+        
 
         <div class="form-section">
             <h3>Adicionar Nova Mesa</h3>

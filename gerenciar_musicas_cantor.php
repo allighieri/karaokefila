@@ -117,25 +117,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $idMusicaParaRemover = $musicaInfo['id_musica'];
             $ordemRemovida = $musicaInfo['ordem_na_lista'];
 
-            // --- INÍCIO DA DEPURAÇÃO ---
             error_log("Tentando remover musica_cantor_id: " . $musica_cantor_id . ", id_cantor: " . $cantor_id . ", id_musica (real): " . $idMusicaParaRemover);
-            // --- FIM DA DEPURAÇÃO ---
 
             // 2. Verificar se a música está na fila em status ativo
             $stmtCheckFila = $pdo->prepare(
                 "SELECT COUNT(*) FROM fila_rodadas
                  WHERE id_cantor = ?
-                   AND musica_cantor_id = ? -- Use musica_cantor_id para ser mais preciso
+                   AND musica_cantor_id = ?
                    AND (status = 'aguardando' OR status = 'em_execucao')"
             );
-            // Use musica_cantor_id aqui, pois id_musica pode não ser exclusivo entre cantores
-            // E na fila_rodadas você guarda o musica_cantor_id também.
             $stmtCheckFila->execute([$cantor_id, $musica_cantor_id]);
             $isInFila = $stmtCheckFila->fetchColumn();
 
-            // --- INÍCIO DA DEPURAÇÃO ---
             error_log("Verificação da fila - id_cantor: " . $cantor_id . ", musica_cantor_id: " . $musica_cantor_id . ", Status na Fila: " . ($isInFila > 0 ? "TRUE" : "FALSE") . " (Count: " . $isInFila . ")");
-            // --- FIM DA DEPURAÇÃO ---
 
             if ($isInFila > 0) {
                 $pdo->rollBack();
@@ -159,15 +153,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $stmtUpdateOrder->execute([$cantor_id, $ordemRemovida]);
                 error_log("DEBUG: Ordens de musicas_cantor para o cantor " . $cantor_id . " ajustadas. Músicas com ordem > " . $ordemRemovida . " foram decrementadas.");
 
-
-                // --- INÍCIO DA CORREÇÃO: AJUSTAR proximo_ordem_musica DO CANTOR ---
+                // --- INÍCIO DA CORREÇÃO ADICIONAL PARA CUIDAR DO CENÁRIO DE RESET ---
 
                 // 1. Obter o valor atual de proximo_ordem_musica para o cantor
                 $stmtGetProximoOrdemCantor = $pdo->prepare("SELECT proximo_ordem_musica FROM cantores WHERE id = ?");
                 $stmtGetProximoOrdemCantor->execute([$cantor_id]);
                 $proximoOrdemCantorAtual = $stmtGetProximoOrdemCantor->fetchColumn();
                 error_log("DEBUG: proximo_ordem_musica atual do cantor " . $cantor_id . ": " . ($proximoOrdemCantorAtual !== false ? $proximoOrdemCantorAtual : 'NULL/false'));
-
 
                 // 2. Encontrar a menor ordem_na_lista disponível para o cantor (status 'aguardando' ou 'pulou')
                 $stmtGetMinOrdemDisponivel = $pdo->prepare("
@@ -180,50 +172,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
                 error_log("DEBUG: Menor ordem disponível (aguardando/pulou) para o cantor " . $cantor_id . ": " . ($minOrdemDisponivel !== false ? ($minOrdemDisponivel ?? 'NULL') : 'NULL/false'));
 
-
-                // 3. Determinar a nova próxima ordem baseada na ordem removida e na menor ordem disponível
-                $novaProximaOrdemCantor = $proximoOrdemCantorAtual; // Começa com o valor atual
+                $novaProximaOrdemCantor = $proximoOrdemCantorAtual; // Inicializa com o valor atual
 
                 if ($minOrdemDisponivel === null) {
-                    // Se não há mais músicas "aguardando" ou "pulou", o cantor não tem próxima música.
-                    // Para evitar que ele seja considerado para rodadas se não tem mais músicas ativas.
-                    // Podemos setar proximo_ordem_musica para um valor muito alto ou 1 se for para "resetar"
-                    // para futuras adições. Manter o último valor alto pode ser útil.
-                    // Para o problema de pular, se não tem música, não vai pular.
-                    // Se a remoção foi da última música, e ele era o próximo, é ok.
-                    // Vamos garantir que se estava nulo, e agora não tem, que continue nulo ou um padrão.
-                    // Neste contexto, se não tem músicas, ele não será selecionado pela função montarProximaRodada.
-                    // O mais seguro é manter o proximo_ordem_musica em um estado válido, mesmo que alto.
-                    // Vamos considerar que se ele não tem mais músicas "aguardando" ou "pulou",
-                    // a próxima ordem é a ordem mais alta + 1, ou 1 se todas foram cantadas.
-                    // Por simplicidade, se não há músicas disponíveis, manter o proximo_ordem_musica como está
-                    // ou setar para um valor alto, fará com que a função montarProximaRodada o ignore.
-                    // Se ele estava apontando para a música removida, e era a última,
-                    // ele continuará apontando para um valor que não existe.
-                    // A função montarProximaRodada já lida com o "não encontrar" música.
-                    // O perigo é se o proximo_ordem_musica era 5, removemos 2, 3 vira 2. proximo_ordem_musica continua 5.
-                    // A correção é se a ordem removida era MENOR ou IGUAL ao proximo_ordem_musica E a nova menor ordem é menor que o proximo_ordem_musica.
-
-                    // Se a música removida tinha uma ordem igual ou menor que o proximo_ordem_musica,
-                    // e agora a menor ordem disponível é menor que o proximo_ordem_musica,
-                    // o proximo_ordem_musica deve ser ajustado para a nova menor ordem disponível.
-                    if ($ordemRemovida <= $proximoOrdemCantorAtual && $minOrdemDisponivel === null) {
-                         // Se a música removida era a "próxima" ou anterior, e agora não há mais músicas
-                         // com status aguardando/pulou, então o cantor terminou a lista ou as restantes foram cantadas.
-                         // Ajuste o proximo_ordem_musica para um valor "seguro" (e.g., 1 ou MAX+1)
-                         // para que ele possa ser "resetado" ou ignorado corretamente.
-                         // Vamos deixá-lo no próximo valor lógico, que seria a ordem original + 1,
-                         // mas se todas forem removidas, ele se ajustará na próxima montagem de rodada.
-                         // Por enquanto, se não há mais músicas, a lógica abaixo já o ignorará.
-                         // Não há necessidade de alterá-lo para null ou 1 aqui, a menos que seja um reset intencional.
+                    // Cenario: Cantor ficou sem músicas 'aguardando' ou 'pulou'.
+                    // Precisamos garantir que proximo_ordem_musica seja 1 para que,
+                    // ao adicionar novas músicas, elas sejam selecionáveis a partir da ordem 1.
+                    if ($proximoOrdemCantorAtual === null || $proximoOrdemCantorAtual > 1) { // Verifica se já não é 1
+                        $novaProximaOrdemCantor = 1;
+                        error_log("DEBUG: Cantor " . $cantor_id . " sem músicas aguardando/pulou. proximo_ordem_musica será ajustado para 1 para futuras adições.");
                     }
-
                 } else {
-                    // Se o próximo_ordem_musica está maior do que a menor ordem disponível (significa que ele está "pulando" músicas)
-                    // OU se a música removida tinha uma ordem menor ou igual à 'proximo_ordem_musica' atual
-                    // e a nova menor ordem disponível é menor que o 'proximo_ordem_musica' atual.
-                    // Essa condição é complexa porque o 'proximo_ordem_musica' já é `ordem_selecionada + 1`.
-                    // A melhor abordagem é garantir que o proximo_ordem_musica NUNCA seja maior que a menor ordem de uma música disponível.
+                    // Cenário normal: há músicas 'aguardando' ou 'pulou'.
+                    // Se o proximo_ordem_musica atual for NULL ou maior que a menor ordem disponível, ajuste-o.
                     if ($proximoOrdemCantorAtual === null || $proximoOrdemCantorAtual > $minOrdemDisponivel) {
                         $novaProximaOrdemCantor = $minOrdemDisponivel;
                         error_log("DEBUG: Ajustando proximo_ordem_musica do cantor " . $cantor_id . " de " . ($proximoOrdemCantorAtual !== false ? $proximoOrdemCantorAtual : 'NULL') . " para " . $novaProximaOrdemCantor . " (menor ordem disponível).");
@@ -231,20 +192,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 }
 
                 // Apenas atualize se o valor realmente mudou para evitar writes desnecessários
+                // E garanta que o valor não é NULL (embora a lógica acima previna isso para $novaProximaOrdemCantor)
                 if ($proximoOrdemCantorAtual != $novaProximaOrdemCantor && $novaProximaOrdemCantor !== false && $novaProximaOrdemCantor !== null) {
                     $stmtUpdateCantorProximaOrdem = $pdo->prepare("UPDATE cantores SET proximo_ordem_musica = ? WHERE id = ?");
                     $stmtUpdateCantorProximaOrdem->execute([$novaProximaOrdemCantor, $cantor_id]);
-                    error_log("INFO: proximo_ordem_musica do cantor " . $cantor_id . " ajustado de " . ($proximoOrdemCantorAtual !== false ? $proximoOrdemCantorAtual : 'NULL') . " para " . $novaProximaOrdemCantor . " após remoção e reordenação.");
-                } elseif ($minOrdemDisponivel === null && $proximoOrdemCantorAtual !== null) {
-                    // Se não há mais músicas aguardando/pulou, e o proximo_ordem_musica não é NULL,
-                    // pode ser bom zerar ou colocar para NULL para indicar que não há mais.
-                    // Mas a função montarProximaRodada já lida com a ausência de músicas.
-                    // Para evitar um loop infinito ou seleção de um cantor sem músicas,
-                    // é melhor que proximo_ordem_musica aponte para algo que não retorne resultado.
-                    // Não há necessidade de um ajuste específico aqui se a query já retorna NULL.
+                    error_log("INFO: proximo_ordem_musica do cantor " . $cantor_id . " finalizado em: " . $novaProximaOrdemCantor . ".");
+                } else {
+                    error_log("DEBUG: proximo_ordem_musica do cantor " . $cantor_id . " permaneceu em " . ($proximoOrdemCantorAtual !== false ? $proximoOrdemCantorAtual : 'NULL') . " (nenhuma mudança necessária).");
                 }
 
-                // --- FIM DA CORREÇÃO ---
+                // --- FIM DA CORREÇÃO ADICIONAL ---
 
 
                 $pdo->commit();
@@ -268,7 +225,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     header("Location: gerenciar_musicas_cantor.php?cantor_id=" . $redirect_cantor_id);
     exit;
 }
-
 ?>
 
 <!DOCTYPE html>
