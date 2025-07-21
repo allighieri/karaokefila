@@ -114,11 +114,11 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
 		<?php endif; ?>
 
         <h2>Fila Completa da Rodada <?php echo $rodada_atual; ?></h2>
-<?php if (empty($fila_completa)): ?>
-    <p>A fila está vazia. Adicione cantores ou monte a próxima rodada.</p>
-<?php else: ?>
-    <p>Total de músicas nesta rodada: <strong><?php echo count($fila_completa); ?></strong></p>
-    <ul class="queue-list" id="sortable-queue">
+		<?php if (empty($fila_completa)): ?>
+			<p>A fila está vazia. Adicione cantores ou monte a próxima rodada.</p>
+		<?php else: ?>
+		<p>Total de músicas nesta rodada: <strong><?php echo count($fila_completa); ?></strong></p>
+		<ul class="queue-list" id="sortable-queue">
         <?php
         // Encontra a música que está em execução no array $fila_completa
         // Isso é mais seguro para garantir que a lógica de "pular" seja baseada no item correto
