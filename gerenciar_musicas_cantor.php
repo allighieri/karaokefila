@@ -307,7 +307,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                     <span class="ordem-numero"><?php echo htmlspecialchars($musica['ordem_na_lista']); ?>.</span>
                                     <span><?php echo htmlspecialchars($musica['titulo']); ?> (<?php echo htmlspecialchars($musica['artista']); ?>) - Código: <?php echo htmlspecialchars($musica['codigo']); ?></span>
                                     <br>
-                                    <small><strong>Status:</strong> <span class="status-text badge <?php echo $statusClass; ?>"><?php echo $statusText; ?></span></small>
+                                    <small><span class="status-text badge <?php echo $statusClass; ?>"><?php echo $statusText; ?></span></small>
                                 </div>
                                 <form method="POST">
                                     <input type="hidden" name="action" value="remove_musica_cantor">
@@ -566,11 +566,11 @@ $(document).ready(function() {
                                 let statusText = '';
                                 let statusSortable = ''; 
                                 switch(musica.status) {
-                                    case 'aguardando': statusClass = 'badge-info'; statusText = 'Aguardando'; statusSortable = 'aguardando'; break;
-                                    case 'cantou': statusClass = 'badge-success'; statusText = 'Cantou'; statusSortable = 'cantou'; break;
-                                    case 'pulou': statusClass = 'badge-warning'; statusText = 'Pulou'; statusSortable = 'pulou'; break;
-                                    case 'selecionada_para_rodada': statusClass = 'badge-primary'; statusText = 'Selecionada para a rodada atual'; statusSortable = 'selecionada_para_rodada'; break;
-                                    case 'em_execucao': statusClass = 'badge-danger'; statusText = 'EM EXECUÇÃO'; statusSortable = 'em_execucao'; break;
+                                    case 'aguardando': statusClass = 'badge-info'; statusText = '⏳ Aguardando'; statusSortable = 'aguardando'; break;
+                                    case 'cantou': statusClass = 'badge-success'; statusText = '✅ Cantou'; statusSortable = 'cantou'; break;
+                                    case 'pulou': statusClass = 'badge-warning'; statusText = '⏭️ Pulou'; statusSortable = 'pulou'; break;
+                                    case 'selecionada_para_rodada': statusClass = 'badge-primary'; statusText = '⏳ Selecionada para a rodada atual'; statusSortable = 'selecionada_para_rodada'; break;
+                                    case 'em_execucao': statusClass = 'badge-danger'; statusText = '🎤 Sua vez!'; statusSortable = 'em_execucao'; break;
                                     default: statusClass = 'badge-muted'; statusText = 'Desconhecido'; statusSortable = 'desconhecido';
                                 }
 

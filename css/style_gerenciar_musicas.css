@@ -56,18 +56,18 @@
         }
         .badge {
             display: inline-block;
-            padding: .25em .4em;
-            font-size: 75%;
-            font-weight: 700;
+            padding: .5em .5em;
+			font-size: .9em;
+            font-weight: 500;
             line-height: 1;
             text-align: center;
             white-space: nowrap;
             vertical-align: baseline;
             border-radius: .25rem;
         }
-        .badge-info { color: #fff; background-color: #17a2b8; }
-        .badge-success { color: #fff; background-color: #28a745; }
-        .badge-warning { color: #212529; background-color: #ffc107; }
-        .badge-primary { color: #fff; background-color: #007bff; }
-        .badge-danger { color: #fff; background-color: #dc3545; }
-        .badge-muted { color: #fff; background-color: #6c757d; } /* Criei um estilo para 'text-muted' */
+        .badge-info { color: #000; background-color: #fff; }
+        .badge-success { color: #000; background-color: #fff; }
+        .badge-warning { color: #000; background-color: #fff; }
+        .badge-primary { color: #000; background-color: #fff; }
+        .badge-danger { color: #000; background-color: #fff; }
+        .badge-muted { color: #000; background-color: #fff; } /* Criei um estilo para 'text-muted' */
