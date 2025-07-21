@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Tempo de geração: 20/07/2025 às 06:48
+-- Tempo de geração: 20/07/2025 às 23:51
 -- Versão do servidor: 10.4.32-MariaDB
 -- Versão do PHP: 8.2.12
 
@@ -39,22 +39,22 @@ CREATE TABLE `cantores` (
 --
 
 INSERT INTO `cantores` (`id`, `nome_cantor`, `id_mesa`, `proximo_ordem_musica`) VALUES
-(1, 'Weder', 1, 1),
-(2, 'Dani', 1, 1),
+(1, 'Weder', 1, 4),
+(2, 'Dani', 1, 2),
 (3, 'Maxwell', 1, 1),
 (4, 'Julia', 1, 1),
 (5, 'Ana', 1, 1),
-(6, 'Daniel', 1, 1),
-(7, 'Humberto', 1, 1),
+(6, 'Daniel', 1, 2),
+(7, 'Humberto', 1, 2),
 (8, 'Judith', 1, 1),
 (9, 'Carlos', 1, 1),
-(10, 'Raquel', 1, 1),
+(10, 'Raquel', 1, 2),
 (11, 'Hercules', 1, 1),
-(12, 'Xandão', 2, 1),
-(13, 'Kamilla', 6, 1),
+(12, 'Xandão', 2, 2),
+(13, 'Kamilla', 6, 2),
 (14, 'Dante', 7, 1),
 (15, 'Inferno de Dante', 7, 1),
-(16, 'Último', 7, 1),
+(16, 'Último', 7, 2),
 (17, 'Federer', 4, 1);
 
 -- --------------------------------------------------------
@@ -74,7 +74,7 @@ CREATE TABLE `controle_rodada` (
 --
 
 INSERT INTO `controle_rodada` (`id`, `rodada_atual`, `ultima_atualizacao`) VALUES
-(1, 1, '2025-07-20 01:35:47');
+(1, 3, '2025-07-20 18:49:15');
 
 -- --------------------------------------------------------
 
@@ -88,12 +88,19 @@ CREATE TABLE `fila_rodadas` (
   `id_musica` int(11) NOT NULL,
   `ordem_na_rodada` int(11) NOT NULL,
   `rodada` int(11) NOT NULL,
-  `status` enum('aguardando','em_execucao','cantou','pulou') DEFAULT 'aguardando',
+  `status` enum('aguardando','em_execucao','cantou','pulou','selecionada_para_rodada') DEFAULT 'aguardando',
   `timestamp_adicao` datetime DEFAULT current_timestamp(),
   `timestamp_inicio_canto` datetime DEFAULT NULL,
   `timestamp_fim_canto` datetime DEFAULT NULL,
   `musica_cantor_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Despejando dados para a tabela `fila_rodadas`
+--
+
+INSERT INTO `fila_rodadas` (`id`, `id_cantor`, `id_musica`, `ordem_na_rodada`, `rodada`, `status`, `timestamp_adicao`, `timestamp_inicio_canto`, `timestamp_fim_canto`, `musica_cantor_id`) VALUES
+(10, 1, 2, 1, 3, 'cantou', '2025-07-20 18:49:15', '2025-07-20 18:49:15', '2025-07-20 18:49:19', 162);
 
 -- --------------------------------------------------------
 
@@ -168,16 +175,16 @@ CREATE TABLE `musicas_cantor` (
 --
 
 INSERT INTO `musicas_cantor` (`id`, `id_cantor`, `id_musica`, `ordem_na_lista`, `status`, `timestamp_ultima_execucao`) VALUES
-(79, 1, 5, 2, 'aguardando', NULL),
-(80, 1, 3, 4, 'aguardando', NULL),
-(81, 1, 5, 3, 'aguardando', NULL),
-(82, 1, 2, 5, 'aguardando', NULL),
-(83, 2, 5, 1, 'aguardando', NULL),
-(84, 2, 4, 2, 'aguardando', NULL),
-(85, 13, 7, 1, 'aguardando', NULL),
-(86, 16, 2, 1, 'aguardando', NULL),
-(87, 16, 7, 2, 'aguardando', NULL),
-(88, 1, 1, 1, 'aguardando', NULL);
+(84, 2, 4, 1, 'cantou', '2025-07-20 18:46:31'),
+(85, 13, 7, 1, 'cantou', '2025-07-20 18:47:46'),
+(86, 16, 2, 1, 'cantou', '2025-07-20 18:47:45'),
+(90, 12, 1, 1, 'cantou', '2025-07-20 18:47:44'),
+(115, 6, 1, 1, 'cantou', '2025-07-20 18:49:00'),
+(128, 7, 1, 1, 'cantou', '2025-07-20 18:48:54'),
+(137, 10, 4, 1, 'cantou', '2025-07-20 18:49:11'),
+(160, 1, 5, 1, 'cantou', '2025-07-20 18:47:48'),
+(161, 1, 3, 2, 'cantou', '2025-07-20 18:49:13'),
+(162, 1, 2, 3, 'cantou', '2025-07-20 18:49:15');
 
 --
 -- Índices para tabelas despejadas
@@ -239,7 +246,7 @@ ALTER TABLE `cantores`
 -- AUTO_INCREMENT de tabela `fila_rodadas`
 --
 ALTER TABLE `fila_rodadas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT de tabela `mesas`
@@ -257,7 +264,7 @@ ALTER TABLE `musicas`
 -- AUTO_INCREMENT de tabela `musicas_cantor`
 --
 ALTER TABLE `musicas_cantor`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=89;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=163;
 
 --
 -- Restrições para tabelas despejadas

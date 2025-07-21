@@ -182,7 +182,6 @@ function getRodadaAtual(PDO $pdo) {
     }
 }
 
-
 /**
  * Monta a próxima rodada na tabela fila_rodadas com base nas regras de prioridade por mesa
  * e nas músicas pré-selecionadas pelos cantores.
@@ -191,6 +190,9 @@ function getRodadaAtual(PDO $pdo) {
  * @return bool True se a rodada foi montada, false se não houver cantores elegíveis ou músicas.
  */
 function montarProximaRodada(PDO $pdo) {
+    
+    $lastMesaAdded = null; // ID da última mesa a ter uma música adicionada na fila atual.
+    
     error_log("DEBUG: Início da função montarProximaRodada.");
 
     // PRIMEIRO: Verificar se a rodada atual está finalizada
@@ -210,10 +212,13 @@ function montarProximaRodada(PDO $pdo) {
         $filaParaRodada = [];
         $ordem = 1;
 
-        $statusMesasNaRodada = [];
+        // Armazena o status de cada mesa para a rodada atual
+        $statusMesasNaRodada = []; // ['id_mesa' => ['musicas_adicionadas' => 0, 'ultima_adicao_timestamp' => 0]]
+        // Armazena IDs dos cantores que já tiveram uma música adicionada nesta rodada para evitar repetições imediatas
         $cantoresQueJaCantaramNestaRodada = [];
 
         // Obter todos os cantores e suas informações relevantes UMA ÚNICA VEZ DO BANCO DE DADOS
+        // Incluir uma contagem de músicas elegíveis para cada cantor para otimização
         $sqlTodosCantoresInfo = "
             SELECT
                 c.id AS id_cantor,
@@ -225,9 +230,10 @@ function montarProximaRodada(PDO $pdo) {
                 (SELECT COUNT(fr.id) FROM fila_rodadas fr WHERE fr.id_cantor = c.id AND fr.status = 'cantou') AS total_cantos_cantor,
                 (SELECT MAX(fr.timestamp_fim_canto) FROM fila_rodadas fr WHERE fr.id_cantor = c.id AND fr.status = 'cantou') AS ultima_vez_cantou_cantor,
                 (SELECT MAX(fr_inner.timestamp_fim_canto)
-                   FROM fila_rodadas fr_inner
-                   JOIN cantores c_inner ON fr_inner.id_cantor = c_inner.id
-                   WHERE c_inner.id_mesa = m.id AND fr_inner.status = 'cantou') AS ultima_vez_cantou_mesa
+                    FROM fila_rodadas fr_inner
+                    JOIN cantores c_inner ON fr_inner.id_cantor = c_inner.id
+                    WHERE c_inner.id_mesa = m.id AND fr_inner.status = 'cantou') AS ultima_vez_cantou_mesa,
+                (SELECT COUNT(*) FROM musicas_cantor mc WHERE mc.id_cantor = c.id AND mc.status IN ('aguardando', 'pulou') AND mc.ordem_na_lista >= c.proximo_ordem_musica) AS musicas_elegiveis_cantor
             FROM cantores c
             JOIN mesas m ON c.id_mesa = m.id
             ORDER BY
@@ -247,48 +253,45 @@ function montarProximaRodada(PDO $pdo) {
             return false;
         }
 
-        // Calcula uma estimativa de quantos slots a rodada pode ter para otimizar o loop
-        $totalCantoresComMusicas = 0;
+        // Conta quantos cantores realmente têm músicas elegíveis
+        $totalCantoresComMusicasElegiveis = 0;
         foreach ($cantoresDisponiveisGlobal as $c) {
-            $stmtCheckMusicas = $pdo->prepare("SELECT COUNT(*) FROM musicas_cantor WHERE id_cantor = ? AND status IN ('aguardando', 'pulou')");
-            $stmtCheckMusicas->execute([$c['id_cantor']]);
-            if ($stmtCheckMusicas->fetchColumn() > 0) {
-                $totalCantoresComMusicas++;
+            if ($c['musicas_elegiveis_cantor'] > 0) {
+                $totalCantoresComMusicasElegiveis++;
             }
         }
         
-        $totalSlotsEstimados = 0;
-        foreach ($cantoresDisponiveisGlobal as $cantor) {
-            $tamanhoMesa = $cantor['tamanho_mesa'];
-            if ($tamanhoMesa >= 6) $totalSlotsEstimados += 3;
-            elseif ($tamanhoMesa >= 3 && $tamanhoMesa < 6) $totalSlotsEstimados += 2;
-            else $totalSlotsEstimados += 1;
-        }
-
-        $maxLoopIterations = max($totalCantoresComMusicas * 3, count($cantoresDisponiveisGlobal) * 5, 100);
+        // Estima o número máximo de iterações do loop principal.
+        // Isso é uma medida de segurança para evitar loops infinitos caso a lógica de prioridade entre em um ciclo.
+        // Garante que o loop não execute infinitamente.
+        $maxLoopIterations = max($totalCantoresComMusicasElegiveis * 3, count($cantoresDisponiveisGlobal) * 5, 100);
         $currentLoopIteration = 0;
-        
-        error_log("DEBUG: Iniciando loop de montagem da fila. Max Iterations: " . $maxLoopIterations . ". Cantores globais: " . count($cantoresDisponiveisGlobal) . ". Total slots estimados: " . $totalSlotsEstimados);
+            
+        error_log("DEBUG: Iniciando loop de montagem da fila. Max Iterations: " . $maxLoopIterations . ". Cantores globais: " . count($cantoresDisponiveisGlobal) . ". Total cantores com músicas elegíveis: " . $totalCantoresComMusicasElegiveis);
 
         // Loop principal para montar a fila
         while ($currentLoopIteration < $maxLoopIterations) {
+			
+			
             $currentLoopIteration++;
             $foundCantorThisIteration = false;
 
+            // Filtra os cantores que ainda não cantaram nesta rodada e têm músicas elegíveis
             $cantoresElegiveisNestaPassagem = array_filter($cantoresDisponiveisGlobal, function($cantor) use ($cantoresQueJaCantaramNestaRodada) {
-                return !in_array($cantor['id_cantor'], $cantoresQueJaCantaramNestaRodada);
+                return !in_array($cantor['id_cantor'], $cantoresQueJaCantaramNestaRodada) && $cantor['musicas_elegiveis_cantor'] > 0;
             });
 
             if (empty($cantoresElegiveisNestaPassagem)) {
-                error_log("DEBUG: Todos os cantores elegíveis (que não cantaram nesta rodada) foram processados. Quebrando o loop de montagem da rodada.");
+                error_log("DEBUG: Todos os cantores elegíveis (que não cantaram nesta rodada ou sem músicas) foram processados. Quebrando o loop de montagem da rodada.");
                 break;
             }
-            
-            // Ordena os cantores restantes baseado na prioridade E no histórico da mesa nesta rodada
-            usort($cantoresElegiveisNestaPassagem, function($a, $b) use ($statusMesasNaRodada) {
+                
+            // Ordena os cantores restantes baseado nas regras de prioridade
+            usort($cantoresElegiveisNestaPassagem, function($a, $b) use (&$statusMesasNaRodada, $lastMesaAdded) { // O & aqui é crucial para atualizar $statusMesasNaRodada
                 $idMesaA = $a['id_mesa'];
                 $idMesaB = $b['id_mesa'];
-
+                
+                // Inicializa status se não existir (garantia)
                 if (!isset($statusMesasNaRodada[$idMesaA])) {
                     $statusMesasNaRodada[$idMesaA] = ['musicas_adicionadas' => 0, 'ultima_adicao_timestamp' => 0];
                 }
@@ -302,23 +305,45 @@ function montarProximaRodada(PDO $pdo) {
                 $ultimaAddA = $statusMesasNaRodada[$idMesaA]['ultima_adicao_timestamp'];
                 $ultimaAddB = $statusMesasNaRodada[$idMesaB]['ultima_adicao_timestamp'];
                 
-                $maxMusicasMesaA = 1;
-                if ($a['tamanho_mesa'] >= 3 && $a['tamanho_mesa'] < 6) $maxMusicasMesaA = 2;
-                elseif ($a['tamanho_mesa'] >= 6) $maxMusicasMesaA = 3;
+                $maxMusicasMesaA = 1; // 1 ou 2 na mesa, 1 música
+				if ($a['tamanho_mesa'] >= 3 && $a['tamanho_mesa'] <= 4) $maxMusicasMesaA = 2; // 3 ou 4 na mesa, 2 músicas
+				elseif ($a['tamanho_mesa'] >= 5) $maxMusicasMesaA = 3; // 5 ou mais na mesa, 3 músicas
 
-                $maxMusicasMesaB = 1;
-                if ($b['tamanho_mesa'] >= 3 && $b['tamanho_mesa'] < 6) $maxMusicasMesaB = 2;
-                elseif ($b['tamanho_mesa'] >= 6) $maxMusicasMesaB = 3;
 
-                if ($musicasA < $maxMusicasMesaA && $musicasB >= $maxMusicasMesaB) return -1;
-                if ($musicasA >= $maxMusicasMesaA && $musicasB < $maxMusicasMesaB) return 1;
+                $maxMusicasMesaB = 1; // 1 ou 2 na mesa, 1 música
+				if ($b['tamanho_mesa'] >= 3 && $b['tamanho_mesa'] <= 4) $maxMusicasMesaB = 2; // 3 ou 4 na mesa, 2 músicas
+				elseif ($b['tamanho_mesa'] >= 5) $maxMusicasMesaB = 3; // 5 ou mais na mesa, 3 músicas
 
+                // 1. Regra principal para intercalação: Desfavorecer a mesa que adicionou a última música.
+                // Se a mesa A foi a última adicionada e a mesa B não, priorize B.
+                if ($lastMesaAdded !== null) {
+                    if ($idMesaA == $lastMesaAdded && $idMesaB != $lastMesaAdded) return 1; // A vem DEPOIS de B
+                    if ($idMesaA != $lastMesaAdded && $idMesaB == $lastMesaAdded) return -1; // A vem ANTES de B
+                }
+
+                // 2. Prioriza mesas que ainda podem adicionar músicas sobre as que não podem.
+                // Isso garante que mesas com capacidade sejam preenchidas antes de considerar as esgotadas.
+                $podeAddA = ($musicasA < $maxMusicasMesaA);
+                $podeAddB = ($musicasB < $maxMusicasMesaB);
+
+                if ($podeAddA && !$podeAddB) return -1; // A pode adicionar, B não. Prioriza A.
+                if (!$podeAddA && $podeAddB) return 1;  // A não pode adicionar, B sim. Prioriza B.
+
+                // Se ambos podem ou ambos não podem, continua para as próximas regras.
+
+                // 3. Prioriza mesas com menos músicas adicionadas NESTA rodada.
+                // Isso ajuda a distribuir as músicas entre as mesas.
                 if ($musicasA !== $musicasB) return $musicasA - $musicasB;
 
+                // 4. Prioriza mesas que tiveram a última adição há mais tempo.
+                // Ajuda a garantir que nenhuma mesa fique "esquecida".
                 if ($ultimaAddA !== $ultimaAddB) return $ultimaAddA - $ultimaAddB;
-
+                
+                // 5. Prioriza cantores com menos cantos totais.
                 if ($a['total_cantos_cantor'] !== $b['total_cantos_cantor']) return $a['total_cantos_cantor'] - $b['total_cantos_cantor'];
                 
+                // 6. Prioriza mesas que cantaram há mais tempo (histórico geral da mesa).
+                // Nulls (nunca cantou) vêm antes dos que já cantaram.
                 if ($a['ultima_vez_cantou_mesa'] === null && $b['ultima_vez_cantou_mesa'] !== null) return -1;
                 if ($a['ultima_vez_cantou_mesa'] !== null && $b['ultima_vez_cantou_mesa'] === null) return 1;
                 if ($a['ultima_vez_cantou_mesa'] !== null && $b['ultima_vez_cantou_mesa'] !== null) {
@@ -326,6 +351,8 @@ function montarProximaRodada(PDO $pdo) {
                     if ($cmp !== 0) return $cmp;
                 }
 
+                // 7. Prioriza cantores que cantaram há mais tempo (histórico general do cantor).
+                // Nulls (nunca cantou) vêm antes dos que já cantaram.
                 if ($a['ultima_vez_cantou_cantor'] === null && $b['ultima_vez_cantou_cantor'] !== null) return -1;
                 if ($a['ultima_vez_cantou_cantor'] !== null && $b['ultima_vez_cantou_cantor'] === null) return 1;
                 if ($a['ultima_vez_cantou_cantor'] !== null && $b['ultima_vez_cantou_cantor'] !== null) {
@@ -333,7 +360,7 @@ function montarProximaRodada(PDO $pdo) {
                     if ($cmp !== 0) return $cmp;
                 }
                 
-                return 0;
+                return 0; // Se tudo mais for igual, mantém a ordem relativa (ou um RAND() para desempate final)
             });
 
             foreach ($cantoresElegiveisNestaPassagem as $cantorParaSelecionar) {
@@ -342,21 +369,23 @@ function montarProximaRodada(PDO $pdo) {
                 $tamanhoMesa = $cantorParaSelecionar['tamanho_mesa'];
                 $currentProximoOrdemMusica = $cantorParaSelecionar['proximo_ordem_musica'];
 
-                $maxMusicasMesa = 1;
-                if ($tamanhoMesa >= 3 && $tamanhoMesa < 6) {
-                    $maxMusicasMesa = 2;
-                } elseif ($tamanhoMesa >= 6) {
-                    $maxMusicasMesa = 3;
-                }
+                $maxMusicasMesa = 1; // Para mesas de 1 ou 2
+				if ($tamanhoMesa >= 3 && $tamanhoMesa <= 4) { // Para mesas de 3 ou 4
+					$maxMusicasMesa = 2;
+				} elseif ($tamanhoMesa >= 5) { // Para mesas de 5 ou mais
+					$maxMusicasMesa = 3;
+				}
 
                 if (!isset($statusMesasNaRodada[$idMesa])) {
                     $statusMesasNaRodada[$idMesa] = ['musicas_adicionadas' => 0, 'ultima_adicao_timestamp' => 0];
                 }
 
+                // Verifica se a mesa ainda pode ter músicas adicionadas
                 if ($statusMesasNaRodada[$idMesa]['musicas_adicionadas'] < $maxMusicasMesa) {
+                    // Busca a próxima música elegível para o cantor
                     $sqlProximaMusicaCantor = "
                         SELECT
-                            mc.id AS musica_cantor_id, -- <<< ADICIONADO AQUI
+                            mc.id AS musica_cantor_id,
                             mc.id_musica,
                             mc.ordem_na_lista
                         FROM musicas_cantor mc
@@ -374,49 +403,65 @@ function montarProximaRodada(PDO $pdo) {
                     $musicaData = $stmtProximaMusica->fetch(PDO::FETCH_ASSOC);
 
                     $musicaId = $musicaData ? $musicaData['id_musica'] : null;
-                    $musicaCantorId = $musicaData ? $musicaData['musica_cantor_id'] : null; // <<< CAPTURADO AQUI
+                    $musicaCantorId = $musicaData ? $musicaData['musica_cantor_id'] : null;
                     $ordemMusicaSelecionada = $musicaData ? $musicaData['ordem_na_lista'] : null;
 
-                    if (!$musicaId || !$musicaCantorId) { // Verifique também o musicaCantorId
-                        error_log("INFO: Cantor " . $cantorParaSelecionar['nome_cantor'] . " (ID: " . $idCantor . ") não possui mais músicas disponíveis (status 'aguardando' ou 'pulou') em sua lista (proximo_ordem_musica: " . $currentProximoOrdemMusica . "). Pulando-o para esta rodada.");
+                    if (!$musicaId || !$musicaCantorId) {
+                        error_log("INFO: Cantor " . $cantorParaSelecionar['nome_cantor'] . " (ID: " . $idCantor . ") não possui mais músicas disponíveis (status 'aguardando' ou 'pulou') em sua lista (proximo_ordem_musica: " . $currentProximoOrdemMusica . "). Pulando-o para esta rodada e marcando como já cantou para esta iteração.");
+                        // Marca o cantor como "já processado" para esta rodada para evitar re-seleção desnecessária
                         $cantoresQueJaCantaramNestaRodada[] = $idCantor;
-                        continue;
+                        // Opcional: Atualizar musicas_elegiveis_cantor para 0 no array para não reprocessá-lo
+                        foreach ($cantoresDisponiveisGlobal as $key => $globalCantor) {
+                            if ($globalCantor['id_cantor'] === $idCantor) {
+                                $cantoresDisponiveisGlobal[$key]['musicas_elegiveis_cantor'] = 0;
+                                break;
+                            }
+                        }
+                        continue; // Tenta o próximo cantor na lista ordenada
                     }
 
+                    // Adiciona a música à fila da próxima rodada
                     $filaParaRodada[] = [
                         'id_cantor' => $idCantor,
                         'id_musica' => $musicaId,
-                        'musica_cantor_id' => $musicaCantorId, // <<< ADICIONADO AQUI NO ARRAY
+                        'musica_cantor_id' => $musicaCantorId,
                         'ordem_na_rodada' => $ordem++,
                         'rodada' => $proximaRodada
                     ];
-                    
-                    // IMPORTANTE: Aqui, o status da musicas_cantor é atualizado para 'selecionada_para_rodada'
-                    // Lembre-se que o status na musicas_cantor é o status *desejado* ou atual de seleção.
-                    // O status da fila é o status *real* da rodada.
-                    $stmtUpdateMusicaCantorStatus = $pdo->prepare("UPDATE musicas_cantor SET status = 'selecionada_para_rodada' WHERE id = ?"); // Use 'id' para atualizar pelo ID único
-                    $stmtUpdateMusicaCantorStatus->execute([$musicaCantorId]); // <<< USE musicaCantorId
+                        
+                    // ATUALIZA o status da música_cantor para 'selecionada_para_rodada'
+                    $stmtUpdateMusicaCantorStatus = $pdo->prepare("UPDATE musicas_cantor SET status = 'selecionada_para_rodada' WHERE id = ?");
+                    $stmtUpdateMusicaCantorStatus->execute([$musicaCantorId]);
                     error_log("DEBUG: Status da música_cantor_id " . $musicaCantorId . " do cantor " . $idCantor . " atualizado para 'selecionada_para_rodada' na tabela musicas_cantor.");
-                    
+                        
+                    // Atualiza o controle de músicas adicionadas para a mesa e o timestamp da última adição
                     $statusMesasNaRodada[$idMesa]['musicas_adicionadas']++;
                     $statusMesasNaRodada[$idMesa]['ultima_adicao_timestamp'] = microtime(true);
+                    
+                    // ATUALIZA $lastMesaAdded
+                    $lastMesaAdded = $idMesa; 
 
+                    // Adiciona o cantor à lista de cantores que já cantaram nesta rodada
                     $cantoresQueJaCantaramNestaRodada[] = $idCantor;
                     $foundCantorThisIteration = true;
 
+                    // Atualiza o 'proximo_ordem_musica' do cantor para a próxima música em sua lista
                     $novaProximaOrdem = $ordemMusicaSelecionada + 1;
                     $stmtUpdateCantorOrder = $pdo->prepare("UPDATE cantores SET proximo_ordem_musica = ? WHERE id = ?");
                     $stmtUpdateCantorOrder->execute([$novaProximaOrdem, $idCantor]);
                     error_log("DEBUG: Cantor " . $cantorParaSelecionar['nome_cantor'] . " (ID: " . $idCantor . ") próxima ordem atualizada no DB para: " . $novaProximaOrdem);
-                    
+                        
+                    // Atualiza a informação no array global para manter a consistência em memória
                     foreach ($cantoresDisponiveisGlobal as $key => $globalCantor) {
                         if ($globalCantor['id_cantor'] === $idCantor) {
                             $cantoresDisponiveisGlobal[$key]['proximo_ordem_musica'] = $novaProximaOrdem;
+                            // Decrementa musicas_elegiveis_cantor para refletir que uma música foi usada
+                            $cantoresDisponiveisGlobal[$key]['musicas_elegiveis_cantor']--; 
                             break;
                         }
                     }
-                    
-                    break;
+                        
+                    break; // Sai do foreach e volta para o while principal para reavaliar as prioridades
                 } else {
                     error_log("INFO: Cantor " . $cantorParaSelecionar['nome_cantor'] . " (ID: " . $idCantor . ") pulado: Mesa " . $idMesa . " já atingiu o limite de " . $maxMusicasMesa . " músicas nesta rodada.");
                 }
@@ -424,47 +469,44 @@ function montarProximaRodada(PDO $pdo) {
 
             if (!$foundCantorThisIteration) {
                 error_log("DEBUG: Nenhuma música foi adicionada nesta iteração do loop principal.");
-                if (empty($filaParaRodada) && empty($cantoresElegiveisNestaPassagem)) {
-                    error_log("DEBUG: Fila vazia e não há mais cantores elegíveis que possam cantar. Quebrando.");
-                    break;
-                }
-                
+                // Verifica se ainda há algum cantor com músicas elegíveis E slots de mesa disponíveis
                 $canAnyCantorStillSing = false;
                 foreach ($cantoresDisponiveisGlobal as $c) {
+                    // Ignora cantores que já foram adicionados nesta iteração (para evitar looping desnecessário)
                     if (in_array($c['id_cantor'], $cantoresQueJaCantaramNestaRodada)) {
                         continue;
                     }
 
-                    $hasMusic = $pdo->prepare("SELECT COUNT(*) FROM musicas_cantor WHERE id_cantor = ? AND ordem_na_lista >= ? AND status IN ('aguardando', 'pulou')");
-                    $hasMusic->execute([$c['id_cantor'], $c['proximo_ordem_musica']]);
-                    if ($hasMusic->fetchColumn() > 0) {
+                    // Verifica se o cantor tem músicas elegíveis
+                    if ($c['musicas_elegiveis_cantor'] > 0) {
                         $mesaId = $c['id_mesa'];
                         $tamanhoMesa = $c['tamanho_mesa'];
                         $maxMusicasMesa = 1;
-                        if ($tamanhoMesa >= 3 && $tamanhoMesa < 6) $maxMusicasMesa = 2;
-                        elseif ($tamanhoMesa >= 6) $maxMusicasMesa = 3;
+                        if ($tamanhoMesa >= 3 && $tamanhoMesa < 4) $maxMusicasMesa = 2;
+                        elseif ($tamanhoMesa >= 5) $maxMusicasMesa = 3;
 
+                        // Inicializa o status da mesa se não existir (garantia)
                         if (!isset($statusMesasNaRodada[$mesaId])) {
                             $statusMesasNaRodada[$mesaId] = ['musicas_adicionadas' => 0, 'ultima_adicao_timestamp' => 0];
                         }
 
+                        // Verifica se a mesa do cantor ainda tem slot
                         if ($statusMesasNaRodada[$mesaId]['musicas_adicionadas'] < $maxMusicasMesa) {
                             $canAnyCantorStillSing = true;
-                            break;
+                            break; // Encontrou um cantor elegível, pode continuar o loop principal
                         }
                     }
                 }
 
-                if (!$canAnyCantorStillSing && !empty($filaParaRodada)) {
-                    error_log("DEBUG: Não há mais cantores elegíveis (com música e slot de mesa) para adicionar. Fila contém itens. Quebrando o loop.");
-                    break;
-                } elseif (!$canAnyCantorStillSing && empty($filaParaRodada)) {
-                    error_log("DEBUG: Nenhuma música foi adicionada e não há cantores elegíveis. Quebrando o loop.");
-                    break;
+                if (!$canAnyCantorStillSing) {
+                    error_log("DEBUG: Não há mais cantores elegíveis (com música e slot de mesa) para adicionar. Quebrando o loop.");
+                    break; 
                 }
             }
-            
-            if (count($filaParaRodada) >= $totalCantoresComMusicas * 2 + 5 && $totalCantoresComMusicas > 0) {
+                
+            // Condição de quebra de segurança adicional, caso o loop esteja adicionando muitas músicas
+            // Pode ser ajustado ou removido dependendo do comportamento desejado
+            if (count($filaParaRodada) >= $totalCantoresComMusicasElegiveis * 2 + 5 && $totalCantoresComMusicasElegiveis > 0) {
                 error_log("DEBUG: Fila atingiu tamanho máximo razoável. Quebrando o loop.");
                 break;
             }
@@ -479,6 +521,7 @@ function montarProximaRodada(PDO $pdo) {
         }
 
         // --- Limpa a fila antiga antes de inserir a nova rodada ---
+        // Manter apenas as entradas da rodada atual e, talvez, da rodada anterior (se necessário para histórico)
         $stmtDeleteOldQueue = $pdo->prepare("DELETE FROM fila_rodadas WHERE rodada < ?");
         $stmtDeleteOldQueue->execute([$proximaRodada]);
         error_log("DEBUG: Fila_rodadas antigas limpas para rodadas anteriores a " . $proximaRodada);
@@ -495,28 +538,24 @@ function montarProximaRodada(PDO $pdo) {
                 $firstItem = false;
 
                 // Também atualiza o status na tabela musicas_cantor para 'em_execucao'
-                // Use musica_cantor_id para garantir a atualização da entrada correta
-                $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'em_execucao', timestamp_ultima_execucao = NOW() WHERE id = ?"); // <<< USE 'id'
-                $stmtUpdateMusicasCantor->execute([$item['musica_cantor_id']]); // <<< USE musica_cantor_id
+                $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'em_execucao', timestamp_ultima_execucao = NOW() WHERE id = ?");
+                $stmtUpdateMusicasCantor->execute([$item['musica_cantor_id']]);
                 error_log("DEBUG: Status da primeira música (musica_cantor_id: " . $item['musica_cantor_id'] . ") atualizado para 'em_execucao' na tabela musicas_cantor.");
             } else {
                 // Para as demais músicas, garanta que não estão em_execucao, mas sim selecionadas
                 // (já foi feito no loop de montagem da fila, mas é bom ter certeza)
-                // Use musica_cantor_id para garantir a atualização da entrada correta
-                $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'selecionada_para_rodada' WHERE id = ? AND status != 'em_execucao'"); // <<< USE 'id'
-                $stmtUpdateMusicasCantor->execute([$item['musica_cantor_id']]); // <<< USE musica_cantor_id
+                $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'selecionada_para_rodada' WHERE id = ? AND status != 'em_execucao'");
+                $stmtUpdateMusicasCantor->execute([$item['musica_cantor_id']]);
             }
             
             // INSIRA O musica_cantor_id NA TABELA FILA_RODADAS
-            $stmtInsert = $pdo->prepare("INSERT INTO fila_rodadas (id_cantor, id_musica, musica_cantor_id, ordem_na_rodada, rodada, status, timestamp_inicio_canto) VALUES (?, ?, ?, ?, ?, ?, " . $timestamp_inicio_canto . ")"); // <<< ADICIONADO musica_cantor_id
+            $stmtInsert = $pdo->prepare("INSERT INTO fila_rodadas (id_cantor, id_musica, musica_cantor_id, ordem_na_rodada, rodada, status, timestamp_inicio_canto) VALUES (?, ?, ?, ?, ?, ?, " . $timestamp_inicio_canto . ")");
             error_log("DEBUG: Inserindo na fila_rodadas: Cantor " . $item['id_cantor'] . ", Música " . $item['id_musica'] . ", MC ID " . $item['musica_cantor_id'] . ", Ordem " . $item['ordem_na_rodada'] . ", Rodada " . $item['rodada'] . ", Status " . $status);
-            $stmtInsert->execute([$item['id_cantor'], $item['id_musica'], $item['musica_cantor_id'], $item['ordem_na_rodada'], $item['rodada'], $status]); // <<< PASSADO O VALOR
+            $stmtInsert->execute([$item['id_cantor'], $item['id_musica'], $item['musica_cantor_id'], $item['ordem_na_rodada'], $item['rodada'], $status]);
         }
         error_log("DEBUG: Itens inseridos na fila_rodadas.");
 
         // Atualiza o controle de rodada
-        // Garante que a rodada atual do sistema é a nova rodada.
-        // Se for a primeira rodada (controle_rodada vazio), insere. Caso contrário, atualiza.
         $stmtCheckControl = $pdo->query("SELECT COUNT(*) FROM controle_rodada WHERE id = 1")->fetchColumn();
         if ($stmtCheckControl == 0) {
             $pdo->exec("INSERT INTO controle_rodada (id, rodada_atual) VALUES (1, " . $proximaRodada . ")");
@@ -526,7 +565,7 @@ function montarProximaRodada(PDO $pdo) {
             $stmtUpdateRodada->execute([$proximaRodada]);
             error_log("DEBUG: controle_rodada atualizado para a rodada " . $proximaRodada);
         }
-        
+            
         $pdo->commit();
         error_log("DEBUG: Transação commitada. Retornando true.");
         return true;
