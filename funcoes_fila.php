@@ -582,10 +582,10 @@ function montarProximaRodada(PDO $pdo) {
         return false;
     }
 }
-
 /**
  * Reordena a fila de uma rodada específica para evitar que músicas da mesma mesa
- * sejam executadas consecutivamente, mantendo a ordem das músicas já cantadas/em execução.
+ * sejam executadas consecutivamente e para buscar uma intercalação mais justa
+ * entre todas as mesas ativas.
  *
  * @param PDO $pdo Objeto PDO de conexão com o banco de dados.
  * @param int $rodada O número da rodada a ser reordenada.
@@ -630,7 +630,7 @@ function reordenarFilaParaIntercalarMesas(PDO $pdo, int $rodada): bool {
         if (empty($filaAtual)) {
             error_log("INFO: Fila da Rodada " . $rodada . " está vazia, nada para reordenar.");
             if (!$isInTransaction) {
-                 $pdo->commit();
+                $pdo->commit();
             }
             return true;
         }
@@ -662,17 +662,27 @@ function reordenarFilaParaIntercalarMesas(PDO $pdo, int $rodada): bool {
 
         $novaOrdemFila = [];
         $lastMesaAdded = null;
+        // Mapeia o timestamp da última vez que cada mesa foi selecionada nesta rodada
+        $lastSelectionTime = []; 
+        foreach(array_keys($pendingItemsByMesa) as $mesaId) {
+            $lastSelectionTime[$mesaId] = 0; // Inicializa com 0
+        }
+
 
         // Adiciona os itens fixos primeiro e define a última mesa adicionada
         if (!empty($fixedItems)) {
             $novaOrdemFila = $fixedItems;
             $lastFixedItem = end($fixedItems);
             $lastMesaAdded = $lastFixedItem['id_mesa'];
+            // Atualiza o lastSelectionTime para a mesa do item fixo
+            $lastSelectionTime[$lastMesaAdded] = microtime(true);
         }
 
         // --- Lógica de intercalação mais robusta ---
         $remainingPendingCount = count($pendingItems);
-        $maxIterations = $remainingPendingCount * count($pendingItemsByMesa) * 2; // Limite de segurança
+        // Aumentar o limite de iterações para garantir que todos os itens sejam processados
+        // mesmo em cenários complexos de poucas mesas e muitas músicas
+        $maxIterations = $remainingPendingCount * count($pendingItemsByMesa) * 2; 
 
         error_log("DEBUG: Iniciando loop de intercalação. Total pendente: " . $remainingPendingCount);
 
@@ -682,63 +692,66 @@ function reordenarFilaParaIntercalarMesas(PDO $pdo, int $rodada): bool {
 
             // Obter as mesas que ainda têm músicas
             $mesasComMusicas = array_keys(array_filter($pendingItemsByMesa, 'count'));
-            sort($mesasComMusicas); // Garante ordem consistente
-
+            
             if (empty($mesasComMusicas)) {
                 error_log("INFO: Nenhuma mesa com músicas restantes, mas remainingPendingCount > 0. Algo errado.");
                 break; // Sai do loop se não houver mesas com músicas
             }
 
-            // Tenta encontrar uma mesa diferente da última
-            if ($lastMesaAdded !== null) {
-                foreach ($mesasComMusicas as $mesaId) {
-                    if ($mesaId !== $lastMesaAdded) {
-                        $selectedMesaId = $mesaId;
-                        break;
+            // Filtra as mesas que não são a lastMesaAdded
+            $eligibleMesas = array_filter($mesasComMusicas, function($mesaId) use ($lastMesaAdded) {
+                return $mesaId !== $lastMesaAdded;
+            });
+
+            if (!empty($eligibleMesas)) {
+                // Se houver mesas elegíveis (diferentes da última adicionada),
+                // seleciona a que cantou há mais tempo (menor timestamp_adicao)
+                $oldestMesaId = null;
+                $oldestTime = PHP_INT_MAX;
+
+                foreach ($eligibleMesas as $mesaId) {
+                    if ($lastSelectionTime[$mesaId] < $oldestTime) {
+                        $oldestTime = $lastSelectionTime[$mesaId];
+                        $oldestMesaId = $mesaId;
                     }
                 }
-            }
+                $selectedMesaId = $oldestMesaId;
+                error_log("DEBUG: Escolhida mesa " . $selectedMesaId . " por ser a que cantou há mais tempo (não consecutiva).");
 
-            // Se não encontrou uma mesa diferente OU se for a primeira música a ser adicionada
-            if ($selectedMesaId === null) {
-                // Se só sobrou a mesa que foi a última adicionada, ou se todas as outras mesas estão vazias
-                // ou se é a primeira vez que entra aqui e $lastMesaAdded é null,
-                // apenas pega a primeira mesa disponível na lista (garantindo que seja do array $mesasComMusicas)
-                if (in_array($lastMesaAdded, $mesasComMusicas) && count($mesasComMusicas) === 1 && $mesasComMusicas[0] === $lastMesaAdded) {
-                    $selectedMesaId = $lastMesaAdded; // Pega a única mesa restante, mesmo que repita
+            } else {
+                // Caso todas as mesas restantes sejam a lastMesaAdded,
+                // ou se só houver uma mesa com músicas restantes
+                // Neste ponto, todas as mesas elegíveis foram usadas ou só resta a mesa anterior.
+                // Se só há uma mesa com música e ela é a lastMesaAdded, somos forçados a repeti-la.
+                if (count($mesasComMusicas) === 1 && $mesasComMusicas[0] === $lastMesaAdded) {
+                    $selectedMesaId = $lastMesaAdded;
                     error_log("DEBUG: Fallback: Apenas a mesa " . $selectedMesaId . " tem músicas restantes. Será repetida.");
                 } else {
-                    // Tenta encontrar a próxima mesa no ciclo que tenha músicas
-                    // Percorre as mesas a partir da "próxima" que seria usada se o lastMesaAdded não importasse
-                    $startIndex = ($lastMesaAdded !== null) ? array_search($lastMesaAdded, $mesasComMusicas) : 0;
-                    if ($startIndex === false) $startIndex = 0; // Se lastMesaAdded não está mais na lista (esgotada), começa do 0
+                    // Se há mais de uma mesa, mas todas foram a 'lastMesaAdded' em algum momento,
+                    // significa que todas as outras opções esgotaram no ciclo anterior.
+                    // Agora, escolhe a que cantou há mais tempo, mesmo que possa ter sido a última,
+                    // pois não há outra opção válida que não repita.
+                    $oldestMesaId = null;
+                    $oldestTime = PHP_INT_MAX;
 
-                    $attemptCount = 0;
-                    do {
-                        $currentCheckIndex = ($startIndex + $attemptCount) % count($mesasComMusicas);
-                        $mesaCandidateId = $mesasComMusicas[$currentCheckIndex];
-
-                        if (!empty($pendingItemsByMesa[$mesaCandidateId])) {
-                            $selectedMesaId = $mesaCandidateId;
-                            error_log("DEBUG: Escolhendo a mesa " . $selectedMesaId . " (próxima disponível no ciclo, possivelmente repetida).");
-                            break;
+                    foreach ($mesasComMusicas as $mesaId) { // Agora consideramos todas as mesas com músicas
+                        if ($lastSelectionTime[$mesaId] < $oldestTime) {
+                            $oldestTime = $lastSelectionTime[$mesaId];
+                            $oldestMesaId = $mesaId;
                         }
-                        $attemptCount++;
-                    } while ($attemptCount < count($mesasComMusicas));
-
-                    // Se por algum motivo, após tentar todo o ciclo, ainda não achou, pega a primeira disponível
-                    if ($selectedMesaId === null && !empty($mesasComMusicas)) {
-                         $selectedMesaId = $mesasComMusicas[0];
-                         error_log("DEBUG: Fallback Final: Escolhendo a primeira mesa disponível " . $selectedMesaId . ".");
                     }
+                    $selectedMesaId = $oldestMesaId;
+                    error_log("DEBUG: Fallback: Todas as mesas elegíveis foram usadas. Escolhendo a mesa " . $selectedMesaId . " que cantou há mais tempo (pode ser consecutiva, se não houver alternativa).");
                 }
             }
-
-            // Se uma mesa foi selecionada, adicione sua música
+            
+            // Se uma mesa foi selecionada e ainda tem músicas, adicione sua música
             if ($selectedMesaId !== null && !empty($pendingItemsByMesa[$selectedMesaId])) {
                 $item = array_shift($pendingItemsByMesa[$selectedMesaId]);
                 $novaOrdemFila[] = $item;
                 $lastMesaAdded = $item['id_mesa'];
+                // Atualiza o timestamp da última seleção para esta mesa
+                $lastSelectionTime[$lastMesaAdded] = microtime(true); 
                 $remainingPendingCount--;
                 $itemAddedInThisIteration = true;
                 error_log("DEBUG: Adicionada música MC ID " . $item['musica_cantor_id'] . " da Mesa " . $item['id_mesa'] . ". Restantes: " . $remainingPendingCount);
@@ -754,15 +767,25 @@ function reordenarFilaParaIntercalarMesas(PDO $pdo, int $rodada): bool {
             }
         } // Fim do while principal da reordenação
 
+        // Verificação final caso algo tenha sobrado (não deveria com a lógica aprimorada)
+        if ($remainingPendingCount > 0) {
+             error_log("AVISO: Após o loop de reordenação, ainda restam " . $remainingPendingCount . " músicas pendentes. Adicionando-as ao final da fila.");
+             foreach ($pendingItemsByMesa as $mesaId => $mesaQueue) {
+                 if (!empty($mesaQueue)) {
+                     $novaOrdemFila = array_merge($novaOrdemFila, $mesaQueue);
+                 }
+             }
+        }
+
+
         // 3. Reatribuir as ordens e atualizar o banco de dados
         $stmtUpdate = $pdo->prepare("UPDATE fila_rodadas SET ordem_na_rodada = :nova_ordem WHERE id = :id");
 
         $currentOrder = 1;
         foreach ($novaOrdemFila as $item) {
             // Apenas atualiza o banco de dados se a ordem_na_rodada realmente mudou
-            // Ou se o item está em uma posição que precisa ser re-setada
-            if ((int)$item['ordem_na_rodada'] !== $currentOrder || $item['status'] === 'selecionada_para_rodada') {
-                 $stmtUpdate->execute([
+            if ((int)$item['ordem_na_rodada'] !== $currentOrder) { // Removi a condição de status para sempre atualizar a ordem
+                $stmtUpdate->execute([
                     ':nova_ordem' => $currentOrder,
                     ':id' => $item['id']
                 ]);
@@ -773,7 +796,7 @@ function reordenarFilaParaIntercalarMesas(PDO $pdo, int $rodada): bool {
 
         // Confirma a transação
         if (!$isInTransaction) {
-             $pdo->commit();
+            $pdo->commit();
         }
         error_log("DEBUG: reordenarFilaParaIntercalarMesas concluída.");
         return true;
