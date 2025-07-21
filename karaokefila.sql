@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Tempo de geração: 20/07/2025 às 23:51
+-- Tempo de geração: 21/07/2025 às 03:53
 -- Versão do servidor: 10.4.32-MariaDB
 -- Versão do PHP: 8.2.12
 
@@ -39,7 +39,7 @@ CREATE TABLE `cantores` (
 --
 
 INSERT INTO `cantores` (`id`, `nome_cantor`, `id_mesa`, `proximo_ordem_musica`) VALUES
-(1, 'Weder', 1, 4),
+(1, 'Weder', 1, 2),
 (2, 'Dani', 1, 2),
 (3, 'Maxwell', 1, 1),
 (4, 'Julia', 1, 1),
@@ -74,7 +74,7 @@ CREATE TABLE `controle_rodada` (
 --
 
 INSERT INTO `controle_rodada` (`id`, `rodada_atual`, `ultima_atualizacao`) VALUES
-(1, 3, '2025-07-20 18:49:15');
+(1, 2, '2025-07-20 22:50:35');
 
 -- --------------------------------------------------------
 
@@ -92,15 +92,18 @@ CREATE TABLE `fila_rodadas` (
   `timestamp_adicao` datetime DEFAULT current_timestamp(),
   `timestamp_inicio_canto` datetime DEFAULT NULL,
   `timestamp_fim_canto` datetime DEFAULT NULL,
-  `musica_cantor_id` int(11) DEFAULT NULL
+  `musica_cantor_id` int(11) DEFAULT NULL,
+  `id_mesa` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Despejando dados para a tabela `fila_rodadas`
 --
 
-INSERT INTO `fila_rodadas` (`id`, `id_cantor`, `id_musica`, `ordem_na_rodada`, `rodada`, `status`, `timestamp_adicao`, `timestamp_inicio_canto`, `timestamp_fim_canto`, `musica_cantor_id`) VALUES
-(10, 1, 2, 1, 3, 'cantou', '2025-07-20 18:49:15', '2025-07-20 18:49:15', '2025-07-20 18:49:19', 162);
+INSERT INTO `fila_rodadas` (`id`, `id_cantor`, `id_musica`, `ordem_na_rodada`, `rodada`, `status`, `timestamp_adicao`, `timestamp_inicio_canto`, `timestamp_fim_canto`, `musica_cantor_id`, `id_mesa`) VALUES
+(7, 2, 4, 1, 2, 'cantou', '2025-07-20 22:50:35', '2025-07-20 22:50:35', '2025-07-20 22:50:40', 84, 1),
+(8, 1, 5, 2, 2, 'cantou', '2025-07-20 22:50:35', '2025-07-20 22:50:42', '2025-07-20 22:50:43', 160, 1),
+(9, 6, 1, 1, 2, 'cantou', '2025-07-20 22:50:35', '2025-07-20 22:50:40', '2025-07-20 22:50:42', 115, 1);
 
 -- --------------------------------------------------------
 
@@ -175,16 +178,16 @@ CREATE TABLE `musicas_cantor` (
 --
 
 INSERT INTO `musicas_cantor` (`id`, `id_cantor`, `id_musica`, `ordem_na_lista`, `status`, `timestamp_ultima_execucao`) VALUES
-(84, 2, 4, 1, 'cantou', '2025-07-20 18:46:31'),
-(85, 13, 7, 1, 'cantou', '2025-07-20 18:47:46'),
-(86, 16, 2, 1, 'cantou', '2025-07-20 18:47:45'),
-(90, 12, 1, 1, 'cantou', '2025-07-20 18:47:44'),
-(115, 6, 1, 1, 'cantou', '2025-07-20 18:49:00'),
-(128, 7, 1, 1, 'cantou', '2025-07-20 18:48:54'),
-(137, 10, 4, 1, 'cantou', '2025-07-20 18:49:11'),
-(160, 1, 5, 1, 'cantou', '2025-07-20 18:47:48'),
-(161, 1, 3, 2, 'cantou', '2025-07-20 18:49:13'),
-(162, 1, 2, 3, 'cantou', '2025-07-20 18:49:15');
+(84, 2, 4, 1, 'cantou', '2025-07-20 22:50:35'),
+(85, 13, 7, 1, 'cantou', '2025-07-20 22:50:30'),
+(86, 16, 2, 1, 'cantou', '2025-07-20 22:50:28'),
+(90, 12, 1, 1, 'cantou', '2025-07-20 22:50:29'),
+(115, 6, 1, 1, 'cantou', '2025-07-20 22:50:40'),
+(128, 7, 1, 1, 'cantou', '2025-07-20 22:50:30'),
+(137, 10, 4, 1, 'cantou', '2025-07-20 22:50:31'),
+(160, 1, 5, 1, 'cantou', '2025-07-20 22:50:42'),
+(161, 1, 3, 2, 'aguardando', NULL),
+(162, 1, 2, 3, 'aguardando', NULL);
 
 --
 -- Índices para tabelas despejadas
@@ -209,7 +212,8 @@ ALTER TABLE `controle_rodada`
 ALTER TABLE `fila_rodadas`
   ADD PRIMARY KEY (`id`),
   ADD KEY `fk_fila_cantor` (`id_cantor`),
-  ADD KEY `fk_fila_musica` (`id_musica`);
+  ADD KEY `fk_fila_musica` (`id_musica`),
+  ADD KEY `fk_fila_mesa` (`id_mesa`);
 
 --
 -- Índices de tabela `mesas`
@@ -246,7 +250,7 @@ ALTER TABLE `cantores`
 -- AUTO_INCREMENT de tabela `fila_rodadas`
 --
 ALTER TABLE `fila_rodadas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT de tabela `mesas`
@@ -281,6 +285,7 @@ ALTER TABLE `cantores`
 --
 ALTER TABLE `fila_rodadas`
   ADD CONSTRAINT `fk_fila_cantor` FOREIGN KEY (`id_cantor`) REFERENCES `cantores` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_fila_mesa` FOREIGN KEY (`id_mesa`) REFERENCES `mesas` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_fila_musica` FOREIGN KEY (`id_musica`) REFERENCES `musicas` (`id`) ON DELETE CASCADE;
 
 --
