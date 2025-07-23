@@ -25,6 +25,20 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
         $pdo->beginTransaction();
         error_log("DEBUG: Transação iniciada.");
 
+        // --- NOVO: Carregar regras de configuração de mesa ---
+        $regrasConfiguracaoMesa = [];
+        $stmtRegras = $pdo->query("SELECT min_pessoas, max_pessoas, max_musicas_por_rodada FROM configuracao_regras_mesa ORDER BY min_pessoas ASC");
+        while ($row = $stmtRegras->fetch(PDO::FETCH_ASSOC)) {
+            $regrasConfiguracaoMesa[] = $row;
+        }
+        if (empty($regrasConfiguracaoMesa)) {
+            error_log("ERRO: Nenhuma regra de configuração de mesa encontrada na tabela 'configuracao_regras_mesa'. Por favor, configure as regras.");
+            $pdo->rollBack();
+            return false;
+        }
+        error_log("DEBUG: Regras de configuração de mesa carregadas: " . json_encode($regrasConfiguracaoMesa));
+        // --- FIM NOVO ---
+
         $filaParaRodada = [];
         $ordem = 1;
 
@@ -119,13 +133,26 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
 
             // 1. Encontrar a mesa mais prioritária para adicionar uma música
             foreach ($statusMesasNaRodada as $mesaId => $status) {
-                // Determine o limite de músicas por mesa com base no modo
+                // Determine o limite de músicas por mesa com base no modo E NAS NOVAS REGRAS DINÂMICAS
                 $podeAddMesa = false;
+                $maxMusicasMesa = 0; // Valor padrão, será sobrescrito pelas regras
+
                 if ($modoFila === "mesa") {
-                    $maxMusicasMesa = 1;
-                    if ($status['tamanho_mesa'] >= 3 && $status['tamanho_mesa'] <= 4) $maxMusicasMesa = 2;
-                    elseif ($status['tamanho_mesa'] >= 5) $maxMusicasMesa = 3;
-                    $podeAddMesa = ($status['musicas_adicionadas_nesta_rodada'] < $maxMusicasMesa);
+                    // --- NOVO: Lógica para determinar maxMusicasMesa dinamicamente ---
+                    foreach ($regrasConfiguracaoMesa as $regra) {
+                        if ($status['tamanho_mesa'] >= $regra['min_pessoas'] &&
+                            ($regra['max_pessoas'] === null || $status['tamanho_mesa'] <= $regra['max_pessoas'])) {
+                            $maxMusicasMesa = $regra['max_musicas_por_rodada'];
+                            break; // Encontrou a regra aplicável, sai do loop
+                        }
+                    }
+                    if ($maxMusicasMesa > 0) { // Se uma regra foi encontrada
+                        $podeAddMesa = ($status['musicas_adicionadas_nesta_rodada'] < $maxMusicasMesa);
+                    } else {
+                        error_log("AVISO: Nenhuma regra de configuração de mesa encontrada para o tamanho da mesa " . $status['tamanho_mesa'] . ". Mesa ID: " . $mesaId);
+                        continue; // Pula esta mesa se não houver regra definida
+                    }
+                    // --- FIM NOVO ---
                 } elseif ($modoFila === "cantor") {
                     // No modo "cantor", o limite por mesa é essencialmente a quantidade de cantores elegíveis daquela mesa
                     // que ainda não cantaram nesta rodada. Se houver pelo menos um, a mesa é elegível.
@@ -285,7 +312,7 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
             // Também atualiza o cantor específico no array $cantoresPorMesa
             foreach ($cantoresPorMesa[$idMesaSelecionada] as $key => $mesaCantor) {
                 if ($mesaCantor['id_cantor'] === $idCantor) {
-                    $cantoresPorMesa[$idMesaSelecionada][$key]['proximo_ordem_musica'] = $novaProximaOrdem;
+                    $cantoresPorMesa[$idMesaSelecionada][$key]['proxim o_ordem_musica'] = $novaProximaOrdem;
                     $cantoresPorMesa[$idMesaSelecionada][$key]['musicas_elegiveis_cantor']--;
                     break;
                 }
@@ -295,11 +322,21 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
             $canAddMoreSongsToAnyMesa = false;
             foreach ($statusMesasNaRodada as $mesaId => $status) {
                 $mesaPodeAddPeloModo = false;
+                $maxMusicasMesaCheck = 0; // Para a verificação da condição de parada
+
                 if ($modoFila === "mesa") {
-                    $maxMusicasMesa = 1;
-                    if ($status['tamanho_mesa'] >= 3 && $status['tamanho_mesa'] <= 4) $maxMusicasMesa = 2;
-                    elseif ($status['tamanho_mesa'] >= 5) $maxMusicasMesa = 3;
-                    $mesaPodeAddPeloModo = ($status['musicas_adicionadas_nesta_rodada'] < $maxMusicasMesa);
+                    // --- NOVO: Lógica para determinar maxMusicasMesaCheck dinamicamente ---
+                    foreach ($regrasConfiguracaoMesa as $regra) {
+                        if ($status['tamanho_mesa'] >= $regra['min_pessoas'] &&
+                            ($regra['max_pessoas'] === null || $status['tamanho_mesa'] <= $regra['max_pessoas'])) {
+                            $maxMusicasMesaCheck = $regra['max_musicas_por_rodada'];
+                            break;
+                        }
+                    }
+                    if ($maxMusicasMesaCheck > 0) { // Se uma regra foi encontrada
+                        $mesaPodeAddPeloModo = ($status['musicas_adicionadas_nesta_rodada'] < $maxMusicasMesaCheck);
+                    }
+                    // --- FIM NOVO ---
                 } elseif ($modoFila === "cantor") {
                     // No modo cantor, a mesa pode adicionar se houver qualquer cantor elegível nela.
                     $mesaPodeAddPeloModo = true;
