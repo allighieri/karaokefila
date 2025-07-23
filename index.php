@@ -247,6 +247,37 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
                 <button type="submit" class="btn btn-secondary">Acessar Gerenciador de Músicas do Cantor</button>
             </form>
         </div>
+		
+		
+		<div class="form-section">
+			<h3>Configurar Regras de Mesa</h3>
+			<form id="formConfigurarRegrasMesa">
+				<input type="hidden" name="action" value="add_regra_mesa">
+				
+				<div class="row"> <div class="form-group col-md-4"> <label for="min_pessoas">Mínimo de Pessoas:</label>
+						<input type="number" id="min_pessoas" name="min_pessoas" class="form-control" required min="1">
+					</div>
+					
+					<div class="form-group col-md-4"> <label for="max_pessoas">Máximo de Pessoas:</label>
+						<input type="number" id="max_pessoas" name="max_pessoas" class="form-control" min="1">
+						<small class="form-text text-muted">Deixe em branco para "ou mais".</small> </div>
+					
+					<div class="form-group col-md-4"> <label for="max_musicas_por_rodada">Máximo de Músicas por Rodada:</label>
+						<input type="number" id="max_musicas_por_rodada" name="max_musicas_por_rodada" class="form-control" required min="1">
+					</div>
+				</div> <button type="submit" class="btn btn-primary">Salvar Regra de Mesa</button>
+				<button type="button" id="btnRegrasPadrao" class="btn btn-info ml-2">Regra Padrão</button> 
+			</form>
+			<h3>Quantidade de músicas por mesa:</h3>
+			<ul>
+				<?php
+				$regrasExibicao = getRegrasMesaFormatadas($pdo);
+				foreach ($regrasExibicao as $regraTexto) {
+					echo "<li>" . htmlspecialchars($regraTexto) . "</li>"; // Use htmlspecialchars para segurança
+				}
+				?>
+			</ul>
+		</div>
                 
         
 
@@ -609,6 +640,58 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
 				}
 			});
 		}
+		
+		// Lógica para submeter o formulário de Regras de Mesa via AJAX
+		$('#formConfigurarRegrasMesa').on('submit', function(e) {
+			e.preventDefault(); // Impede o envio padrão do formulário
+
+			var formData = $(this).serialize(); // Serializa os dados do formulário
+
+			$.ajax({
+				url: 'api.php', // O endpoint que vai lidar com a atualização
+				type: 'POST',
+				dataType: 'json', // Espera uma resposta JSON
+				data: formData,
+				success: function(response) {
+					if (response.success) {
+						alert(response.message);
+						// Opcional: Recarregar a página ou atualizar a lista de regras, se houver
+						location.reload();
+					} else {
+						alert('Erro: ' + response.message);
+					}
+				},
+				error: function(xhr, status, error) {
+					console.error("Erro na requisição AJAX para configurar regras:", status, error);
+					alert('Erro na comunicação com o servidor ao configurar regras.');
+				}
+			});
+		});
+		
+		// Lógica para o botão "Regra Padrão"
+		$('#btnRegrasPadrao').on('click', function() {
+			if (confirm("Deseja criar regras padrão? Todas as regras já existentes serão substituídas.")) {
+				$.ajax({
+					url: 'api.php',
+					type: 'POST',
+					dataType: 'json',
+					data: { action: 'set_regras_padrao' }, // Nova ação para o backend
+					success: function(response) {
+						if (response.success) {
+							alert(response.message);
+							location.reload(); // Recarrega a página para exibir as novas regras (se você as listar)
+						} else {
+							alert('Erro ao definir regras padrão: ' + response.message);
+						}
+					},
+					error: function(xhr, status, error) {
+						console.error("Erro na requisição AJAX para regras padrão:", status, error);
+						alert('Erro na comunicação com o servidor ao definir regras padrão.');
+					}
+				});
+			}
+		});
+		
     });
     </script>
 </body>

@@ -312,7 +312,7 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
             // Também atualiza o cantor específico no array $cantoresPorMesa
             foreach ($cantoresPorMesa[$idMesaSelecionada] as $key => $mesaCantor) {
                 if ($mesaCantor['id_cantor'] === $idCantor) {
-                    $cantoresPorMesa[$idMesaSelecionada][$key]['proxim o_ordem_musica'] = $novaProximaOrdem;
+                    $cantoresPorMesa[$idMesaSelecionada][$key]['proximo_ordem_musica'] = $novaProximaOrdem;
                     $cantoresPorMesa[$idMesaSelecionada][$key]['musicas_elegiveis_cantor']--;
                     break;
                 }

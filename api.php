@@ -297,7 +297,40 @@ switch ($action) {
         echo json_encode($response);
         exit();
     }
-    break;		
+    break;	
+
+	case 'add_regra_mesa':
+		$minPessoas = filter_input(INPUT_POST, 'min_pessoas', FILTER_VALIDATE_INT);
+		$maxPessoas = filter_input(INPUT_POST, 'max_pessoas', FILTER_VALIDATE_INT);
+		$maxMusicasPorRodada = filter_input(INPUT_POST, 'max_musicas_por_rodada', FILTER_VALIDATE_INT);
+
+		if ($maxPessoas === 0 || $maxPessoas === false) { 
+			$maxPessoas = null;
+		}
+
+		if ($minPessoas === false || $minPessoas < 1 || $maxMusicasPorRodada === false || $maxMusicasPorRodada < 1) {
+			$response['message'] = 'Dados inválidos para a regra de mesa. Mínimo de pessoas e máximo de músicas são obrigatórios e devem ser números positivos.';
+		} else {
+			// ALTERADO: Captura o resultado da função
+			$result = adicionarOuAtualizarRegraMesa($pdo, $minPessoas, $maxPessoas, $maxMusicasPorRodada);
+			
+			if ($result === true) { // Se o retorno for true, é sucesso
+				$response['success'] = true;
+				$response['message'] = 'Regra de mesa salva com sucesso!';
+			} else { // Se o retorno for uma string, é uma mensagem de erro
+				$response['message'] = $result; // A string de erro é a mensagem
+			}
+		}
+		break;
+		
+	case 'set_regras_padrao':
+		if (setRegrasPadrao($pdo)) {
+			$response['success'] = true;
+			$response['message'] = 'Regras padrão definidas com sucesso! A fila foi resetada.';
+		} else {
+			$response['message'] = 'Erro ao definir regras padrão.';
+		}
+		break;
 
     default:
         // Se a ação não for reconhecida, a $response padrão já é retornada
