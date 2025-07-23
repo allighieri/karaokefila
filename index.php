@@ -250,34 +250,103 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
 		
 		
 		<div class="form-section">
-			<h3>Configurar Regras de Mesa</h3>
-			<form id="formConfigurarRegrasMesa">
-				<input type="hidden" name="action" value="add_regra_mesa">
-				
-				<div class="row"> <div class="form-group col-md-4"> <label for="min_pessoas">Mínimo de Pessoas:</label>
-						<input type="number" id="min_pessoas" name="min_pessoas" class="form-control" required min="1">
-					</div>
-					
-					<div class="form-group col-md-4"> <label for="max_pessoas">Máximo de Pessoas:</label>
-						<input type="number" id="max_pessoas" name="max_pessoas" class="form-control" min="1">
-						<small class="form-text text-muted">Deixe em branco para "ou mais".</small> </div>
-					
-					<div class="form-group col-md-4"> <label for="max_musicas_por_rodada">Máximo de Músicas por Rodada:</label>
-						<input type="number" id="max_musicas_por_rodada" name="max_musicas_por_rodada" class="form-control" required min="1">
-					</div>
-				</div> <button type="submit" class="btn btn-primary">Salvar Regra de Mesa</button>
-				<button type="button" id="btnRegrasPadrao" class="btn btn-info ml-2">Regra Padrão</button> 
-			</form>
-			<h3>Quantidade de músicas por mesa:</h3>
-			<ul>
+		<h3>Configurar Regras de Mesa</h3>
+		<form id="formConfigurarRegrasMesa">
+			<input type="hidden" name="action" value="save_all_regras_mesa">
+			<input type="hidden" name="removed_ids" id="removed_ids" value="">
+			
+			<div id="regras-container">
 				<?php
-				$regrasExibicao = getRegrasMesaFormatadas($pdo);
-				foreach ($regrasExibicao as $regraTexto) {
-					echo "<li>" . htmlspecialchars($regraTexto) . "</li>"; // Use htmlspecialchars para segurança
-				}
+				// Certifique-se que $pdo está disponível aqui (conexão ao banco de dados)
+				// Exemplo:
+				// include_once 'caminho/para/suas/funcoes.php';
+				// include_once 'caminho/para/sua/conexao.php'; // Onde $pdo é criado
+
+				$regrasExistentes = getAllRegrasMesa($pdo); // Chama a nova função
+
+				if (!empty($regrasExistentes)) {
+					foreach ($regrasExistentes as $index => $regra) {
+						$isLast = ($index === count($regrasExistentes) - 1);
 				?>
-			</ul>
-		</div>
+					<div class="form-row regra-row mb-3" data-id="<?= htmlspecialchars($regra['id']) ?>">
+						<input type="hidden" name="regras[<?= $index ?>][id]" value="<?= htmlspecialchars($regra['id']) ?>">
+						<div class="form-group col-md-3">
+							<label for="min_pessoas_<?= $index ?>">Mínimo de Pessoas:</label>
+							<input type="number" id="min_pessoas_<?= $index ?>" name="regras[<?= $index ?>][min_pessoas]" class="form-control" required min="1" value="<?= htmlspecialchars($regra['min_pessoas']) ?>">
+						</div>
+						
+						<div class="form-group col-md-3">
+							<label for="max_pessoas_<?= $index ?>">Máximo de Pessoas:</label>
+							<input type="number" id="max_pessoas_<?= $index ?>" name="regras[<?= $index ?>][max_pessoas]" class="form-control" min="1" value="<?= htmlspecialchars($regra['max_pessoas']) ?>">
+							<small class="form-text text-muted">Deixe em branco para "ou mais".</small>
+						</div>
+						
+						<div class="form-group col-md-3">
+							<label for="max_musicas_por_rodada_<?= $index ?>">Músicas por Rodada:</label>
+							<input type="number" id="max_musicas_por_rodada_<?= $index ?>" name="regras[<?= $index ?>][max_musicas_por_rodada]" class="form-control" required min="1" value="<?= htmlspecialchars($regra['max_musicas_por_rodada']) ?>">
+						</div>
+						<div class="col-md-3 d-flex align-items-end">
+							<button type="button" class="btn btn-danger remove-regra-btn me-2" style="<?= $index === 0 && count($regrasExistentes) === 1 ? 'display: none;' : '' ?>">Remover</button>
+							<button type="button" class="btn btn-success add-regra-btn" style="<?= $isLast ? '' : 'display: none;' ?>">+</button>
+						</div>
+					</div>
+				<?php
+					}
+				} else {
+					// Se não houver regras existentes, adicione uma linha vazia por padrão
+				?>
+					<div class="form-row regra-row mb-3" data-id="">
+						<input type="hidden" name="regras[0][id]" value="">
+						<div class="form-group col-md-3">
+							<label for="min_pessoas_0">Mínimo de Pessoas:</label>
+							<input type="number" id="min_pessoas_0" name="regras[0][min_pessoas]" class="form-control" required min="1">
+						</div>
+						
+						<div class="form-group col-md-3">
+							<label for="max_pessoas_0">Máximo de Pessoas:</label>
+							<input type="number" id="max_pessoas_0" name="regras[0][max_pessoas]" class="form-control" min="1">
+							<small class="form-text text-muted">Deixe em branco para "ou mais".</small>
+						</div>
+						
+						<div class="form-group col-md-3">
+							<label for="max_musicas_por_rodada_0">Músicas por Rodada:</label>
+							<input type="number" id="max_musicas_por_rodada_0" name="regras[0][max_musicas_por_rodada]" class="form-control" required min="1">
+						</div>
+						<div class="col-md-3 d-flex align-items-end">
+							<button type="button" class="btn btn-danger remove-regra-btn me-2" style="display: none;">Remover</button>
+							<button type="button" class="btn btn-success add-regra-btn">+</button>
+						</div>
+					</div>
+				<?php } ?>
+			</div>
+			
+			<button type="submit" class="btn btn-primary">Salvar Todas as Regras</button>
+			<button type="button" id="btnRegrasPadrao" class="btn btn-info ml-2">Aplicar Regras Padrão</button>
+		</form>
+		
+	
+		<h3>Quantidade de músicas por mesa:</h3>
+		<ul>
+			<?php
+			$regrasExibicao = getRegrasMesaFormatadas($pdo);
+			foreach ($regrasExibicao as $regraTexto) {
+				echo "<li>" . htmlspecialchars($regraTexto) . "</li>"; // Use htmlspecialchars para segurança
+			}
+			?>
+		</ul>
+		
+	</div>
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
                 
         
 
@@ -338,6 +407,8 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+	
+	
     
 
     <script>
@@ -641,58 +712,224 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
 			});
 		}
 		
-		// Lógica para submeter o formulário de Regras de Mesa via AJAX
-		$('#formConfigurarRegrasMesa').on('submit', function(e) {
-			e.preventDefault(); // Impede o envio padrão do formulário
+		
+		
+		// Adicionar e gerenciar campos para criação das regras de quantitdade de músicas por mesa na rodada
+		
+		const regrasContainer = $('#regras-container');
+		const formConfigurarRegrasMesa = $('#formConfigurarRegrasMesa');
+		let regraIndex = <?= !empty($regrasExistentes) ? count($regrasExistentes) : 1 ?>;
 
-			var formData = $(this).serialize(); // Serializa os dados do formulário
+		// Função para adicionar uma nova linha de regra ou REINICIALIZAR uma existente
+		// Adicionado um parâmetro 'initialMin' para preencher o campo Mínimo de Pessoas
+		function addRegraRow(id = '', min = '', max = '', musicas = '', isReset = false, initialMin = '') {
+			// Se initialMin for fornecido, ele tem precedência sobre o 'min' padrão (que viria do banco)
+			const finalMin = initialMin !== '' ? initialMin : min;
+
+			const newRow = $(`
+				<div class="form-row regra-row mb-3" data-id="${id}">
+					<input type="hidden" name="regras[${regraIndex}][id]" value="${id}">
+					<div class="form-group col-md-3">
+						<label for="min_pessoas_${regraIndex}">Mínimo de Pessoas:</label>
+						<input type="number" id="min_pessoas_${regraIndex}" name="regras[${regraIndex}][min_pessoas]" class="form-control" required min="1" value="${finalMin}">
+					</div>
+					
+					<div class="form-group col-md-3">
+						<label for="max_pessoas_${regraIndex}">Máximo de Pessoas:</label>
+						<input type="number" id="max_pessoas_${regraIndex}" name="regras[${regraIndex}][max_pessoas]" class="form-control" min="1" value="${max}">
+						<small class="form-text text-muted">Deixe em branco para "ou mais".</small>
+					</div>
+					
+					<div class="form-group col-md-3">
+						<label for="max_musicas_por_rodada_${regraIndex}">Músicas por Rodada:</label>
+						<input type="number" id="max_musicas_por_rodada_${regraIndex}" name="regras[${regraIndex}][max_musicas_por_rodada]" class="form-control" required min="1" value="${musicas}">
+					</div>
+					<div class="col-md-3 d-flex align-items-end">
+						<button type="button" class="btn btn-danger remove-regra-btn me-2">Remover</button>
+						<button type="button" class="btn btn-success add-regra-btn">+</button>
+					</div>
+				</div>
+			`);
+			
+			if (!isReset) {
+				const lastRow = regrasContainer.children().last();
+				if (lastRow.length) {
+					lastRow.find('.add-regra-btn').hide();
+				}
+			}
+
+			regrasContainer.append(newRow);
+			regraIndex++;
+			updateRemoveButtonsVisibility();
+		}
+
+		// Função para atualizar a visibilidade dos botões de remover e adicionar
+		function updateRemoveButtonsVisibility() {
+			const removeButtons = $('.remove-regra-btn');
+			const totalRows = regrasContainer.children('.regra-row').length;
+
+			if (totalRows > 0) {
+				removeButtons.show();
+			} else {
+				removeButtons.hide();
+			}
+
+			$('.add-regra-btn').hide();
+			const lastRow = regrasContainer.children().last();
+			if (lastRow.length) {
+				lastRow.find('.add-regra-btn').show();
+			}
+		}
+
+		// Event Delegation para botões de adicionar
+		regrasContainer.on('click', '.add-regra-btn', function() {
+			// Lógica para pegar o valor do Máximo de Pessoas da linha anterior
+			const lastRow = regrasContainer.children().last();
+			let nextMin = ''; // Valor padrão vazio
+
+			if (lastRow.length) {
+				const maxPessoasLastRow = lastRow.find('input[name$="[max_pessoas]"]').val();
+				if (maxPessoasLastRow !== '') {
+					nextMin = parseInt(maxPessoasLastRow) + 1;
+				}
+			}
+			addRegraRow('', '', '', '', false, nextMin); // Passa o valor calculado para initialMin
+		});
+
+		// Event Delegation para botões de REMOVER (AGORA COM LÓGICA DE EXCLUSÃO IMEDIATA E RESET DA ÚLTIMA LINHA)
+		regrasContainer.on('click', '.remove-regra-btn', function() {
+			const rowToRemove = $(this).closest('.regra-row');
+			const idToRemove = rowToRemove.data('id');
+			const totalRows = regrasContainer.children('.regra-row').length;
+			const clickedButton = $(this);
+
+			if (idToRemove) { // Se a linha tem um ID (é uma regra existente no banco)
+				if (confirm('Tem certeza que deseja remover esta regra permanentemente?')) {
+					clickedButton.prop('disabled', true).text('Removendo...');
+
+					$.ajax({
+						url: 'processar_regras.php',
+						type: 'POST',
+						dataType: 'json',
+						data: {
+							action: 'delete_regra_mesa',
+							id: idToRemove
+						},
+						success: function(data) {
+							if (data.success) {
+								alert('Regra removida com sucesso!');
+								if (totalRows === 1) { // Se esta é a ÚLTIMA regra existente
+									// Reinicializa a linha com campos em branco
+									rowToRemove.find('input[type="number"]').val('');
+									rowToRemove.find('input[type="hidden"][name$="[id]"]').val('');
+									rowToRemove.data('id', '');
+									clickedButton.prop('disabled', false).text('Remover');
+								} else {
+									rowToRemove.remove();
+								}
+								updateRemoveButtonsVisibility();
+							} else {
+								alert('Erro ao remover regra: ' + data.message);
+								clickedButton.prop('disabled', false).text('Remover');
+							}
+						},
+						error: function(jqXHR, textStatus, errorThrown) {
+							console.error('Erro na requisição AJAX de remoção:', textStatus, errorThrown, jqXHR.responseText);
+							alert('Ocorreu um erro na comunicação com o servidor ao tentar remover a regra.');
+							clickedButton.prop('disabled', false).text('Remover');
+						}
+					});
+				}
+			} else { // Se a linha NÃO tem um ID (é uma regra nova, ainda não salva)
+				if (totalRows === 1) {
+					rowToRemove.find('input[type="number"]').val('');
+				} else {
+					rowToRemove.remove();
+				}
+				updateRemoveButtonsVisibility();
+			}
+		});
+
+		// Inicializa: Garante que os botões estejam corretos ao carregar a página
+		updateRemoveButtonsVisibility();
+		
+		// --- Lógica para o envio do formulário via AJAX (apenas salvar/atualizar) ---
+		formConfigurarRegrasMesa.on('submit', function(e) {
+			e.preventDefault();
+
+			const regrasData = [];
+			$('.regra-row').each(function(index, element) {
+				const $row = $(element);
+				const id = $row.data('id');
+				const minPessoas = $row.find('input[name$="[min_pessoas]"]').val();
+				let maxPessoas = $row.find('input[name$="[max_pessoas]"]').val();
+				const maxMusicas = $row.find('input[name$="[max_musicas_por_rodada]"]').val();
+
+				if (maxPessoas === '') {
+					maxPessoas = null;
+				}
+
+				if (minPessoas !== '' || id) {
+					regrasData.push({
+						id: id,
+						min_pessoas: minPessoas,
+						max_pessoas: maxPessoas,
+						max_musicas_por_rodada: maxMusicas
+					});
+				}
+			});
+
+			const dataToSend = {
+				action: 'save_all_regras_mesa',
+				regras_json: JSON.stringify(regrasData)
+			};
 
 			$.ajax({
-				url: 'api.php', // O endpoint que vai lidar com a atualização
+				url: 'processar_regras.php',
 				type: 'POST',
-				dataType: 'json', // Espera uma resposta JSON
-				data: formData,
-				success: function(response) {
-					if (response.success) {
-						alert(response.message);
-						// Opcional: Recarregar a página ou atualizar a lista de regras, se houver
-						location.reload();
+				dataType: 'json',
+				data: dataToSend,
+				success: function(data) {
+					if (data.success) {
+						alert('Regras salvas com sucesso!');
+						location.reload(); 
 					} else {
-						alert('Erro: ' + response.message);
+						alert('Erro ao salvar regras: ' + data.message);
 					}
 				},
-				error: function(xhr, status, error) {
-					console.error("Erro na requisição AJAX para configurar regras:", status, error);
-					alert('Erro na comunicação com o servidor ao configurar regras.');
+				error: function(jqXHR, textStatus, errorThrown) {
+					console.error('Erro na requisição AJAX de salvar:', textStatus, errorThrown, jqXHR.responseText);
+					alert('Ocorreu um erro na comunicação com o servidor ao tentar salvar as regras.');
 				}
 			});
 		});
-		
+
 		// Lógica para o botão "Regra Padrão"
 		$('#btnRegrasPadrao').on('click', function() {
-			if (confirm("Deseja criar regras padrão? Todas as regras já existentes serão substituídas.")) {
+			if (confirm('Deseja realmente aplicar as regras padrão? Todas as regras atuais serão removidas e substituídas.')) {
 				$.ajax({
-					url: 'api.php',
+					url: 'processar_regras.php',
 					type: 'POST',
 					dataType: 'json',
-					data: { action: 'set_regras_padrao' }, // Nova ação para o backend
-					success: function(response) {
-						if (response.success) {
-							alert(response.message);
-							location.reload(); // Recarrega a página para exibir as novas regras (se você as listar)
+					data: {
+						action: 'set_regras_padrao'
+					},
+					success: function(data) {
+						if (data.success) {
+							alert('Regras padrão aplicadas com sucesso!');
+							location.reload();
 						} else {
-							alert('Erro ao definir regras padrão: ' + response.message);
+							alert('Erro ao aplicar regras padrão: ' + data.message);
 						}
 					},
-					error: function(xhr, status, error) {
-						console.error("Erro na requisição AJAX para regras padrão:", status, error);
-						alert('Erro na comunicação com o servidor ao definir regras padrão.');
+					error: function(jqXHR, textStatus, errorThrown) {
+						console.error('Erro na requisição AJAX:', textStatus, errorThrown, jqXHR.responseText);
+						alert('Ocorreu um erro na comunicação ao aplicar as regras padrão.');
 					}
 				});
 			}
 		});
-		
-    });
+	})	
     </script>
 </body>
 </html>
