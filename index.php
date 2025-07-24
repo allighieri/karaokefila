@@ -322,7 +322,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
 				</div>
 				
 				<div class="alert alert-info alert-dismissible fade show" role="alert">
-				  Se deixar em branco a coluna <strong>Máximo de Pessoas</strong>, o sistema reconhecerá que a regra se aplica ao máximo de pessoas a partir do Mínimo de pessoas para aquela mesa. Ex.: Se o Mínimo de Pessoas for 7 e o Máximo de Pessoas está em branco, o sistema considera que a regra se aplica a 7 ou mais.
+				  Se deixar em branco a coluna <strong>Máximo de Pessoas</strong>, o sistema irá reconhecer que a regra se aplica ao máximo de pessoas a partir do Mínimo de pessoas para aquela mesa. Ex.: Se o Mínimo de Pessoas for 7 e o Máximo de Pessoas está em branco, o sistema considera que a regra se aplica a 7 ou mais.
 				  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 				</div>
 				
