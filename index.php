@@ -84,7 +84,6 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
     <link rel="stylesheet" href="css/style_index.css">
-
 </head>
 <body>
     <div class="container">
@@ -240,7 +239,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
 
         <h2>Controles da Rodada e Cadastro</h2>
                 
-        <div class="form-section">
+        <div class="form-section my-5">
             <h3>Gerenciar Músicas dos Cantores</h3>
             <p>Adicione e visualize a lista de músicas que cada cantor deseja cantar.</p>
             <form method="POST" action="gerenciar_musicas_cantor.php">
@@ -249,135 +248,161 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
         </div>
 		
 		
+			
+		<hr>
+	
+		
+		<div class="form-section my-5">
+			<h3>Configurar Regras de Mesa</h3>
+			<form id="formConfigurarRegrasMesa">
+				<input type="hidden" name="action" value="save_all_regras_mesa">
+				<input type="hidden" name="removed_ids" id="removed_ids" value="">
+				
+				<div id="regras-container">
+					<?php
+					
+					$regrasExistentes = getAllRegrasMesa($pdo); // Chama a nova função
+
+					if (!empty($regrasExistentes)) {
+						foreach ($regrasExistentes as $index => $regra) {
+							$isLast = ($index === count($regrasExistentes) - 1);
+					?>
+						<div class="form-row regra-row" data-id="<?= htmlspecialchars($regra['id']) ?>">
+							<input type="hidden" name="regras[<?= $index ?>][id]" value="<?= htmlspecialchars($regra['id']) ?>">
+							<div class="form-group col-md-3">
+								<label for="min_pessoas_<?= $index ?>" class="col-form-label col-form-label-sm">Mínimo de Pessoas:</label>
+								<input type="number" id="min_pessoas_<?= $index ?>" name="regras[<?= $index ?>][min_pessoas]" class="form-control" required min="1" value="<?= htmlspecialchars($regra['min_pessoas']) ?>">
+							</div>
+							
+							<div class="form-group col-md-3">
+								<label for="max_pessoas_<?= $index ?>" class="col-form-label col-form-label-sm">Máximo de Pessoas:</label>
+								<input type="number" id="max_pessoas_<?= $index ?>" name="regras[<?= $index ?>][max_pessoas]" class="form-control" min="1" value="<?= htmlspecialchars($regra['max_pessoas']) ?>">
+								<small class="form-text text-muted">Deixe em branco para "ou mais".</small>
+							</div>
+							
+							<div class="form-group col-md-3">
+								<label for="max_musicas_por_rodada_<?= $index ?>" class="col-form-label col-form-label-sm">Músicas por Rodada:</label>
+								<div class="input-group">
+									<input type="number" id="max_musicas_por_rodada_<?= $index ?>" name="regras[<?= $index ?>][max_musicas_por_rodada]" class="form-control" required min="1" value="<?= htmlspecialchars($regra['max_musicas_por_rodada']) ?>">
+									
+								</div>
+							</div>
+							
+							<div class="form-group col-md-3">
+							<label for="teste" class="invisible visually-hidden col-form-label col-form-label-sm">Ações</label>
+								<div class="input-group">
+									<button type="button" class="btn btn-danger remove-regra-btn mx-1" style="<?= $index === 0 && count($regrasExistentes) === 1 ? 'display: none;' : '' ?>">-</button>
+									<button type="button" class="btn btn-success add-regra-btn mx-1" style="<?= $isLast ? '' : 'display: none;' ?>">+</button>
+								</div>
+							</div>
+
+						</div>
+					<?php
+						}
+					} else {
+						// Se não houver regras existentes, adicione uma linha vazia por padrão
+					?>
+						<div class="form-row regra-row mb-3" data-id="">
+							<input type="hidden" name="regras[0][id]" value="">
+							<div class="form-group col-md-3">
+								<label for="min_pessoas_0">Mínimo de Pessoas:</label>
+								<input type="number" id="min_pessoas_0" name="regras[0][min_pessoas]" class="form-control" required min="1">
+							</div>
+							
+							<div class="form-group col-md-3">
+								<label for="max_pessoas_0">Máximo de Pessoas:</label>
+								<input type="number" id="max_pessoas_0" name="regras[0][max_pessoas]" class="form-control" min="1">
+								<small class="form-text text-muted">Deixe em branco para "ou mais".</small>
+							</div>
+							
+							<div class="form-group col-md-3">
+								<label for="max_musicas_por_rodada_0">Músicas por Rodada:</label>
+								<input type="number" id="max_musicas_por_rodada_0" name="regras[0][max_musicas_por_rodada]" class="form-control" required min="1">
+							</div>
+							
+							
+							<div class="form-group col-md-3">
+							<label for="teste" class="invisible visually-hidden col-form-label col-form-label-sm">Ações</label>
+								<div class="input-group">
+									<button type="button" class="btn btn-danger remove-regra-btn mx-1">-</button>
+									<button type="button" class="btn btn-success add-regra-btn mx-1">+</button>
+								</div>
+							</div>
+							
+						</div>
+					<?php } ?>
+				</div>
+				
+				<button type="submit" class="btn btn-primary">Salvar Regras</button>
+				<button type="button" id="btnRegrasPadrao" class="btn btn-info ml-2">Resetar Padrão</button>
+			</form>
+			
+		
+			<h3>Quantidade de músicas por mesa:</h3>
+			<ul>
+				<?php
+				$regrasExibicao = getRegrasMesaFormatadas($pdo);
+				foreach ($regrasExibicao as $regraTexto) {
+					echo "<li>" . htmlspecialchars($regraTexto) . "</li>"; // Use htmlspecialchars para segurança
+				}
+				?>
+			</ul>
+			
+		</div>
+		
 		<div class="form-section">
-		<h3>Configurar Regras de Mesa</h3>
-		<form id="formConfigurarRegrasMesa">
-			<input type="hidden" name="action" value="save_all_regras_mesa">
-			<input type="hidden" name="removed_ids" id="removed_ids" value="">
-			
-			<div id="regras-container">
-				<?php
-				// Certifique-se que $pdo está disponível aqui (conexão ao banco de dados)
-				// Exemplo:
-				// include_once 'caminho/para/suas/funcoes.php';
-				// include_once 'caminho/para/sua/conexao.php'; // Onde $pdo é criado
-
-				$regrasExistentes = getAllRegrasMesa($pdo); // Chama a nova função
-
-				if (!empty($regrasExistentes)) {
-					foreach ($regrasExistentes as $index => $regra) {
-						$isLast = ($index === count($regrasExistentes) - 1);
-				?>
-					<div class="form-row regra-row mb-3" data-id="<?= htmlspecialchars($regra['id']) ?>">
-						<input type="hidden" name="regras[<?= $index ?>][id]" value="<?= htmlspecialchars($regra['id']) ?>">
-						<div class="form-group col-md-3">
-							<label for="min_pessoas_<?= $index ?>">Mínimo de Pessoas:</label>
-							<input type="number" id="min_pessoas_<?= $index ?>" name="regras[<?= $index ?>][min_pessoas]" class="form-control" required min="1" value="<?= htmlspecialchars($regra['min_pessoas']) ?>">
-						</div>
-						
-						<div class="form-group col-md-3">
-							<label for="max_pessoas_<?= $index ?>">Máximo de Pessoas:</label>
-							<input type="number" id="max_pessoas_<?= $index ?>" name="regras[<?= $index ?>][max_pessoas]" class="form-control" min="1" value="<?= htmlspecialchars($regra['max_pessoas']) ?>">
-							<small class="form-text text-muted">Deixe em branco para "ou mais".</small>
-						</div>
-						
-						<div class="form-group col-md-3">
-							<label for="max_musicas_por_rodada_<?= $index ?>">Músicas por Rodada:</label>
-							<input type="number" id="max_musicas_por_rodada_<?= $index ?>" name="regras[<?= $index ?>][max_musicas_por_rodada]" class="form-control" required min="1" value="<?= htmlspecialchars($regra['max_musicas_por_rodada']) ?>">
-						</div>
-						<div class="col-md-3 d-flex align-items-end">
-							<button type="button" class="btn btn-danger remove-regra-btn me-2" style="<?= $index === 0 && count($regrasExistentes) === 1 ? 'display: none;' : '' ?>">Remover</button>
-							<button type="button" class="btn btn-success add-regra-btn" style="<?= $isLast ? '' : 'display: none;' ?>">+</button>
-						</div>
-					</div>
-				<?php
-					}
-				} else {
-					// Se não houver regras existentes, adicione uma linha vazia por padrão
-				?>
-					<div class="form-row regra-row mb-3" data-id="">
-						<input type="hidden" name="regras[0][id]" value="">
-						<div class="form-group col-md-3">
-							<label for="min_pessoas_0">Mínimo de Pessoas:</label>
-							<input type="number" id="min_pessoas_0" name="regras[0][min_pessoas]" class="form-control" required min="1">
-						</div>
-						
-						<div class="form-group col-md-3">
-							<label for="max_pessoas_0">Máximo de Pessoas:</label>
-							<input type="number" id="max_pessoas_0" name="regras[0][max_pessoas]" class="form-control" min="1">
-							<small class="form-text text-muted">Deixe em branco para "ou mais".</small>
-						</div>
-						
-						<div class="form-group col-md-3">
-							<label for="max_musicas_por_rodada_0">Músicas por Rodada:</label>
-							<input type="number" id="max_musicas_por_rodada_0" name="regras[0][max_musicas_por_rodada]" class="form-control" required min="1">
-						</div>
-						<div class="col-md-3 d-flex align-items-end">
-							<button type="button" class="btn btn-danger remove-regra-btn me-2" style="display: none;">Remover</button>
-							<button type="button" class="btn btn-success add-regra-btn">+</button>
-						</div>
-					</div>
-				<?php } ?>
-			</div>
-			
-			<button type="submit" class="btn btn-primary">Salvar Todas as Regras</button>
-			<button type="button" id="btnRegrasPadrao" class="btn btn-info ml-2">Aplicar Regras Padrão</button>
-		</form>
-		
-	
-		<h3>Quantidade de músicas por mesa:</h3>
-		<ul>
-			<?php
-			$regrasExibicao = getRegrasMesaFormatadas($pdo);
-			foreach ($regrasExibicao as $regraTexto) {
-				echo "<li>" . htmlspecialchars($regraTexto) . "</li>"; // Use htmlspecialchars para segurança
-			}
-			?>
-		</ul>
-		
-	</div>
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-                
-        
-
-        <div class="form-section">
             <h3>Adicionar Nova Mesa</h3>
             <form method="POST">
-                <input type="hidden" name="action" value="add_mesa">
-                <label for="nome_mesa">Nome da Mesa:</label>
-                <input type="text" id="nome_mesa" name="nome_mesa" required>
-                <button type="submit" class="btn btn-primary">Adicionar Mesa</button>
+				<input type="hidden" name="action" value="add_mesa">
+				<div class="form-row">
+					<div class="form-group col-md-6 mb-3">
+						<label for="nome_mesa">Nome da Mesa:</label>
+						<input type="text" id="nome_mesa" name="nome_mesa" class="form-control" required>
+						
+					</div>	
+				</div>	
+				<div class="form-row">
+					<div class="col-12 mt-3"> 
+						<button type="submit" class="btn btn-primary">Adicionar Mesa</button>
+					</div>
+				</div>		
             </form>
         </div>
 
-        <div class="form-section">
-            <h3>Adicionar Cantor a uma Mesa</h3>
-            <form method="POST">
-                <input type="hidden" name="action" value="add_cantor">
-                <label for="nome_cantor">Nome do Cantor:</label>
-                <input type="text" id="nome_cantor" name="nome_cantor" required>
-                <label for="id_mesa_cantor">Mesa:</label>
-                <select id="id_mesa_cantor" name="id_mesa_cantor" class="form-control" required>
-                    <option value="">Selecione uma mesa</option>
-                    <?php foreach ($mesas_disponiveis as $mesa): ?>
-                        <option value="<?php echo htmlspecialchars($mesa['id']); ?>"><?php echo htmlspecialchars($mesa['nome_mesa']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <button type="submit" class="btn btn-primary">Adicionar Cantor</button>
-            </form>
-        </div>
 
-    </div>
+		
+		<div class="form-section">
+			<h3>Adicionar Cantor a uma Mesa</h3>
+			<form method="POST">
+				<input type="hidden" name="action" value="add_cantor"> 
+				
+				<div class="form-row">
+					<div class="form-group col-md-6 mb-3">
+						<label for="nome_cantor">Nome do Cantor:</label>
+						<input type="text" id="nome_cantor" name="nome_cantor" class="form-control" required>
+					</div>
+					
+					<div class="form-group col-md-6 mb-3">
+						<label for="id_mesa_cantor">Mesa:</label>
+						<select id="id_mesa_cantor" name="id_mesa_cantor" class="form-control" required>
+							<option value="">Selecione uma mesa</option>
+							<option value="">Selecione uma mesa</option>
+							<?php foreach ($mesas_disponiveis as $mesa): ?>
+								<option value="<?php echo htmlspecialchars($mesa['id']); ?>"><?php echo htmlspecialchars($mesa['nome_mesa']); ?></option>
+							<?php endforeach; ?>
+						</select>
+					</div>
+				</div>
+				
+				<div class="form-row">
+					<div class="col-12 mt-3"> 
+						<button type="submit" class="btn btn-primary">Adicionar Cantor</button>
+					</div>
+				</div>
+			</form>
+		</div>
+
+    </div> <!-- container -->
 
     <div class="modal fade" id="trocarMusicaModal" tabindex="-1" role="dialog" aria-labelledby="trocarMusicaModalLabel" aria-hidden="true">
       <div class="modal-dialog" role="document">
@@ -729,24 +754,25 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
 			const newRow = $(`
 				<div class="form-row regra-row mb-3" data-id="${id}">
 					<input type="hidden" name="regras[${regraIndex}][id]" value="${id}">
-					<div class="form-group col-md-3">
-						<label for="min_pessoas_${regraIndex}">Mínimo de Pessoas:</label>
+					
+					<div class="form-group col-md-3"> <label for="min_pessoas_${regraIndex}" class="col-form-label col-form-label-sm">Mínimo de Pessoas:</label>
 						<input type="number" id="min_pessoas_${regraIndex}" name="regras[${regraIndex}][min_pessoas]" class="form-control" required min="1" value="${finalMin}">
 					</div>
 					
-					<div class="form-group col-md-3">
-						<label for="max_pessoas_${regraIndex}">Máximo de Pessoas:</label>
+					<div class="form-group col-md-3"> <label for="max_pessoas_${regraIndex}" class="col-form-label col-form-label-sm">Máximo de Pessoas:</label>
 						<input type="number" id="max_pessoas_${regraIndex}" name="regras[${regraIndex}][max_pessoas]" class="form-control" min="1" value="${max}">
 						<small class="form-text text-muted">Deixe em branco para "ou mais".</small>
 					</div>
 					
-					<div class="form-group col-md-3">
-						<label for="max_musicas_por_rodada_${regraIndex}">Músicas por Rodada:</label>
-						<input type="number" id="max_musicas_por_rodada_${regraIndex}" name="regras[${regraIndex}][max_musicas_por_rodada]" class="form-control" required min="1" value="${musicas}">
+					<div class="form-group col-md-3"> <label for="max_musicas_por_rodada_${regraIndex}" class="col-form-label col-form-label-sm">Músicas por Rodada:</label>
+						<div class="input-group"> <input type="number" id="max_musicas_por_rodada_${regraIndex}" name="regras[${regraIndex}][max_musicas_por_rodada]" class="form-control" required min="1" value="${musicas}">
+						</div>
 					</div>
-					<div class="col-md-3 d-flex align-items-end">
-						<button type="button" class="btn btn-danger remove-regra-btn me-2">Remover</button>
-						<button type="button" class="btn btn-success add-regra-btn">+</button>
+					
+					<div class="form-group col-md-3"> <label for="acoes_${regraIndex}" class="invisible visually-hidden col-form-label col-form-label-sm">Ações</label> 
+						<div class="input-group"> <button type="button" class="btn btn-danger remove-regra-btn mx-1">-</button>
+							<button type="button" class="btn btn-success add-regra-btn mx-1">+</button>
+						</div>
 					</div>
 				</div>
 			`);
@@ -804,7 +830,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
 			const clickedButton = $(this);
 
 			if (idToRemove) { // Se a linha tem um ID (é uma regra existente no banco)
-				if (confirm('Tem certeza que deseja remover esta regra permanentemente?')) {
+				//if (confirm('Tem certeza que deseja remover esta regra permanentemente?')) {
 					clickedButton.prop('disabled', true).text('Removendo...');
 
 					$.ajax({
@@ -817,29 +843,29 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
 						},
 						success: function(data) {
 							if (data.success) {
-								alert('Regra removida com sucesso!');
+								//alert('Regra removida com sucesso!');
 								if (totalRows === 1) { // Se esta é a ÚLTIMA regra existente
 									// Reinicializa a linha com campos em branco
 									rowToRemove.find('input[type="number"]').val('');
 									rowToRemove.find('input[type="hidden"][name$="[id]"]').val('');
 									rowToRemove.data('id', '');
-									clickedButton.prop('disabled', false).text('Remover');
+									clickedButton.prop('disabled', false).text('-');
 								} else {
 									rowToRemove.remove();
 								}
 								updateRemoveButtonsVisibility();
 							} else {
 								alert('Erro ao remover regra: ' + data.message);
-								clickedButton.prop('disabled', false).text('Remover');
+								clickedButton.prop('disabled', false).text('-');
 							}
 						},
 						error: function(jqXHR, textStatus, errorThrown) {
 							console.error('Erro na requisição AJAX de remoção:', textStatus, errorThrown, jqXHR.responseText);
 							alert('Ocorreu um erro na comunicação com o servidor ao tentar remover a regra.');
-							clickedButton.prop('disabled', false).text('Remover');
+							clickedButton.prop('disabled', false).text('-');
 						}
 					});
-				}
+				//}
 			} else { // Se a linha NÃO tem um ID (é uma regra nova, ainda não salva)
 				if (totalRows === 1) {
 					rowToRemove.find('input[type="number"]').val('');
@@ -891,7 +917,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
 				data: dataToSend,
 				success: function(data) {
 					if (data.success) {
-						alert('Regras salvas com sucesso!');
+						//alert('Regras salvas com sucesso!');
 						location.reload(); 
 					} else {
 						alert('Erro ao salvar regras: ' + data.message);
@@ -916,7 +942,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
 					},
 					success: function(data) {
 						if (data.success) {
-							alert('Regras padrão aplicadas com sucesso!');
+							//alert('Regras padrão aplicadas com sucesso!');
 							location.reload();
 						} else {
 							alert('Erro ao aplicar regras padrão: ' + data.message);
