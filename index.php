@@ -46,8 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $mensagem_erro = "Não foi possível montar uma nova rodada. Verifique se há cantores e músicas.";
                 }
                 break;
-            case 'resetar_ordem_cantores':
-                if (resetarTudoFila($pdo)) {
+            case 'resetar_sistema':
+                if (resetarSistema($pdo)) {
                     $mensagem_sucesso = "Fila de karaokê completamente resetada!"; // Usar a variável de sucesso para consistência
                 } else {
                     $mensagem_erro = "Erro ao resetar a fila de karaokê. Verifique os logs."; // Usar a variável de erro
@@ -213,7 +213,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
             <h3>Resetar Sistema</h3>
             <p>Reseta o sistema</p>
             <form method="POST" action="index.php">
-                <input type="hidden" name="action" value="resetar_ordem_cantores">
+                <input type="hidden" name="action" value="resetar_sistema">
                 <button type="submit" class="btn btn-secondary">Reseta o sistema</button>
             </form>
         </div>

@@ -1,5 +1,4 @@
 <?php
-// Ativar exibição de erros para depuração (desativar em produção)
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -8,34 +7,62 @@ require_once 'funcoes_fila.php'; // Inclui as funções e a conexão PDO
 
 header('Content-Type: application/json; charset=utf-8'); // Garante que a resposta seja JSON UTF-8
 
-// Usa $_REQUEST para pegar a 'action' tanto de GET quanto de POST
 $action = $_REQUEST['action'] ?? '';
 
-// Mensagem padrão para requisições inválidas ou não especificadas
 $response = ['success' => false, 'message' => 'Requisição inválida ou ação não especificada.'];
 
-// Assegura que $pdo está disponível. Se funcoes_fila.php não definir $pdo globalmente,
-// você precisará de uma função para obtê-lo, como getDbConnection().
-// Exemplo: $pdo = getDbConnection(); // Se você tiver essa função
 if (!isset($pdo) || !$pdo instanceof PDO) {
-    // Se $pdo não estiver definido, tenta incluí-lo via config.php, se existir
-    // ou você pode adicionar a lógica de conexão PDO diretamente aqui
-    // Exemplo: require_once 'config.php'; // Supondo que config.php defina $pdo ou getDbConnection()
-    // if (function_exists('getDbConnection')) {
-    //     $pdo = getDbConnection();
-    // } else {
-        // Fallback: se não encontrar getDbConnection nem $pdo direto,
-        // defina um erro e saia.
         $response['message'] = 'Erro de conexão com o banco de dados. $pdo não está definido.';
         echo json_encode($response);
         exit();
     // }
 }
 
-
-// Remova a condição $_SERVER['REQUEST_METHOD'] === 'POST'
 // O switch agora processará a $action independentemente do método HTTP
 switch ($action) {
+    case 'montar_rodada':
+        $modoFila = $_POST['modo_fila'] ?? 'mesa'; // Pega o modo da requisição AJAX
+        if (montarProximaRodada($pdo, $modoFila)) {
+            $response['success'] = true;
+            $response['message'] = "Nova rodada montada com sucesso no modo '" . htmlspecialchars($modoFila) . "'!";
+        } else {
+            $response['message'] = "Não foi possível montar uma nova rodada. Verifique os logs do servidor para mais detalhes.";
+        }
+        break;
+    case 'add_mesa':
+        $nomeMesa = $_POST['nomeMesa'] ?? ''; // Adicione ?? '' para evitar erro se 'nomeMesa' não vier
+
+        $resultadoAdicao = adicionarMesa($pdo, $nomeMesa);
+
+        $response['success'] = $resultadoAdicao['success'];
+        $response['message'] = $resultadoAdicao['message'];
+        break;
+    case 'get_all_mesas':
+        // Esta função deve retornar um array de mesas (id, nome_mesa, tamanho_mesa)
+        $mesas = getTodasMesas($pdo);
+        $response['success'] = true;
+        $response['mesas'] = $mesas; // Retorna o array de mesas
+        break;
+    case 'excluir_mesa':
+        $mesaId = (int)($_POST['mesa_id'] ?? 0);
+        if ($mesaId > 0) {
+            $resultadoExclusao = excluirMesa($pdo, $mesaId);
+            $response['success'] = $resultadoExclusao['success'];
+            $response['message'] = $resultadoExclusao['message'];
+        } else {
+            $response['message'] = 'ID da mesa inválido para exclusão.';
+        }
+        break;
+
+    case 'resetar_sistema':
+        if (resetarSistema($pdo)) {
+            $response['success'] = true; // DEVE SER BOOLEANO TRUE
+            $response['message'] = "Sistema de karaokê resetado!"; // A MENSAGEM VAI AQUI
+        } else {
+            $response['success'] = false; // DEVE SER BOOLEANO FALSE
+            $response['message'] = "Erro ao resetar o sistema de karaokê. Verifique os logs."; // A MENSAGEM DE ERRO AQUI
+        }
+        break;
     case 'search_musicas':
         $term = $_GET['term'] ?? '';
         $term = '%' . $term . '%'; // Adiciona curingas para a busca LIKE

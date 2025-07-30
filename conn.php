@@ -19,4 +19,3 @@ try {
     error_log("Erro de Conexão PDO: " . $e->getMessage());
     die("Erro ao conectar ao banco de dados. Por favor, tente novamente mais tarde.");
 }
-?>

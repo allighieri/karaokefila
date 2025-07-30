@@ -1,9 +1,45 @@
 <?php
-require_once 'config.php'; // A variável $pdo estará disponível aqui
+require_once 'conn.php'; // A variável $pdo estará disponível aqui
 require_once 'montar_rodadas.php'; // Função que cria as rodadas
 require_once 'reordenar_fila_rodadas.php'; // Função que reordena a fila, impede musicas da mesma mesa em sequência
 require_once 'atualizar_status_musicas.php'; // Função que atualiza o status das músicas
 require_once 'config_regras_mesas.php'; // Funções para configurar número de musicas por mesa por rodadas
+
+function getTodasMesas(PDO $pdo) {
+    try {
+        $stmt = $pdo->query("SELECT id, nome_mesa, tamanho_mesa FROM mesas ORDER BY nome_mesa");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (\PDOException $e) {
+        error_log("Erro ao buscar mesas: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Exclui uma mesa do banco de dados.
+ *
+ * @param PDO $pdo Objeto PDO da conexão com o banco de dados.
+ * @param int $mesaId O ID da mesa a ser excluída.
+ * @return array Um array associativo com 'success' (bool) e 'message' (string).
+ */
+function excluirMesa(PDO $pdo, int $mesaId): array {
+    try {
+        // Opcional: Você pode adicionar aqui uma verificação se a mesa está em uso (ex: tem cantores associados)
+        // antes de excluí-la. Por simplicidade, faremos a exclusão direta.
+
+        $stmt = $pdo->prepare("DELETE FROM mesas WHERE id = :id");
+        $stmt->execute([':id' => $mesaId]);
+
+        if ($stmt->rowCount() > 0) {
+            return ['success' => true, 'message' => 'Mesa excluída com sucesso!'];
+        } else {
+            return ['success' => false, 'message' => 'Mesa não encontrada ou já excluída.'];
+        }
+    } catch (\PDOException $e) {
+        error_log("Erro ao excluir mesa: " . $e->getMessage());
+        return ['success' => false, 'message' => 'Erro ao excluir mesa: ' . $e->getMessage()];
+    }
+}
 
 /**
  * Adiciona uma nova mesa ao sistema.
@@ -11,17 +47,37 @@ require_once 'config_regras_mesas.php'; // Funções para configurar número de 
  * @param string $nomeMesa Nome/identificador da mesa.
  * @return bool True em caso de sucesso, false caso contrário.
  */
-function adicionarMesa(PDO $pdo, $nomeMesa) { // O parâmetro $tamanhoMesa foi removido
+function adicionarMesa(PDO $pdo, $nomeMesa) {
+    // 1. Verificar se a mesa já existe
     try {
-        // A coluna 'tamanho_mesa' na tabela 'mesas' DEVE ter um DEFAULT de 0 no seu schema do banco de dados.
-        // Se não tiver, o MySQL/SQLite vai inserir 0 por padrão para INT ou dar erro se for NOT NULL sem default.
-        // Se preferir ser explícito, poderia ser:
-        // $stmt = $pdo->prepare("INSERT INTO mesas (nome_mesa, tamanho_mesa) VALUES (?, 0)");
-        $stmt = $pdo->prepare("INSERT INTO mesas (nome_mesa) VALUES (?)");
-        return $stmt->execute([$nomeMesa]);
+        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM mesas WHERE nome_mesa = ?");
+        $stmtCheck->execute([$nomeMesa]);
+        $count = $stmtCheck->fetchColumn();
+
+        if ($count > 0) {
+            // A mesa já existe
+            // Retorna a mensagem específica solicitada
+            return ['success' => false, 'message' => "Já existe uma mesa com esse nome!"];
+        }
     } catch (\PDOException $e) {
+        error_log("Erro ao verificar existência da mesa: " . $e->getMessage());
+        return ['success' => false, 'message' => "Erro ao verificar existência da mesa."];
+    }
+
+    // 2. Se não existe, inserir a nova mesa
+    try {
+        $stmtInsert = $pdo->prepare("INSERT INTO mesas (nome_mesa) VALUES (?)");
+        if ($stmtInsert->execute([$nomeMesa])) {
+            return ['success' => true, 'message' => "Mesa '{$nomeMesa}' adicionada com sucesso!"];
+        } else {
+            // Isso pode acontecer se houver alguma outra restrição no banco de dados,
+            // embora com a verificação de COUNT(*) seja menos provável para nome_mesa.
+            return ['success' => false, 'message' => "Não foi possível adicionar a mesa '{$nomeMesa}' por um motivo desconhecido."];
+        }
+    } catch (\PDOException $e) {
+        // Este catch é para erros durante a INSERÇÃO (ex: falha de conexão, restrição de DB inesperada)
         error_log("Erro ao adicionar mesa: " . $e->getMessage());
-        return false;
+        return ['success' => false, 'message' => "Erro no banco de dados ao adicionar mesa."];
     }
 }
 
@@ -636,7 +692,7 @@ try {
  * @param PDO $pdo Objeto PDO de conexão com o banco de dados.
  * @return bool True se o reset completo foi bem-sucedido, false caso contrário.
  */
-function resetarTudoFila(PDO $pdo): bool {
+function resetarSistema(PDO $pdo): bool {
     try {
         // Não usamos transação aqui porque TRUNCATE TABLE faz um COMMIT implícito.
         // Se uma falhar, as anteriores já foram commitadas.
