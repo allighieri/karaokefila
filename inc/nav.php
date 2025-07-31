@@ -18,11 +18,17 @@
                 <li class="nav-item">
                     <a class="nav-link <?php echo ($current_page == 'musicas_cantores.php') ? 'active' : ''; ?>" href="musicas_cantores.php">Músicas Cantores</a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#sectionRegras">Regras</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" id="resetarSistema" href="#sectionResetarSistema">Resetar Sistema</a>
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Configuração
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                        <li><a class="dropdown-item" href="#">Regras</a></li>
+                        <li><a class="dropdown-item" id="resetarSistema" href="#sectionResetarSistema">Resetar Todo o Sistema</a></li>
+<!--                        <li><hr class="dropdown-divider"></li>-->
+<!--                        <li><a class="dropdown-item" href="#">Something else here</a></li>-->
+                    </ul>
                 </li>
             </ul>
         </div>

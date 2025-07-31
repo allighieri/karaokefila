@@ -38,7 +38,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
         <input type="hidden" name="action" value="add_mesa">
         <div class="row"> <div class="col-12 col-lg-6"> <div class="input-group mb-3">
                     <input type="text" id="nome_mesa" name="nome_mesa"  class="form-control" placeholder="Nome da mesa" aria-label="Nome da mesa" aria-describedby="button-addon2" required>
-                    <button class="btn btn-primary" type="submit" id="button-addon2">Adicionar</button>
+                    <button class="btn btn-success" type="submit" id="button-addon2">Adicionar</button>
                 </div>
             </div>
         </div>
@@ -226,6 +226,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
         // Evento de clique no botão de confirmar exclusão dentro do modal
         $('#btnConfirmarExclusao').on('click', function() {
             var mesaId = $(this).data('mesa-id');
+            var confirmModal = bootstrap.Modal.getInstance(document.getElementById('confirmDeleteModal'));
 
             $.ajax({
                 url: 'api.php',
@@ -238,12 +239,13 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                 success: function(response) {
                     if (response.success) {
                         showAlert(response.message, 'success');
-                        var confirmModal = bootstrap.Modal.getInstance(document.getElementById('confirmDeleteModal'));
+
                         confirmModal.hide();
                         // *** CHAMA A NOVA FUNÇÃO DE REFRESH SEM REFRESH DE PÁGINA ***
                         refreshMesasList();
                     } else {
-                        showAlert('Erro ao excluir mesa: ' + response.message, 'danger');
+                        showAlert(response.message, 'danger');
+                        confirmModal.hide();
                     }
                 },
                 error: function(xhr, status, error) {

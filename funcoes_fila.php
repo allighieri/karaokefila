@@ -48,7 +48,8 @@ function getTodasMesas(PDO $pdo) {
 }
 
 /**
- * Exclui uma mesa do banco de dados.
+ * Exclui uma mesa do banco de dados, impedindo a exclusão se a mesa tiver
+ * alguma música associada em status 'em_execucao' na fila_rodadas.
  *
  * @param PDO $pdo Objeto PDO da conexão com o banco de dados.
  * @param int $mesaId O ID da mesa a ser excluída.
@@ -56,20 +57,52 @@ function getTodasMesas(PDO $pdo) {
  */
 function excluirMesa(PDO $pdo, int $mesaId): array {
     try {
-        // Opcional: Você pode adicionar aqui uma verificação se a mesa está em uso (ex: tem cantores associados)
-        // antes de excluí-la. Por simplicidade, faremos a exclusão direta.
+        $pdo->beginTransaction(); // Inicia uma transação para garantir atomicidade
 
-        $stmt = $pdo->prepare("DELETE FROM mesas WHERE id = :id");
-        $stmt->execute([':id' => $mesaId]);
+        // 1. Verificar se a mesa possui alguma música em status 'em_execucao' na fila_rodadas
+        $stmtCheckFila = $pdo->prepare("
+            SELECT COUNT(fr.id)
+            FROM fila_rodadas fr
+            JOIN cantores c ON fr.id_cantor = c.id
+            WHERE c.id_mesa = :mesaId
+            AND fr.status = 'em_execucao'
+        ");
+        $stmtCheckFila->execute([':mesaId' => $mesaId]);
+        $isMesaInExecution = $stmtCheckFila->fetchColumn();
 
-        if ($stmt->rowCount() > 0) {
-            return ['success' => true, 'message' => 'Mesa excluída com sucesso!'];
+        if ($isMesaInExecution > 0) {
+            $pdo->rollBack(); // Reverte a transação se a condição for verdadeira
+            error_log("Alerta: Tentativa de excluir mesa (ID: " . $mesaId . ") que tem música(s) em 'em_execucao' na fila. Exclusão não permitida.");
+            return ['success' => false, 'message' => "Não é possível remover a mesa. Há uma música desta mesa atualmente em execução."];
+        }
+
+        // 2. Se a verificação passou, obtenha o nome da mesa para a mensagem de sucesso/erro
+        $stmtGetMesaNome = $pdo->prepare("SELECT nome_mesa FROM mesas WHERE id = :mesaId");
+        $stmtGetMesaNome->execute([':mesaId' => $mesaId]);
+        $mesaInfo = $stmtGetMesaNome->fetch(PDO::FETCH_ASSOC);
+        $nomeMesa = $mesaInfo['nome_mesa'] ?? 'Mesa Desconhecida';
+
+
+        // 3. Exclua a mesa
+        // Lembre-se: se você configurou ON DELETE CASCADE nas chaves estrangeiras de 'cantores' e 'musicas_cantor'
+        // para 'mesas', os cantores e suas músicas associadas serão excluídos automaticamente.
+        // Caso contrário, você precisará excluir cantores e músicas manualmente aqui ANTES de excluir a mesa.
+        $stmtDeleteMesa = $pdo->prepare("DELETE FROM mesas WHERE id = :id");
+        $stmtDeleteMesa->execute([':id' => $mesaId]);
+
+        if ($stmtDeleteMesa->rowCount() > 0) {
+            $pdo->commit(); // Confirma a transação
+            return ['success' => true, 'message' => "Mesa '{$nomeMesa}' excluída com sucesso."];
         } else {
+            $pdo->rollBack(); // Reverte a transação se a mesa não foi encontrada
             return ['success' => false, 'message' => 'Mesa não encontrada ou já excluída.'];
         }
     } catch (\PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack(); // Garante que a transação seja revertida em caso de exceção
+        }
         error_log("Erro ao excluir mesa: " . $e->getMessage());
-        return ['success' => false, 'message' => 'Erro ao excluir mesa: ' . $e->getMessage()];
+        return ['success' => false, 'message' => 'Erro interno do servidor ao excluir mesa: ' . $e->getMessage()];
     }
 }
 
@@ -167,12 +200,13 @@ function adicionarCantor(PDO $pdo, $nomeCantor, $idMesa) {
 }
 
 /**
- * Remove um cantor e decrementa o tamanho_mesa da mesa associada.
+ * Remove um cantor e decrementa o tamanho_mesa da mesa associada,
+ * impedindo a remoção se o cantor tiver uma música em execução ou selecionada na fila.
  * @param PDO $pdo Objeto de conexão PDO.
  * @param int $idCantor ID do cantor a ser removido.
- * @return bool True em caso de sucesso, false caso contrário.
+ * @return array Um array associativo com 'success' (bool) e 'message' (string).
  */
-function removerCantor(PDO $pdo, $idCantor): array // Adicionado o tipo de retorno 'array'
+function removerCantor(PDO $pdo, $idCantor): array
 {
     try {
         $pdo->beginTransaction();
@@ -189,31 +223,45 @@ function removerCantor(PDO $pdo, $idCantor): array // Adicionado o tipo de retor
         }
 
         $idMesa = $cantorInfo['id_mesa'];
-        $nomeCantor = $cantorInfo['nome_cantor']; // Pegar o nome para a mensagem de sucesso/erro
+        $nomeCantor = $cantorInfo['nome_cantor'];
 
-        // 2. Remover o cantor
+        // NOVO PASSO: 2. Verificar se o cantor tem alguma música em 'em_execucao' ou 'selecionada_para_rodada' na fila_rodadas
+        $stmtCheckFila = $pdo->prepare(
+            "SELECT COUNT(*) FROM fila_rodadas
+             WHERE id_cantor = ?
+               AND (status = 'em_execucao')"
+        );
+        $stmtCheckFila->execute([$idCantor]);
+        $isInFilaAtiva = $stmtCheckFila->fetchColumn();
+
+        if ($isInFilaAtiva > 0) {
+            $pdo->rollBack();
+            error_log("Alerta: Tentativa de excluir cantor (ID: " . $idCantor . ", Nome: " . $nomeCantor . ") que possui música(s) em execução ou selecionada(s) na fila. Exclusão não permitida.");
+            return ['success' => false, 'message' => "Não é possível remover o cantor '{$nomeCantor}'. Ele(a) tem música(s) atualmente em execução ou selecionada(s) para a rodada."];
+        }
+
+        // 3. Remover o cantor (apenas se não estiver na fila ativa)
         $stmtDeleteCantor = $pdo->prepare("DELETE FROM cantores WHERE id = ?");
         $successDelete = $stmtDeleteCantor->execute([$idCantor]);
 
         if ($successDelete) {
-            // 3. Decrementar o 'tamanho_mesa' da mesa associada (se for maior que zero)
+            // 4. Decrementar o 'tamanho_mesa' da mesa associada (se for maior que zero)
+            // Lembre-se que se você configurou ON DELETE CASCADE na FK de musicas_cantor para cantores,
+            // as músicas do cantor serão excluídas automaticamente, então não precisa se preocupar aqui.
             $stmtUpdateMesa = $pdo->prepare("UPDATE mesas SET tamanho_mesa = GREATEST(0, tamanho_mesa - 1) WHERE id = ?");
             $updateSuccess = $stmtUpdateMesa->execute([$idMesa]);
 
             if ($updateSuccess) {
                 $pdo->commit();
-                // Retorna sucesso com mensagem
                 return ['success' => true, 'message' => "Cantor(a) '{$nomeCantor}' removido(a) com sucesso."];
             } else {
                 $pdo->rollBack();
                 error_log("Erro ao decrementar tamanho_mesa para a mesa ID: " . $idMesa . " após remover cantor ID: " . $idCantor);
-                // Retorna erro com mensagem
                 return ['success' => false, 'message' => "Erro ao atualizar o tamanho da mesa após remover cantor."];
             }
         } else {
             $pdo->rollBack();
             error_log("Erro ao remover o cantor ID: " . $idCantor . ". PDO Error: " . implode(" ", $stmtDeleteCantor->errorInfo()));
-            // Retorna erro com mensagem
             return ['success' => false, 'message' => "Erro ao remover o cantor."];
         }
     } catch (\PDOException $e) {
@@ -221,7 +269,6 @@ function removerCantor(PDO $pdo, $idCantor): array // Adicionado o tipo de retor
             $pdo->rollBack();
         }
         error_log("Erro ao remover cantor (PDOException): " . $e->getMessage());
-        // Retorna erro com mensagem
         return ['success' => false, 'message' => "Erro interno do servidor ao remover cantor."];
     }
 }

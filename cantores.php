@@ -51,7 +51,6 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
         <input type="hidden" name="action" value="add_cantor">
         <div class="row mb-3">
             <div class="col-md-6">
-                <label for="id_mesa_cantor" class="form-label">Mesa:</label>
                 <select id="id_mesa_cantor" name="id_mesa_cantor" class="form-select" required> <option value="">Selecione uma mesa</option>
                     <?php
                     if (isset($mesas_disponiveis)) {
@@ -67,7 +66,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
             <div class="col-12 col-lg-6">
                 <div class="input-group mb-3">
                     <input type="text" id="nome_cantor" name="nome_cantor" class="form-control" placeholder="Nome do cantor" aria-label="Nome do cantor" aria-describedby="button-addon2" required>
-                    <button class="btn btn-primary" type="submit" id="button-addon2">Adicionar</button>
+                    <button class="btn btn-success" type="submit" id="button-addon2">Adicionar</button>
                 </div>
             </div>
         </div>
@@ -94,7 +93,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
                         <td><?php echo htmlspecialchars($cantor['proximo_ordem_musica']); ?></td>
                         <td>
                             <div class="d-flex flex-nowrap gap-1">
-                                <button class="btn btn-sm btn-info" data-id="<?php echo $cantor['id']; ?>" title="Editar Cantor">
+                                <button class="btn btn-sm btn-warning" data-id="<?php echo $cantor['id']; ?>" title="Editar Cantor">
                                     <i class="bi bi-pencil-square"></i>
                                 </button>
                                 <button class="btn btn-sm btn-danger" onclick="confirmarExclusaoCantor(<?php echo $cantor['id']; ?>, '<?php echo htmlspecialchars($cantor['nome_cantor'], ENT_QUOTES, 'UTF-8'); ?>')" title="Excluir Cantor">
@@ -188,7 +187,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
                                     '<td>' + htmlspecialchars(cantor.proximo_ordem_musica) + '</td>' +
                                     '<td>' +
                                     '<div class="d-flex flex-nowrap gap-1">' +
-                                    '<button class="btn btn-sm btn-info" data-id="' + htmlspecialchars(cantor.id) + '" title="Editar Cantor">' +
+                                    '<button class="btn btn-sm btn-warning" data-id="' + htmlspecialchars(cantor.id) + '" title="Editar Cantor">' +
                                     '<i class="bi bi-pencil-square"></i>' +
                                     '</button> ' +
                                     '<button class="btn btn-sm btn-danger" onclick="confirmarExclusaoCantor(' + htmlspecialchars(cantor.id) + ', \'' + htmlspecialchars(cantor.nome_cantor) + '\')" title="Excluir Cantor">' +
@@ -257,7 +256,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
         // Evento de clique no botão de confirmar exclusão dentro do modal
         $('#btnConfirmarExclusao').on('click', function() {
             var cantorId = $(this).data('cantor-id'); // Pega o ID do cantor
-
+            var confirmModal = bootstrap.Modal.getInstance(document.getElementById('confirmDeleteModal'));
             $.ajax({
                 url: 'api.php',
                 type: 'POST',
@@ -269,12 +268,13 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
                 success: function(response) {
                     if (response.success) {
                         showAlert(response.message, 'success');
-                        var confirmModal = bootstrap.Modal.getInstance(document.getElementById('confirmDeleteModal'));
+
                         confirmModal.hide();
                         refreshCantoresList(); // NOVO: Atualiza a lista de cantores após a exclusão
                     } else {
                         // CORRIGIDO: Mensagem de erro para cantor
                         showAlert('Erro ao excluir cantor: ' + response.message, 'danger');
+                        confirmModal.hide();
                     }
                 },
                 error: function(xhr, status, error) {
