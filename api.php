@@ -29,6 +29,21 @@ switch ($action) {
             $response['message'] = "Não foi possível montar uma nova rodada. Verifique os logs do servidor para mais detalhes.";
         }
         break;
+    case 'add_cantor':
+        $nomeCantor = $_POST['nomeCantor'] ?? '';
+        $idMesa = $_POST['idMesa'] ?? '';
+
+        $resultadoAdicao = adicionarCantor($pdo, $nomeCantor, $idMesa);
+
+        $response['success'] = $resultadoAdicao['success'];
+        $response['message'] = $resultadoAdicao['message'];
+        break;
+    case 'get_all_cantores':
+        // Supondo que 'getTodosCantoresComNomeMesa' está definida em 'funcoes_fila.php'
+        $cantores = getAllCantores($pdo);
+        $response['success'] = true;
+        $response['cantores'] = $cantores; // Retorna o array de cantores
+        break;
     case 'add_mesa':
         $nomeMesa = $_POST['nomeMesa'] ?? ''; // Adicione ?? '' para evitar erro se 'nomeMesa' não vier
 
@@ -51,6 +66,18 @@ switch ($action) {
             $response['message'] = $resultadoExclusao['message'];
         } else {
             $response['message'] = 'ID da mesa inválido para exclusão.';
+        }
+        break;
+    case 'excluir_cantor':
+        $cantorId = (int)($_POST['cantorId'] ?? 0);
+
+        if ($cantorId <= 0) {
+            $response['message'] = 'ID do cantor inválido.';
+        } else {
+            // Chama a função atualizada removerCantor e usa seu retorno
+            $resultadoRemocao = removerCantor($pdo, $cantorId);
+            $response['success'] = $resultadoRemocao['success'];
+            $response['message'] = $resultadoRemocao['message'];
         }
         break;
 

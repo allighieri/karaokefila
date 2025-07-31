@@ -23,6 +23,12 @@ $('document').ready(function(){
             success: function(response) {
                 if (response.success) {
                     showAlert(response.message, 'success');
+                    if (typeof refreshCantoresList === 'function') {
+                        refreshCantoresList();
+                    }
+                    if (typeof refreshMesasList === 'function') {
+                        refreshMesasList();
+                    }
                 } else {
                     showAlert('Erro: ' + response.message, 'danger');
                 }

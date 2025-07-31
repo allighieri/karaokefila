@@ -233,12 +233,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerenciar Músicas do Cantor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="css/style_gerenciar_musicas.css">
 </head>
 <body>
-    <div class="container">
+    <?php include_once 'inc/nav.php'; ?>
+    <div class="container mt-5">
         <h1>Gerenciar Músicas por Cantor</h1>
 
         <?php if ($mensagem_sucesso != ''): ?>

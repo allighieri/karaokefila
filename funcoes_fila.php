@@ -5,6 +5,38 @@ require_once 'reordenar_fila_rodadas.php'; // Função que reordena a fila, impe
 require_once 'atualizar_status_musicas.php'; // Função que atualiza o status das músicas
 require_once 'config_regras_mesas.php'; // Funções para configurar número de musicas por mesa por rodadas
 
+/**
+ * Retorna todos os cantores cadastrados, incluindo o nome da mesa associada.
+ *
+ * @param PDO $pdo Objeto PDO de conexão com o banco de dados.
+ * @return array Um array de arrays associativos contendo os dados dos cantores,
+ * ou um array vazio em caso de nenhum cantor ou erro.
+ */
+function getAllCantores(PDO $pdo): array
+{
+    try {
+        $stmt = $pdo->prepare("
+            SELECT
+                c.id,
+                c.nome_cantor,
+                c.id_mesa,
+                m.nome_mesa AS nome_da_mesa_associada, -- Alias para evitar conflito de nome e clareza
+                c.proximo_ordem_musica
+            FROM
+                cantores c
+            LEFT JOIN
+                mesas m ON c.id_mesa = m.id
+            ORDER BY
+                c.nome_cantor ASC
+        ");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (\PDOException $e) {
+        error_log("Erro ao buscar todos os cantores com nome da mesa: " . $e->getMessage());
+        return []; // Retorna um array vazio em caso de erro
+    }
+}
+
 function getTodasMesas(PDO $pdo) {
     try {
         $stmt = $pdo->query("SELECT id, nome_mesa, tamanho_mesa FROM mesas ORDER BY nome_mesa");
@@ -92,7 +124,18 @@ function adicionarCantor(PDO $pdo, $nomeCantor, $idMesa) {
     try {
         $pdo->beginTransaction(); // Inicia a transação para garantir atomicidade
 
-        // 1. Insere o novo cantor
+        $stmtGetMesa = $pdo->prepare("SELECT nome_mesa FROM mesas WHERE id = ?");
+        $stmtGetMesa->execute([$idMesa]);
+        $mesaInfo = $stmtGetMesa->fetch(PDO::FETCH_ASSOC);
+
+        if (!$mesaInfo) {
+            $pdo->rollBack(); // Reverte se a mesa não for encontrada
+            error_log("Erro: Mesa com ID {$idMesa} não encontrada.");
+            return ['success' => false, 'message' => "Erro: Mesa não encontrada para adicionar cantor."];
+        }
+        $nomeMesa = $mesaInfo['nome_mesa']; // Pega o nome da mesa
+
+        // Insere o novo cantor
         $stmt = $pdo->prepare("INSERT INTO cantores (nome_cantor, id_mesa) VALUES (?, ?)");
         $success = $stmt->execute([$nomeCantor, $idMesa]);
 
@@ -103,7 +146,7 @@ function adicionarCantor(PDO $pdo, $nomeCantor, $idMesa) {
 
             if ($updateSuccess) {
                 $pdo->commit(); // Confirma ambas as operações se tudo deu certo
-                return true;
+                return ['success' => true, 'message' => "<strong>{$nomeCantor}(a)</strong> adicionado(a) à mesa <strong>{$nomeMesa}</strong> com sucesso!"];
             } else {
                 $pdo->rollBack(); // Reverte a inserção do cantor se a atualização da mesa falhar
                 error_log("Erro ao incrementar tamanho_mesa para a mesa ID: " . $idMesa);
@@ -129,20 +172,24 @@ function adicionarCantor(PDO $pdo, $nomeCantor, $idMesa) {
  * @param int $idCantor ID do cantor a ser removido.
  * @return bool True em caso de sucesso, false caso contrário.
  */
-function removerCantor(PDO $pdo, $idCantor) {
+function removerCantor(PDO $pdo, $idCantor): array // Adicionado o tipo de retorno 'array'
+{
     try {
         $pdo->beginTransaction();
 
-        // 1. Obter o id_mesa do cantor antes de excluí-lo
-        $stmtGetMesaId = $pdo->prepare("SELECT id_mesa FROM cantores WHERE id = ?");
-        $stmtGetMesaId->execute([$idCantor]);
-        $idMesa = $stmtGetMesaId->fetchColumn();
+        // 1. Obter o id_mesa e o nome do cantor antes de excluí-lo
+        $stmtGetCantorInfo = $pdo->prepare("SELECT id_mesa, nome_cantor FROM cantores WHERE id = ?");
+        $stmtGetCantorInfo->execute([$idCantor]);
+        $cantorInfo = $stmtGetCantorInfo->fetch(PDO::FETCH_ASSOC);
 
-        if ($idMesa === false) { // Cantor não encontrado
+        if (!$cantorInfo) { // Cantor não encontrado
             $pdo->rollBack();
             error_log("Erro: Cantor ID " . $idCantor . " não encontrado para remoção.");
-            return false;
+            return ['success' => false, 'message' => 'Cantor não encontrado.'];
         }
+
+        $idMesa = $cantorInfo['id_mesa'];
+        $nomeCantor = $cantorInfo['nome_cantor']; // Pegar o nome para a mensagem de sucesso/erro
 
         // 2. Remover o cantor
         $stmtDeleteCantor = $pdo->prepare("DELETE FROM cantores WHERE id = ?");
@@ -155,23 +202,27 @@ function removerCantor(PDO $pdo, $idCantor) {
 
             if ($updateSuccess) {
                 $pdo->commit();
-                return true;
+                // Retorna sucesso com mensagem
+                return ['success' => true, 'message' => "Cantor(a) '{$nomeCantor}' removido(a) com sucesso."];
             } else {
                 $pdo->rollBack();
-                error_log("Erro ao decrementar tamanho_mesa para a mesa ID: " . $idMesa);
-                return false;
+                error_log("Erro ao decrementar tamanho_mesa para a mesa ID: " . $idMesa . " após remover cantor ID: " . $idCantor);
+                // Retorna erro com mensagem
+                return ['success' => false, 'message' => "Erro ao atualizar o tamanho da mesa após remover cantor."];
             }
         } else {
             $pdo->rollBack();
-            error_log("Erro ao remover o cantor ID: " . $idCantor);
-            return false;
+            error_log("Erro ao remover o cantor ID: " . $idCantor . ". PDO Error: " . implode(" ", $stmtDeleteCantor->errorInfo()));
+            // Retorna erro com mensagem
+            return ['success' => false, 'message' => "Erro ao remover o cantor."];
         }
     } catch (\PDOException $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
         error_log("Erro ao remover cantor (PDOException): " . $e->getMessage());
-        return false;
+        // Retorna erro com mensagem
+        return ['success' => false, 'message' => "Erro interno do servidor ao remover cantor."];
     }
 }
 

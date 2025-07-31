@@ -8,9 +8,22 @@ require_once 'funcoes_fila.php';
 $todas_mesas = []; // Inicializa como array vazio
 if (!empty($pdo)) {
     $todas_mesas = getTodasMesas($pdo); // Continua buscando as mesas na carga inicial da página
+
+    $todos_cantores = getAllCantores($pdo);
+}else {
+    $todos_cantores = []; // Garante que seja um array vazio se o PDO não estiver conectado
 }
 
 $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
+
+// Obter lista de mesas para formulário de adicionar cantor
+$stmtMesas = $pdo->query("SELECT id, nome_mesa FROM mesas ORDER BY nome_mesa ASC");
+$mesas_disponiveis = $stmtMesas->fetchAll();
+
+
+
+
+
 ?>
 
 <!DOCTYPE html>
@@ -18,7 +31,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerenciador de Karaokê - Mesas</title>
+    <title>Gerenciador de Karaokê - Cantores</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
     <link rel="stylesheet" href="css/style_index.css">
@@ -33,40 +46,58 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 
     <div id="alertContainer" class="mt-3"></div>
 
-    <h3>Adicionar Mesa</h3>
-    <form method="POST" id="addMesas">
-        <input type="hidden" name="action" value="add_mesa">
-        <div class="row"> <div class="col-12 col-lg-6"> <div class="input-group mb-3">
-                    <input type="text" id="nome_mesa" name="nome_mesa"  class="form-control" placeholder="Nome da mesa" aria-label="Nome da mesa" aria-describedby="button-addon2" required>
+    <h3>Adicionar Cantores</h3>
+    <form method="POST" id="addCantores">
+        <input type="hidden" name="action" value="add_cantor">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="id_mesa_cantor" class="form-label">Mesa:</label>
+                <select id="id_mesa_cantor" name="id_mesa_cantor" class="form-select" required> <option value="">Selecione uma mesa</option>
+                    <?php
+                    if (isset($mesas_disponiveis)) {
+                        foreach ($mesas_disponiveis as $mesa): ?>
+                            <option value="<?php echo htmlspecialchars($mesa['id']); ?>"><?php echo htmlspecialchars($mesa['nome_mesa']); ?></option>
+                        <?php endforeach;
+                    }
+                    ?>
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12 col-lg-6">
+                <div class="input-group mb-3">
+                    <input type="text" id="nome_cantor" name="nome_cantor" class="form-control" placeholder="Nome do cantor" aria-label="Nome do cantor" aria-describedby="button-addon2" required>
                     <button class="btn btn-primary" type="submit" id="button-addon2">Adicionar</button>
                 </div>
             </div>
         </div>
+
     </form>
 
     <hr class="my-4">
-    <h3>Mesas Cadastradas</h3>
-    <div id="mesasListContainer">
-        <?php if (!empty($todas_mesas)): ?>
+    <h3>Cantores Cadastrados</h3>
+    <div id="cantoresListContainer">
+        <?php if (!empty($todos_cantores)): ?>
             <table class="table table-striped table-hover">
                 <thead>
                 <tr>
+                    <th scope="col">Cantor</th>
                     <th scope="col">Mesa</th>
-                    <th scope="col">Cantando</th>
-                    <th scope="col">Ações</th>
-                </tr>
+                    <th scope="col">Prior</th>
+                    <th scope="col">Ações</th> </tr>
                 </thead>
                 <tbody>
-                <?php foreach ($todas_mesas as $mesa): ?>
+                <?php foreach ($todos_cantores as $cantor): ?>
                     <tr>
-                        <td><?php echo htmlspecialchars($mesa['nome_mesa']); ?></td>
-                        <td><?php echo htmlspecialchars($mesa['tamanho_mesa'] ?? 'Não Definido'); ?></td>
+                        <td><?php echo htmlspecialchars($cantor['nome_cantor']); ?></td>
+                        <td><?php echo htmlspecialchars($cantor['nome_da_mesa_associada'] ?? 'N/A'); ?></td>
+                        <td><?php echo htmlspecialchars($cantor['proximo_ordem_musica']); ?></td>
                         <td>
                             <div class="d-flex flex-nowrap gap-1">
-                                <button class="btn btn-sm btn-warning" data-id="<?php echo $mesa['id']; ?>" title="Editar Mesa">
+                                <button class="btn btn-sm btn-info" data-id="<?php echo $cantor['id']; ?>" title="Editar Cantor">
                                     <i class="bi bi-pencil-square"></i>
                                 </button>
-                                <button class="btn btn-sm btn-danger" onclick="confirmarExclusaoMesa(<?php echo $mesa['id']; ?>, '<?php echo htmlspecialchars($mesa['nome_mesa'], ENT_QUOTES, 'UTF-8'); ?>')" title="Excluir Mesa">
+                                <button class="btn btn-sm btn-danger" onclick="confirmarExclusaoCantor(<?php echo $cantor['id']; ?>, '<?php echo htmlspecialchars($cantor['nome_cantor'], ENT_QUOTES, 'UTF-8'); ?>')" title="Excluir Cantor">
                                     <i class="bi bi-trash-fill"></i>
                                 </button>
                             </div>
@@ -76,7 +107,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                 </tbody>
             </table>
         <?php else: ?>
-            <p>Nenhuma mesa cadastrada ainda. Adicione uma nova mesa acima.</p>
+            <p>Nenhum cantor cadastrado ainda.</p>
         <?php endif; ?>
     </div>
 
@@ -90,8 +121,8 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                Tem certeza que deseja excluir a mesa "<strong id="mesaNomeExcluir"></strong>"?
-                <p class="text-danger mt-2">Atenção: A exclusão de uma mesa pode afetar cantores e filas associadas.</p>
+                Tem certeza que deseja excluir o cantor(a) "<strong id="cantorNomeExcluir"></strong>"?
+                <p class="text-danger mt-2">Atenção: A exclusão de um cantor pode afetar músicas e filas associadas.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -129,39 +160,38 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
         }
 
 
-        window.refreshMesasList = function() {
+
+        window.refreshCantoresList = function() {
             $.ajax({
                 url: 'api.php',
-                type: 'GET', // Usamos GET para buscar dados
+                type: 'GET',
                 dataType: 'json',
-                data: { action: 'get_all_mesas' }, // Ação que vai buscar as mesas
+                data: { action: 'get_all_cantores' }, // Nova ação para buscar cantores
                 success: function(response) {
                     if (response.success) {
                         var tableHtml = '';
-                        if (response.mesas.length > 0) {
+                        if (response.cantores.length > 0) {
                             tableHtml += '<table class="table table-striped table-hover">' +
                                 '<thead>' +
                                 '<tr>' +
+                                '<th scope="col">Cantor</th>' +
                                 '<th scope="col">Mesa</th>' +
-                                '<th scope="col">Cantando</th>' +
+                                '<th scope="col">Prior</th>' +
                                 '<th scope="col">Ações</th>' +
                                 '</tr>' +
                                 '</thead>' +
                                 '<tbody>';
-                            $.each(response.mesas, function(index, mesa) {
+                            $.each(response.cantores, function(index, cantor) {
                                 tableHtml += '<tr>' +
-                                    // Certifique-se que o ID da mesa está correto aqui se a coluna 'ID' existir no <thead>
-                                    // Se não tiver coluna ID: '<td>' + htmlspecialchars(mesa.nome_mesa) + '</td>' +
-                                    // Se tiver coluna ID: '<td>' + htmlspecialchars(mesa.id) + '</td>' +
-                                    '<td>' + htmlspecialchars(mesa.nome_mesa) + '</td>' + // Acredito que esta linha estava correta, mas você a trocou. Verifique seu <thead>.
-                                    '<td>' + (mesa.tamanho_mesa !== null && mesa.tamanho_mesa !== undefined ? htmlspecialchars(mesa.tamanho_mesa) : 'Não Definido') + '</td>' +
+                                    '<td>' + htmlspecialchars(cantor.nome_cantor) + '</td>' +
+                                    '<td>' + htmlspecialchars(cantor.nome_da_mesa_associada !== null && cantor.nome_da_mesa_associada !== undefined ? cantor.nome_da_mesa_associada : 'N/A') + '</td>' +
+                                    '<td>' + htmlspecialchars(cantor.proximo_ordem_musica) + '</td>' +
                                     '<td>' +
-                                    // Este é o modo Bootstrap nativo para botões lado a lado
                                     '<div class="d-flex flex-nowrap gap-1">' +
-                                    '<button class="btn btn-sm btn-warning" data-id="' + htmlspecialchars(mesa.id) + '" title="Editar Mesa">' +
+                                    '<button class="btn btn-sm btn-info" data-id="' + htmlspecialchars(cantor.id) + '" title="Editar Cantor">' +
                                     '<i class="bi bi-pencil-square"></i>' +
                                     '</button> ' +
-                                    '<button class="btn btn-sm btn-danger" onclick="confirmarExclusaoMesa(' + htmlspecialchars(mesa.id) + ', \'' + htmlspecialchars(mesa.nome_mesa) + '\')" title="Excluir Mesa">' +
+                                    '<button class="btn btn-sm btn-danger" onclick="confirmarExclusaoCantor(' + htmlspecialchars(cantor.id) + ', \'' + htmlspecialchars(cantor.nome_cantor) + '\')" title="Excluir Cantor">' +
                                     '<i class="bi bi-trash-fill"></i>' +
                                     '</button>' +
                                     '</div>' +
@@ -170,39 +200,40 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                             });
                             tableHtml += '</tbody></table>';
                         } else {
-                            tableHtml = '<p>Nenhuma mesa cadastrada ainda. Adicione uma nova mesa acima.</p>';
+                            tableHtml = '<p>Nenhum cantor cadastrado ainda.</p>';
                         }
-                        $('#mesasListContainer').html(tableHtml); // Atualiza o conteúdo da div
+                        $('#cantoresListContainer').html(tableHtml); // Atualiza o conteúdo da div
                     } else {
-                        showAlert('Erro ao recarregar a lista de mesas: ' + response.message, 'danger');
+                        showAlert('Erro ao recarregar a lista de cantores: ' + response.message, 'danger');
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error("Erro na requisição AJAX para recarregar mesas:", status, error);
-                    showAlert('Erro na comunicação com o servidor ao recarregar mesas.', 'danger');
+                    console.error("Erro na requisição AJAX para recarregar cantores:", status, error);
+                    showAlert('Erro na comunicação com o servidor ao recarregar cantores.', 'danger');
                 }
             });
         }
 
-        $('#addMesas').on('submit', function(e) {
+
+        $('#addCantores').on('submit', function(e) {
             e.preventDefault();
 
-            var nomeMesa = $('#nome_mesa').val();
+            var nomeCantor = $('#nome_cantor').val();
+            var idMesa = $('#id_mesa_cantor').val();
 
             $.ajax({
                 url: 'api.php',
                 type: 'POST',
                 dataType: 'json',
                 data: {
-                    action: 'add_mesa',
-                    nomeMesa: nomeMesa
+                    action: 'add_cantor',
+                    nomeCantor: nomeCantor,
+                    idMesa: idMesa
                 },
                 success: function(response) {
                     if (response.success) {
-                        showAlert(response.message, 'success');
-                        $('#nome_mesa').val(""); // Limpa o campo
-                        // *** CHAMA A NOVA FUNÇÃO DE REFRESH SEM REFRESH DE PÁGINA ***
-                        refreshMesasList();
+                        $('#nome_cantor').val("");
+                        refreshCantoresList();
                     } else {
                         showAlert('Erro: ' + response.message, 'danger');
                     }
@@ -215,46 +246,47 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
         });
 
         // Função para configurar e exibir o modal de confirmação de exclusão
-        window.confirmarExclusaoMesa = function(id, nome) {
-            $('#mesaIdExcluir').text(id);
-            $('#mesaNomeExcluir').text(nome);
-            $('#btnConfirmarExclusao').data('mesa-id', id);
+        window.confirmarExclusaoCantor = function(id, nome) {
+            $('#cantorIdExcluir').text(id);
+            $('#cantorNomeExcluir').text(nome);
+            $('#btnConfirmarExclusao').data('cantor-id', id);
             var confirmModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
             confirmModal.show();
         };
 
         // Evento de clique no botão de confirmar exclusão dentro do modal
         $('#btnConfirmarExclusao').on('click', function() {
-            var mesaId = $(this).data('mesa-id');
+            var cantorId = $(this).data('cantor-id'); // Pega o ID do cantor
 
             $.ajax({
                 url: 'api.php',
                 type: 'POST',
                 dataType: 'json',
                 data: {
-                    action: 'excluir_mesa',
-                    mesa_id: mesaId
+                    action: 'excluir_cantor', // Ação correta para API
+                    cantorId: cantorId // Parâmetro correto para API
                 },
                 success: function(response) {
                     if (response.success) {
                         showAlert(response.message, 'success');
                         var confirmModal = bootstrap.Modal.getInstance(document.getElementById('confirmDeleteModal'));
                         confirmModal.hide();
-                        // *** CHAMA A NOVA FUNÇÃO DE REFRESH SEM REFRESH DE PÁGINA ***
-                        refreshMesasList();
+                        refreshCantoresList(); // NOVO: Atualiza a lista de cantores após a exclusão
                     } else {
-                        showAlert('Erro ao excluir mesa: ' + response.message, 'danger');
+                        // CORRIGIDO: Mensagem de erro para cantor
+                        showAlert('Erro ao excluir cantor: ' + response.message, 'danger');
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error("Erro na requisição AJAX para excluir mesa:", status, error);
-                    showAlert('Erro na comunicação com o servidor ao excluir mesa.', 'danger');
+                    console.error("Erro na requisição AJAX para excluir cantor:", status, error); // CORRIGIDO
+                    // CORRIGIDO: Mensagem de erro para cantor
+                    showAlert('Erro na comunicação com o servidor ao excluir cantor.', 'danger');
                 }
             });
         });
 
         // Função utilitária para escapar HTML (boa prática)
-        function htmlspecialchars(text) {
+        window.htmlspecialchars = function(text) {
             var map = {
                 '&': '&amp;',
                 '<': '&lt;',
@@ -265,12 +297,6 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
             return text == null ? '' : String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
         }
 
-        // *** IMPORTANTE: CARREGA A LISTA DE MESAS NA INICIALIZAÇÃO DA PÁGINA ***
-        // Isso garante que a lista esteja atualizada mesmo na primeira carga sem precisar de PHP para popular a tabela.
-        // No entanto, como você já tem o PHP populando na carga inicial, isso é redundante, mas mantém a flexibilidade
-        // se decidir remover o loop PHP inicial no futuro. O loop PHP inicial é mais robusto para a primeira carga.
-        // Se você quiser que o JS seja o único responsável por popular a lista:
-        // refreshMesasList(); // Descomente se quiser que o JS carregue a lista na primeira carga, sobrepondo o PHP
     })
 </script>
 </body>

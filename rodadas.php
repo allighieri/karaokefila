@@ -8,6 +8,7 @@ $musica_em_execucao = getMusicaEmExecucao($pdo);
 $proxima_musica_aguardando = getProximaMusicaFila($pdo);
 $fila_completa = getFilaCompleta($pdo); // Esta é a lista completa da rodada
 
+$current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 ?>
 
 <!DOCTYPE html>
@@ -22,36 +23,7 @@ $fila_completa = getFilaCompleta($pdo); // Esta é a lista completa da rodada
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-dark fixed-top bg-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="index.php">Gerenciador de Filas Karaokê</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ms-auto">
-                <li class="nav-item">
-                    <a class="nav-link active" aria-current="page" data-bs-slide-to="0" href="rodadas.php">Gerenciar Fila</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-bs-slide-to="1" href="mesas.php">Mesas</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-bs-slide-to="2" href="#sectionThree">Serviços</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-bs-slide-to="3" href="#sectionFour">Contato</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-bs-slide-to="3" href="#sectionRegras">Regras</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" id="resetarSistema" data-bs-slide-to="3" href="#sectionResetarSistema">Resetar Sistema</a>
-                </li>
-            </ul>
-        </div>
-    </div>
-</nav>
+<?php include_once 'inc/nav.php'; ?>
 
 <div class="container">
 
