@@ -23,10 +23,13 @@ require_once 'funcoes_lista_cantor.php';
 </head>
 <body>
 <?php include_once 'inc/nav.php'; ?>
-<div class="container mt-5">
-    <h3>Gerenciar Músicas por Cantor</h3>
+<div class="container">
 
     <div id="alertContainer" class="mt-3"></div>
+
+
+    <h3>Gerenciar Músicas por Cantor</h3>
+
 
     <?php if ($mensagem_sucesso != ''): ?>
         <div class="alert success"><?php echo htmlspecialchars($mensagem_sucesso); ?></div>

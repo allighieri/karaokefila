@@ -24,7 +24,7 @@
                         Configuração
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                        <li><a class="dropdown-item" href="#">Regras</a></li>
+                        <li><a class="dropdown-item <?php echo ($current_page == 'regras.php') ? 'active' : ''; ?>" href="regras.php">Regras</a></li>
                         <li><a class="dropdown-item" id="resetarSistema" href="#sectionResetarSistema">Resetar Todo o Sistema</a></li>
 <!--                        <li><hr class="dropdown-divider"></li>-->
 <!--                        <li><a class="dropdown-item" href="#">Something else here</a></li>-->

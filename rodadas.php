@@ -39,7 +39,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
             <p>Música: <strong><?php echo htmlspecialchars($musica_em_execucao['titulo_musica']); ?></strong> (<?php echo htmlspecialchars($musica_em_execucao['artista_musica']); ?>)</p>
             <p>Mesa <?php echo htmlspecialchars($musica_em_execucao['nome_mesa']); ?> - <?php echo htmlspecialchars($musica_em_execucao['nome_cantor']); ?></p>
             <div class="actions">
-                <button type="button" class="btn btn-primary" onclick="finalizarMusica(<?php echo $musica_em_execucao['fila_id']; ?>)">Finalizar Música (Próxima)</button>
+                <button type="button" class="btn btn-success" onclick="finalizarMusica(<?php echo $musica_em_execucao['fila_id']; ?>)">Finalizar Música (Próxima)</button>
                 <button type="button" class="btn btn-danger" onclick="pularMusica(<?php echo $musica_em_execucao['fila_id']; ?>)">Pular Música</button>
                 <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#trocarMusicaModal" data-fila-id="<?php echo $musica_em_execucao['fila_id']; ?>" data-current-music-title="<?php echo htmlspecialchars($musica_em_execucao['titulo_musica'] . ' (' . $musica_em_execucao['artista_musica'] . ')'); ?>">Trocar Música</button>
             </div>
@@ -63,7 +63,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                         <label class="form-check-label" for="modoCantor">Por Cantores</label>
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary" id="btnMontarRodada">Montar Nova Rodada</button>
+                <button type="submit" class="btn btn-success" id="btnMontarRodada">Montar Nova Rodada</button>
             </form>
         </div>
 
@@ -157,7 +157,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button> <button type="button" class="btn btn-primary" id="btnConfirmarTrocaMusica">Trocar Música</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button> <button type="button" class="btn btn-success" id="btnConfirmarTrocaMusica">Trocar Música</button>
             </div>
         </div>
     </div>

@@ -46,32 +46,32 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
 
     <div id="alertContainer" class="mt-3"></div>
 
-    <h3>Adicionar Cantores</h3>
-    <form method="POST" id="addCantores">
-        <input type="hidden" name="action" value="add_cantor">
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <select id="id_mesa_cantor" name="id_mesa_cantor" class="form-select" required> <option value="">Selecione uma mesa</option>
-                    <?php
-                    if (isset($mesas_disponiveis)) {
-                        foreach ($mesas_disponiveis as $mesa): ?>
-                            <option value="<?php echo htmlspecialchars($mesa['id']); ?>"><?php echo htmlspecialchars($mesa['nome_mesa']); ?></option>
-                        <?php endforeach;
-                    }
-                    ?>
-                </select>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-12 col-lg-6">
-                <div class="input-group mb-3">
-                    <input type="text" id="nome_cantor" name="nome_cantor" class="form-control" placeholder="Nome do cantor" aria-label="Nome do cantor" aria-describedby="button-addon2" required>
-                    <button class="btn btn-success" type="submit" id="button-addon2">Adicionar</button>
+        <h3>Adicionar Cantores</h3>
+        <form method="POST" id="addCantores">
+            <input type="hidden" name="action" value="add_cantor">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <select id="id_mesa_cantor" name="id_mesa_cantor" class="form-select" required> <option value="">Selecione uma mesa</option>
+                        <?php
+                        if (isset($mesas_disponiveis)) {
+                            foreach ($mesas_disponiveis as $mesa): ?>
+                                <option value="<?php echo htmlspecialchars($mesa['id']); ?>"><?php echo htmlspecialchars($mesa['nome_mesa']); ?></option>
+                            <?php endforeach;
+                        }
+                        ?>
+                    </select>
                 </div>
             </div>
-        </div>
+            <div class="row">
+                <div class="col-12 col-lg-6">
+                    <div class="input-group mb-3">
+                        <input type="text" id="nome_cantor" name="nome_cantor" class="form-control" placeholder="Nome do cantor" aria-label="Nome do cantor" aria-describedby="button-addon2" required>
+                        <button class="btn btn-success" type="submit" id="button-addon2">Adicionar</button>
+                    </div>
+                </div>
+            </div>
 
-    </form>
+        </form>
 
     <hr class="my-4">
     <h3>Cantores Cadastrados</h3>
