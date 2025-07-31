@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Tempo de geração: 21/07/2025 às 05:00
+-- Tempo de geração: 31/07/2025 às 21:44
 -- Versão do servidor: 10.4.32-MariaDB
 -- Versão do PHP: 8.2.12
 
@@ -39,30 +39,38 @@ CREATE TABLE `cantores` (
 --
 
 INSERT INTO `cantores` (`id`, `nome_cantor`, `id_mesa`, `proximo_ordem_musica`) VALUES
-(1, 'Weder', 1, 1),
-(2, 'Dani', 1, 1),
-(3, 'Maxwell', 1, 1),
-(4, 'Julia', 1, 1),
-(5, 'Ana', 1, 1),
-(6, 'Daniel', 1, 1),
-(7, 'Humberto', 1, 1),
-(8, 'Judith', 1, 1),
-(9, 'Carlos', 1, 1),
-(10, 'Raquel', 1, 1),
-(11, 'Hercules', 1, 1),
-(12, 'Xandão', 2, 1),
-(13, 'Kamilla', 6, 1),
-(14, 'Dante', 7, 1),
-(15, 'Inferno de Dante', 7, 1),
-(16, 'Último', 7, 1),
-(17, 'Federer', 4, 1),
-(18, 'Guga', 2, 1),
-(19, 'Xuxa', 2, 1),
-(20, 'Bial', 2, 1),
-(21, 'Marciano', 2, 1),
-(22, 'Doug', 3, 1),
-(23, 'Diones', 3, 1),
-(24, 'Di Maria', 3, 1);
+(55, 'Weder', 58, 2),
+(56, 'Daniele', 58, 2),
+(57, 'Sandra', 58, 2),
+(58, 'Olívia', 58, 1),
+(59, 'Madalena', 58, 1),
+(60, 'Juca', 58, 1),
+(61, 'Kifuri', 58, 1),
+(62, 'Arnaldo', 59, 2),
+(63, 'Jabor', 59, 1),
+(64, 'Ruth', 60, 2);
+
+-- --------------------------------------------------------
+
+--
+-- Estrutura para tabela `configuracao_regras_mesa`
+--
+
+CREATE TABLE `configuracao_regras_mesa` (
+  `id` int(11) NOT NULL,
+  `min_pessoas` int(11) NOT NULL,
+  `max_pessoas` int(11) DEFAULT NULL,
+  `max_musicas_por_rodada` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Despejando dados para a tabela `configuracao_regras_mesa`
+--
+
+INSERT INTO `configuracao_regras_mesa` (`id`, `min_pessoas`, `max_pessoas`, `max_musicas_por_rodada`) VALUES
+(1, 1, 2, 1),
+(2, 3, 4, 2),
+(3, 5, NULL, 3);
 
 -- --------------------------------------------------------
 
@@ -81,7 +89,29 @@ CREATE TABLE `controle_rodada` (
 --
 
 INSERT INTO `controle_rodada` (`id`, `rodada_atual`, `ultima_atualizacao`) VALUES
-(1, 1, '2025-07-21 00:00:02');
+(1, 1, '2025-07-31 14:44:18');
+
+-- --------------------------------------------------------
+
+--
+-- Estrutura para tabela `eventos`
+--
+
+CREATE TABLE `eventos` (
+  `id` int(11) NOT NULL,
+  `id_tenants` int(11) NOT NULL,
+  `nome` varchar(100) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `status` int(1) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Despejando dados para a tabela `eventos`
+--
+
+INSERT INTO `eventos` (`id`, `id_tenants`, `nome`, `created_at`, `updated_at`, `status`) VALUES
+(1, 1, 'Terça do Karaokê', '2025-07-31 19:36:55', '2025-07-31 19:36:55', 1);
 
 -- --------------------------------------------------------
 
@@ -103,6 +133,17 @@ CREATE TABLE `fila_rodadas` (
   `id_mesa` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Despejando dados para a tabela `fila_rodadas`
+--
+
+INSERT INTO `fila_rodadas` (`id`, `id_cantor`, `id_musica`, `ordem_na_rodada`, `rodada`, `status`, `timestamp_adicao`, `timestamp_inicio_canto`, `timestamp_fim_canto`, `musica_cantor_id`, `id_mesa`) VALUES
+(1, 55, 5, 1, 1, 'em_execucao', '2025-07-31 16:11:40', '2025-07-31 16:11:40', NULL, 72, 58),
+(2, 62, 5, 2, 1, 'aguardando', '2025-07-31 16:11:40', NULL, NULL, 68, 59),
+(3, 64, 6, 3, 1, 'aguardando', '2025-07-31 16:11:40', NULL, NULL, 82, 60),
+(4, 56, 5, 4, 1, 'aguardando', '2025-07-31 16:11:40', NULL, NULL, 77, 58),
+(5, 57, 4, 5, 1, 'aguardando', '2025-07-31 16:11:40', NULL, NULL, 80, 58);
+
 -- --------------------------------------------------------
 
 --
@@ -120,13 +161,9 @@ CREATE TABLE `mesas` (
 --
 
 INSERT INTO `mesas` (`id`, `nome_mesa`, `tamanho_mesa`) VALUES
-(1, 'Mesa 01', 11),
-(2, 'Mesa 02', 5),
-(3, 'Mesa 03', 3),
-(4, 'Mesa 04', 3),
-(5, 'Mesa 05', 1),
-(6, 'Mesa 06', 1),
-(7, 'Allighieri', 3);
+(58, 'Mesa 01', 7),
+(59, 'Mesa 02', 2),
+(60, 'Mesa 03', 1);
 
 -- --------------------------------------------------------
 
@@ -176,28 +213,76 @@ CREATE TABLE `musicas_cantor` (
 --
 
 INSERT INTO `musicas_cantor` (`id`, `id_cantor`, `id_musica`, `ordem_na_lista`, `status`, `timestamp_ultima_execucao`) VALUES
-(84, 2, 4, 1, 'aguardando', NULL),
-(85, 13, 7, 1, 'aguardando', NULL),
-(86, 16, 2, 1, 'aguardando', NULL),
-(90, 12, 1, 1, 'aguardando', NULL),
-(115, 6, 1, 1, 'aguardando', NULL),
-(128, 7, 1, 1, 'aguardando', NULL),
-(137, 10, 4, 1, 'aguardando', NULL),
-(161, 1, 3, 1, 'aguardando', NULL),
-(162, 1, 2, 2, 'aguardando', NULL),
-(163, 17, 2, 1, 'aguardando', NULL),
-(164, 17, 1, 2, 'aguardando', NULL),
-(165, 17, 4, 3, 'aguardando', NULL),
-(166, 19, 1, 1, 'aguardando', NULL),
-(167, 19, 2, 2, 'aguardando', NULL),
-(168, 21, 6, 1, 'aguardando', NULL),
-(169, 18, 4, 1, 'aguardando', NULL),
-(170, 18, 5, 2, 'aguardando', NULL),
-(171, 18, 3, 3, 'aguardando', NULL),
-(172, 22, 5, 1, 'aguardando', NULL),
-(173, 22, 2, 2, 'aguardando', NULL),
-(174, 24, 7, 1, 'aguardando', NULL),
-(175, 23, 4, 1, 'aguardando', NULL);
+(68, 62, 5, 1, 'selecionada_para_rodada', NULL),
+(69, 62, 3, 2, 'aguardando', NULL),
+(70, 63, 2, 1, 'aguardando', NULL),
+(71, 63, 7, 2, 'aguardando', NULL),
+(72, 55, 5, 1, 'em_execucao', '2025-07-31 16:11:40'),
+(73, 55, 3, 2, 'aguardando', NULL),
+(74, 55, 1, 3, 'aguardando', NULL),
+(75, 55, 1, 4, 'aguardando', NULL),
+(76, 55, 6, 5, 'aguardando', NULL),
+(77, 56, 5, 1, 'selecionada_para_rodada', NULL),
+(78, 60, 4, 1, 'aguardando', NULL),
+(79, 58, 2, 1, 'aguardando', NULL),
+(80, 57, 4, 1, 'selecionada_para_rodada', NULL),
+(81, 61, 7, 1, 'aguardando', NULL),
+(82, 64, 6, 1, 'selecionada_para_rodada', NULL),
+(83, 55, 2, 6, 'aguardando', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Estrutura para tabela `tenants`
+--
+
+CREATE TABLE `tenants` (
+  `id` int(11) NOT NULL,
+  `nome` varchar(100) NOT NULL,
+  `telefone` varchar(15) NOT NULL,
+  `email` varchar(50) NOT NULL,
+  `endereco` varchar(100) NOT NULL,
+  `cidade` varchar(50) NOT NULL,
+  `uf` varchar(2) NOT NULL,
+  `status` int(1) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Despejando dados para a tabela `tenants`
+--
+
+INSERT INTO `tenants` (`id`, `nome`, `telefone`, `email`, `endereco`, `cidade`, `uf`, `status`, `created_at`, `updated_at`) VALUES
+(1, 'Karaokê Clube', '(61) 99253-0902', 'agenciaolhardigital@gmail.com', 'QMSW 2 CONJ D LOJA 13 A, SUDOESTE', 'Brasília', 'DF', 1, '2025-07-31 19:31:36', '2025-07-31 19:31:36');
+
+-- --------------------------------------------------------
+
+--
+-- Estrutura para tabela `usuarios`
+--
+
+CREATE TABLE `usuarios` (
+  `id` int(11) NOT NULL,
+  `id_evento` int(11) NOT NULL,
+  `nome` varchar(100) NOT NULL,
+  `email` varchar(50) NOT NULL,
+  `telefone` varchar(15) NOT NULL,
+  `endereco` varchar(100) NOT NULL,
+  `cidade` varchar(50) NOT NULL,
+  `uf` varchar(2) NOT NULL,
+  `status` int(1) NOT NULL,
+  `nivel` enum('mc','user','admin','') NOT NULL DEFAULT 'user',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Despejando dados para a tabela `usuarios`
+--
+
+INSERT INTO `usuarios` (`id`, `id_evento`, `nome`, `email`, `telefone`, `endereco`, `cidade`, `uf`, `status`, `nivel`, `created_at`, `updated_at`) VALUES
+(1, 1, 'Weder Monteiro Araujo', 'agenciaolhardigital@gmail.com', '(61) 99253-0902', 'QMSW 2 CONJ A LOTE 11 APTO 101, SUDOESTE', 'BRASÍLIA', 'DF', 1, 'mc', '2025-07-31 19:32:39', '2025-07-31 19:32:39');
 
 --
 -- Índices para tabelas despejadas
@@ -211,10 +296,24 @@ ALTER TABLE `cantores`
   ADD KEY `fk_cantor_mesa` (`id_mesa`);
 
 --
+-- Índices de tabela `configuracao_regras_mesa`
+--
+ALTER TABLE `configuracao_regras_mesa`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `min_pessoas` (`min_pessoas`);
+
+--
 -- Índices de tabela `controle_rodada`
 --
 ALTER TABLE `controle_rodada`
   ADD PRIMARY KEY (`id`);
+
+--
+-- Índices de tabela `eventos`
+--
+ALTER TABLE `eventos`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `eventos_ibfk_1` (`id_tenants`);
 
 --
 -- Índices de tabela `fila_rodadas`
@@ -247,6 +346,19 @@ ALTER TABLE `musicas_cantor`
   ADD KEY `idx_id_cantor` (`id_cantor`);
 
 --
+-- Índices de tabela `tenants`
+--
+ALTER TABLE `tenants`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Índices de tabela `usuarios`
+--
+ALTER TABLE `usuarios`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `id_evento` (`id_evento`);
+
+--
 -- AUTO_INCREMENT para tabelas despejadas
 --
 
@@ -254,19 +366,31 @@ ALTER TABLE `musicas_cantor`
 -- AUTO_INCREMENT de tabela `cantores`
 --
 ALTER TABLE `cantores`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=65;
+
+--
+-- AUTO_INCREMENT de tabela `configuracao_regras_mesa`
+--
+ALTER TABLE `configuracao_regras_mesa`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
+-- AUTO_INCREMENT de tabela `eventos`
+--
+ALTER TABLE `eventos`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de tabela `fila_rodadas`
 --
 ALTER TABLE `fila_rodadas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT de tabela `mesas`
 --
 ALTER TABLE `mesas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=61;
 
 --
 -- AUTO_INCREMENT de tabela `musicas`
@@ -278,7 +402,19 @@ ALTER TABLE `musicas`
 -- AUTO_INCREMENT de tabela `musicas_cantor`
 --
 ALTER TABLE `musicas_cantor`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=176;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=84;
+
+--
+-- AUTO_INCREMENT de tabela `tenants`
+--
+ALTER TABLE `tenants`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT de tabela `usuarios`
+--
+ALTER TABLE `usuarios`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- Restrições para tabelas despejadas
@@ -288,7 +424,13 @@ ALTER TABLE `musicas_cantor`
 -- Restrições para tabelas `cantores`
 --
 ALTER TABLE `cantores`
-  ADD CONSTRAINT `fk_cantor_mesa` FOREIGN KEY (`id_mesa`) REFERENCES `mesas` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `fk_cantor_mesa` FOREIGN KEY (`id_mesa`) REFERENCES `mesas` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Restrições para tabelas `eventos`
+--
+ALTER TABLE `eventos`
+  ADD CONSTRAINT `eventos_ibfk_1` FOREIGN KEY (`id_tenants`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Restrições para tabelas `fila_rodadas`
@@ -302,8 +444,14 @@ ALTER TABLE `fila_rodadas`
 -- Restrições para tabelas `musicas_cantor`
 --
 ALTER TABLE `musicas_cantor`
-  ADD CONSTRAINT `musicas_cantor_ibfk_1` FOREIGN KEY (`id_cantor`) REFERENCES `cantores` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `musicas_cantor_ibfk_2` FOREIGN KEY (`id_musica`) REFERENCES `musicas` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `musicas_cantor_ibfk_2` FOREIGN KEY (`id_musica`) REFERENCES `musicas` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `musicas_cantor_ibfk_3` FOREIGN KEY (`id_cantor`) REFERENCES `cantores` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Restrições para tabelas `usuarios`
+--
+ALTER TABLE `usuarios`
+  ADD CONSTRAINT `usuarios_ibfk_1` FOREIGN KEY (`id_evento`) REFERENCES `eventos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

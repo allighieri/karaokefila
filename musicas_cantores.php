@@ -140,7 +140,7 @@ require_once 'funcoes_lista_cantor.php';
         </div>
 
     <?php elseif (empty($cantores_disponiveis)): ?>
-        <p>Por favor, adicione cantores primeiro no <a href="index.php">Painel Principal</a>.</p>
+        <p>Para escolher a música para cantar, primeiro cadastre um cantor no menu <a href="cantores.php">Cantores</a>.</p>
     <?php endif; ?>
 
     <?php include_once 'modal_resetar_sistema.php'?>

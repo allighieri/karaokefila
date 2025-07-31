@@ -678,31 +678,31 @@ function getAllMusicas(PDO $pdo) {
 function getFilaCompleta(PDO $pdo) {
     $rodadaAtual = getRodadaAtual($pdo);
     try {
-        $sql = "
-            SELECT
-                fr.id AS fila_id,
-                c.nome_cantor,
-                m.titulo AS titulo_musica,
-                m.artista AS artista_musica,
-                me.nome_mesa,
-                me.tamanho_mesa,
-                fr.status,
-                fr.ordem_na_rodada
-            FROM fila_rodadas fr
-            JOIN cantores c ON fr.id_cantor = c.id
-            JOIN musicas m ON fr.id_musica = m.id
-            JOIN mesas me ON c.id_mesa = me.id
-            WHERE fr.rodada = ?
-            ORDER BY
-                CASE
-                    WHEN fr.status = 'em_execucao' THEN 0 -- A música em execução deve vir primeiro
-                    WHEN fr.status = 'aguardando' THEN 1
-                    WHEN fr.status = 'selecionada_para_rodada' THEN 2
-                    WHEN fr.status = 'pulou' THEN 3
-                    WHEN fr.status = 'cantou' THEN 4
-                    ELSE 5 -- Para qualquer outro status futuro
-                END,
-                fr.ordem_na_rodada ASC";
+        $sql = "SELECT
+                    fr.id AS fila_id,
+                    c.nome_cantor,
+                    m.titulo AS titulo_musica,
+                    m.artista AS artista_musica,
+                    m.codigo as codigo_musica,
+                    me.nome_mesa,
+                    me.tamanho_mesa,
+                    fr.status,
+                    fr.ordem_na_rodada
+                FROM fila_rodadas fr
+                JOIN cantores c ON fr.id_cantor = c.id
+                JOIN musicas m ON fr.id_musica = m.id
+                JOIN mesas me ON c.id_mesa = me.id
+                WHERE fr.rodada = ?
+                ORDER BY
+                    CASE
+                        WHEN fr.status = 'em_execucao' THEN 0 -- A música em execução deve vir primeiro
+                        WHEN fr.status = 'aguardando' THEN 1
+                        WHEN fr.status = 'selecionada_para_rodada' THEN 2
+                        WHEN fr.status = 'pulou' THEN 3
+                        WHEN fr.status = 'cantou' THEN 4
+                        ELSE 5 -- Para qualquer outro status futuro
+                    END,
+                    fr.ordem_na_rodada ASC";
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$rodadaAtual]);

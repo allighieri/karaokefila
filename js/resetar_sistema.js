@@ -29,6 +29,13 @@ $('document').ready(function(){
                     if (typeof refreshMesasList === 'function') {
                         refreshMesasList();
                     }
+
+                    if (currentPageName === 'rodadas.php') {
+                        location.reload(); // Recarrega a página
+                    }
+
+
+
                 } else {
                     showAlert('Erro: ' + response.message, 'danger');
                 }

@@ -36,8 +36,8 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
     <?php if ($musica_em_execucao): ?>
         <div class="current-song">
             <h3>CANTANDO AGORA</h3>
-            <p>Música: <strong><?php echo htmlspecialchars($musica_em_execucao['titulo_musica']); ?></strong> (<?php echo htmlspecialchars($musica_em_execucao['artista_musica']); ?>)</p>
-            <p>Mesa <?php echo htmlspecialchars($musica_em_execucao['nome_mesa']); ?> - <?php echo htmlspecialchars($musica_em_execucao['nome_cantor']); ?></p>
+            <p><strong><?php echo htmlspecialchars($musica_em_execucao['titulo_musica']); ?></strong> de <?php echo htmlspecialchars($musica_em_execucao['artista_musica']); ?></p>
+            <p><strong>Código: <?php echo htmlspecialchars($musica_em_execucao['codigo_musica']); ?></strong> - Mesa <?php echo htmlspecialchars($musica_em_execucao['nome_mesa']); ?> - <?php echo htmlspecialchars($musica_em_execucao['nome_cantor']); ?></p>
             <div class="actions">
                 <button type="button" class="btn btn-success" onclick="finalizarMusica(<?php echo $musica_em_execucao['fila_id']; ?>)">Próxima</button>
                 <button type="button" class="btn btn-danger" onclick="pularMusica(<?php echo $musica_em_execucao['fila_id']; ?>)">Pular Música</button>
@@ -129,9 +129,9 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                         ?>
                         <strong><?php echo htmlspecialchars($item['nome_mesa']); ?></strong>: <?php echo htmlspecialchars($item['nome_cantor']); ?>
                         <br>
-                        <small>Música: <?php echo htmlspecialchars($item['titulo_musica']); ?> (<?php echo htmlspecialchars($item['artista_musica']); ?>)</small>
+                        <small><?php echo htmlspecialchars($item['titulo_musica']); ?> de <?php echo htmlspecialchars($item['artista_musica']); ?> - <strong>Código: </strong><?php echo htmlspecialchars($item['codigo_musica'] ?? 'N/A'); ?></small>
                         <br>
-                        <small>Status: <?php echo htmlspecialchars(ucfirst($item['status'])); ?></small>
+                        <small><?php echo htmlspecialchars(ucfirst($item['status'])); ?></small>
                     </div>
                 </li>
             <?php endforeach; ?>
@@ -173,6 +173,9 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 
 
 <script>
+
+    var currentPageName = "<?php echo $current_page; ?>";
+
     function showAlert(message, type) {
         var alertHtml = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' +
             '<span>' + message + '</span>' +
