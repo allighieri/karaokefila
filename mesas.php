@@ -52,7 +52,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                 <thead>
                 <tr>
                     <th scope="col">Mesa</th>
-                    <th scope="col">Cantando</th>
+                    <th scope="col">Participantes</th>
                     <th scope="col">Ações</th>
                 </tr>
                 </thead>
@@ -63,7 +63,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                         <td><?php echo htmlspecialchars($mesa['tamanho_mesa'] ?? 'Não Definido'); ?></td>
                         <td>
                             <div class="d-flex flex-nowrap gap-1">
-                                <button class="btn btn-sm btn-warning" data-id="<?php echo $mesa['id']; ?>" title="Editar Mesa">
+                                <button class="btn btn-sm btn-warning edit-mesa-btn" data-id="<?php echo htmlspecialchars($mesa['id']); ?>" data-nome="<?php echo htmlspecialchars($mesa['nome_mesa'], ENT_QUOTES, 'UTF-8'); ?>" title="Editar Mesa">
                                     <i class="bi bi-pencil-square"></i>
                                 </button>
                                 <button class="btn btn-sm btn-danger" onclick="confirmarExclusaoMesa(<?php echo $mesa['id']; ?>, '<?php echo htmlspecialchars($mesa['nome_mesa'], ENT_QUOTES, 'UTF-8'); ?>')" title="Excluir Mesa">
@@ -96,6 +96,30 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-danger" id="btnConfirmarExclusao">Excluir</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editMesaModal" tabindex="-1" aria-labelledby="editMesaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editMesaModalLabel">Editar Nome da Mesa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formEditMesa">
+                    <input type="hidden" id="editMesaId" name="mesa_id">
+                    <div class="mb-3">
+                        <label for="editMesaNome" class="form-label">Novo Nome da Mesa:</label>
+                        <input type="text" class="form-control" id="editMesaNome" name="novo_nome_mesa" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSalvarEditMesa">Salvar Alterações</button>
             </div>
         </div>
     </div>
@@ -143,22 +167,19 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                                 '<thead>' +
                                 '<tr>' +
                                 '<th scope="col">Mesa</th>' +
-                                '<th scope="col">Cantando</th>' +
+                                '<th scope="col">Participantes</th>' +
                                 '<th scope="col">Ações</th>' +
                                 '</tr>' +
                                 '</thead>' +
                                 '<tbody>';
                             $.each(response.mesas, function(index, mesa) {
                                 tableHtml += '<tr>' +
-                                    // Certifique-se que o ID da mesa está correto aqui se a coluna 'ID' existir no <thead>
-                                    // Se não tiver coluna ID: '<td>' + htmlspecialchars(mesa.nome_mesa) + '</td>' +
-                                    // Se tiver coluna ID: '<td>' + htmlspecialchars(mesa.id) + '</td>' +
-                                    '<td>' + htmlspecialchars(mesa.nome_mesa) + '</td>' + // Acredito que esta linha estava correta, mas você a trocou. Verifique seu <thead>.
+                                    '<td>' + htmlspecialchars(mesa.nome_mesa) + '</td>' +
                                     '<td>' + (mesa.tamanho_mesa !== null && mesa.tamanho_mesa !== undefined ? htmlspecialchars(mesa.tamanho_mesa) : 'Não Definido') + '</td>' +
                                     '<td>' +
-                                    // Este é o modo Bootstrap nativo para botões lado a lado
                                     '<div class="d-flex flex-nowrap gap-1">' +
-                                    '<button class="btn btn-sm btn-warning" data-id="' + htmlspecialchars(mesa.id) + '" title="Editar Mesa">' +
+                                    // ESTA É A LINHA DO BOTÃO DE EDITAR:
+                                    '<button class="btn btn-sm btn-warning edit-mesa-btn" data-id="' + htmlspecialchars(mesa.id) + '" data-nome="' + htmlspecialchars(mesa.nome_mesa) + '" title="Editar Mesa">' +
                                     '<i class="bi bi-pencil-square"></i>' +
                                     '</button> ' +
                                     '<button class="btn btn-sm btn-danger" onclick="confirmarExclusaoMesa(' + htmlspecialchars(mesa.id) + ', \'' + htmlspecialchars(mesa.nome_mesa) + '\')" title="Excluir Mesa">' +
@@ -183,6 +204,55 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                 }
             });
         }
+
+        $('#mesasListContainer').on('click', '.edit-mesa-btn', function() {
+            var mesaId = $(this).data('id');
+            var mesaNome = $(this).data('nome');
+
+            // Preenche o modal com os dados da mesa
+            $('#editMesaId').val(mesaId);
+            $('#editMesaNome').val(mesaNome);
+
+            // Exibe o modal
+            var editMesaModal = new bootstrap.Modal(document.getElementById('editMesaModal'));
+            editMesaModal.show();
+        });
+
+        // Evento de clique no botão "Salvar Alterações" dentro do modal de edição
+        $('#btnSalvarEditMesa').on('click', function() {
+            var mesaId = $('#editMesaId').val();
+            var novoNomeMesa = $('#editMesaNome').val();
+            var editMesaModalInstance = bootstrap.Modal.getInstance(document.getElementById('editMesaModal'));
+
+            if (novoNomeMesa.trim() === '') {
+                showAlert('O nome da mesa não pode ser vazio!', 'warning');
+                return;
+            }
+
+            $.ajax({
+                url: 'api.php',
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'edit_mesa',
+                    mesa_id: mesaId,
+                    novo_nome_mesa: novoNomeMesa
+                },
+                success: function(response) {
+                    if (response.success) {
+                        showAlert(response.message, 'success');
+                        editMesaModalInstance.hide(); // Fecha o modal
+                        refreshMesasList(); // Recarrega a lista de mesas para mostrar a alteração
+                    } else {
+                        showAlert('Erro ao salvar: ' + response.message, 'danger');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Erro na requisição AJAX para editar mesa:", status, error);
+                    showAlert('Erro na comunicação com o servidor ao editar mesa.', 'danger');
+                }
+            });
+        });
 
         $('#addMesas').on('submit', function(e) {
             e.preventDefault();

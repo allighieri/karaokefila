@@ -52,6 +52,40 @@ switch ($action) {
         $response['success'] = $resultadoAdicao['success'];
         $response['message'] = $resultadoAdicao['message'];
         break;
+    case 'edit_mesa': // NOVA AÇÃO PARA EDITAR MESA
+        if (isset($_POST['mesa_id']) && is_numeric($_POST['mesa_id']) && isset($_POST['novo_nome_mesa'])) {
+            $mesaId = (int)$_POST['mesa_id'];
+            $novoNomeMesa = trim($_POST['novo_nome_mesa']);
+
+            if (empty($novoNomeMesa)) {
+                $response['message'] = 'O nome da mesa não pode ser vazio.';
+                break;
+            }
+
+            try {
+                $stmt = $pdo->prepare("UPDATE mesas SET nome_mesa = :nome_mesa WHERE id = :id");
+                $stmt->bindParam(':nome_mesa', $novoNomeMesa, PDO::PARAM_STR);
+                $stmt->bindParam(':id', $mesaId, PDO::PARAM_INT);
+
+                if ($stmt->execute()) {
+                    if ($stmt->rowCount() > 0) {
+                        $response['success'] = true;
+                        $response['message'] = 'Nome da mesa atualizado com sucesso!';
+                    } else {
+                        $response['message'] = 'Nenhuma alteração feita ou mesa não encontrada.';
+                    }
+                } else {
+                    $errorInfo = $stmt->errorInfo();
+                    throw new Exception("Falha na execução do UPDATE: " . $errorInfo[2]);
+                }
+            } catch (Exception $e) {
+                $response['message'] = 'Erro ao atualizar nome da mesa: ' . $e->getMessage();
+                error_log("ERRO (API - Edit Mesa): " . $e->getMessage());
+            }
+        } else {
+            $response['message'] = 'Dados de edição da mesa inválidos.';
+        }
+        break;
     case 'get_all_mesas':
         // Esta função deve retornar um array de mesas (id, nome_mesa, tamanho_mesa)
         $mesas = getTodasMesas($pdo);
@@ -78,6 +112,70 @@ switch ($action) {
             $resultadoRemocao = removerCantor($pdo, $cantorId);
             $response['success'] = $resultadoRemocao['success'];
             $response['message'] = $resultadoRemocao['message'];
+        }
+        break;
+    case 'edit_cantor':
+        if (isset($_POST['cantor_id'], $_POST['novo_nome_cantor'], $_POST['nova_mesa_id'])) {
+            $cantorId = (int)$_POST['cantor_id'];
+            $novoNomeCantor = trim($_POST['novo_nome_cantor']);
+            $novaMesaId = (int)$_POST['nova_mesa_id'];
+
+            if (empty($novoNomeCantor)) {
+                $response['message'] = 'O nome do cantor não pode ser vazio.';
+                break;
+            }
+
+            if (empty($novaMesaId)) {
+                $response['message'] = 'Por favor, selecione uma mesa para o cantor.';
+                break;
+            }
+
+            $pdo->beginTransaction(); // Inicia a transação
+            try {
+                // 1. Obter a ID da mesa antiga do cantor
+                $stmtOldMesa = $pdo->prepare("SELECT id_mesa FROM cantores WHERE id = :cantor_id");
+                $stmtOldMesa->bindParam(':cantor_id', $cantorId, PDO::PARAM_INT);
+                $stmtOldMesa->execute();
+                $oldMesaId = $stmtOldMesa->fetchColumn(); // Pega apenas a coluna id_mesa
+
+                // 2. Atualizar os dados do cantor
+                $stmtUpdateCantor = $pdo->prepare("UPDATE cantores SET nome_cantor = :nome_cantor, id_mesa = :id_mesa WHERE id = :id");
+                $stmtUpdateCantor->bindParam(':nome_cantor', $novoNomeCantor, PDO::PARAM_STR);
+                $stmtUpdateCantor->bindParam(':id_mesa', $novaMesaId, PDO::PARAM_INT);
+                $stmtUpdateCantor->bindParam(':id', $cantorId, PDO::PARAM_INT);
+                $stmtUpdateCantor->execute();
+
+                // 3. Lógica para atualizar tamanho_mesa nas tabelas de mesas
+                if ($oldMesaId !== false && (int)$oldMesaId !== $novaMesaId) { // Se a mesa foi realmente alterada
+                    // Decrementar tamanho_mesa da mesa antiga
+                    $stmtDecrement = $pdo->prepare("UPDATE mesas SET tamanho_mesa = GREATEST(0, tamanho_mesa - 1) WHERE id = :old_mesa_id");
+                    $stmtDecrement->bindParam(':old_mesa_id', $oldMesaId, PDO::PARAM_INT);
+                    $stmtDecrement->execute();
+
+                    // Incrementar tamanho_mesa da nova mesa
+                    $stmtIncrement = $pdo->prepare("UPDATE mesas SET tamanho_mesa = tamanho_mesa + 1 WHERE id = :new_mesa_id");
+                    $stmtIncrement->bindParam(':new_mesa_id', $novaMesaId, PDO::PARAM_INT);
+                    $stmtIncrement->execute();
+                }
+
+                // Verifica se alguma linha foi realmente afetada pelo UPDATE do cantor
+                // (Pode ser 0 se o nome e mesa forem os mesmos de antes, o que é aceitável)
+                if ($stmtUpdateCantor->rowCount() > 0 || ($oldMesaId !== false && (int)$oldMesaId !== $novaMesaId)) {
+                    $pdo->commit(); // Confirma a transação
+                    $response['success'] = true;
+                    $response['message'] = 'Cantor e mesa associada atualizados com sucesso!';
+                } else {
+                    $pdo->rollBack(); // Reverte a transação se nada foi alterado
+                    $response['message'] = 'Nenhuma alteração feita ou cantor não encontrado.';
+                }
+
+            } catch (Exception $e) {
+                $pdo->rollBack(); // Em caso de erro, reverte todas as operações
+                $response['message'] = 'Erro ao atualizar cantor: ' . $e->getMessage();
+                error_log("ERRO (API - Edit Cantor Transaction): " . $e->getMessage());
+            }
+        } else {
+            $response['message'] = 'Dados de edição do cantor inválidos.';
         }
         break;
 
@@ -394,4 +492,3 @@ switch ($action) {
 
 echo json_encode($response);
 exit();
-?>

@@ -93,7 +93,12 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
                         <td><?php echo htmlspecialchars($cantor['proximo_ordem_musica']); ?></td>
                         <td>
                             <div class="d-flex flex-nowrap gap-1">
-                                <button class="btn btn-sm btn-warning" data-id="<?php echo $cantor['id']; ?>" title="Editar Cantor">
+                                <button class="btn btn-sm btn-warning edit-cantor-btn"
+                                        data-id="<?php echo htmlspecialchars($cantor['id']); ?>"
+                                        data-nome="<?php echo htmlspecialchars($cantor['nome_cantor'], ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-mesa-id="<?php echo htmlspecialchars($cantor['id_mesa']); ?>"
+                                        data-prioridade="<?php echo htmlspecialchars($cantor['proximo_ordem_musica']); ?>"
+                                        title="Editar Cantor">
                                     <i class="bi bi-pencil-square"></i>
                                 </button>
                                 <button class="btn btn-sm btn-danger" onclick="confirmarExclusaoCantor(<?php echo $cantor['id']; ?>, '<?php echo htmlspecialchars($cantor['nome_cantor'], ENT_QUOTES, 'UTF-8'); ?>')" title="Excluir Cantor">
@@ -131,6 +136,44 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
     </div>
 </div>
 
+<div class="modal fade" id="editCantorModal" tabindex="-1" aria-labelledby="editCantorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editCantorModalLabel">Editar Cantor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formEditCantor">
+                    <input type="hidden" id="editCantorId" name="cantor_id">
+                    <div class="mb-3">
+                        <label for="editCantorNome" class="form-label">Nome do Cantor:</label>
+                        <input type="text" class="form-control" id="editCantorNome" name="novo_nome_cantor" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editCantorMesa" class="form-label">Mesa Associada:</label>
+                        <select id="editCantorMesa" name="nova_mesa_id" class="form-select" required>
+                            <option value="">Selecione uma mesa</option>
+                            <?php
+                            // Reutiliza as mesas_disponiveis já carregadas
+                            if (isset($mesas_disponiveis)) {
+                                foreach ($mesas_disponiveis as $mesa): ?>
+                                    <option value="<?php echo htmlspecialchars($mesa['id']); ?>"><?php echo htmlspecialchars($mesa['nome_mesa']); ?></option>
+                                <?php endforeach;
+                            }
+                            ?>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSalvarEditCantor">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?php include_once 'modal_resetar_sistema.php'?>
 
 
@@ -146,7 +189,6 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
 
 
     $(document).ready(function() {
-
         window.showAlert = function(message, type) {
             var alertHtml = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' +
                 '<span>' + message + '</span>' +
@@ -165,7 +207,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
                 url: 'api.php',
                 type: 'GET',
                 dataType: 'json',
-                data: { action: 'get_all_cantores' }, // Nova ação para buscar cantores
+                data: { action: 'get_all_cantores' },
                 success: function(response) {
                     if (response.success) {
                         var tableHtml = '';
@@ -184,10 +226,17 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
                                 tableHtml += '<tr>' +
                                     '<td>' + htmlspecialchars(cantor.nome_cantor) + '</td>' +
                                     '<td>' + htmlspecialchars(cantor.nome_da_mesa_associada !== null && cantor.nome_da_mesa_associada !== undefined ? cantor.nome_da_mesa_associada : 'N/A') + '</td>' +
-                                    '<td>' + htmlspecialchars(cantor.proximo_ordem_musica) + '</td>' +
+                                    '<td>' + htmlspecialchars(cantor.proximo_ordem_musica !== null && cantor.proximo_ordem_musica !== undefined ? cantor.proximo_ordem_musica : '0') + '</td>' +
                                     '<td>' +
                                     '<div class="d-flex flex-nowrap gap-1">' +
-                                    '<button class="btn btn-sm btn-warning" data-id="' + htmlspecialchars(cantor.id) + '" title="Editar Cantor">' +
+                                    // Manter data-prioridade aqui no botão para a tabela continuar exibindo.
+                                    // Apenas não será usado para preencher o modal de edição.
+                                    '<button class="btn btn-sm btn-warning edit-cantor-btn" ' +
+                                    'data-id="' + htmlspecialchars(cantor.id) + '" ' +
+                                    'data-nome="' + htmlspecialchars(cantor.nome_cantor) + '" ' +
+                                    'data-mesa-id="' + htmlspecialchars(cantor.id_mesa) + '" ' +
+                                    'data-prioridade="' + htmlspecialchars(cantor.proximo_ordem_musica) + '" ' + // MANTIDO AQUI
+                                    'title="Editar Cantor">' +
                                     '<i class="bi bi-pencil-square"></i>' +
                                     '</button> ' +
                                     '<button class="btn btn-sm btn-danger" onclick="confirmarExclusaoCantor(' + htmlspecialchars(cantor.id) + ', \'' + htmlspecialchars(cantor.nome_cantor) + '\')" title="Excluir Cantor">' +
@@ -201,7 +250,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
                         } else {
                             tableHtml = '<p>Nenhum cantor cadastrado ainda.</p>';
                         }
-                        $('#cantoresListContainer').html(tableHtml); // Atualiza o conteúdo da div
+                        $('#cantoresListContainer').html(tableHtml);
                     } else {
                         showAlert('Erro ao recarregar a lista de cantores: ' + response.message, 'danger');
                     }
@@ -281,6 +330,68 @@ $mesas_disponiveis = $stmtMesas->fetchAll();
                     console.error("Erro na requisição AJAX para excluir cantor:", status, error); // CORRIGIDO
                     // CORRIGIDO: Mensagem de erro para cantor
                     showAlert('Erro na comunicação com o servidor ao excluir cantor.', 'danger');
+                }
+            });
+        });
+
+        $('#cantoresListContainer').on('click', '.edit-cantor-btn', function() {
+            var cantorId = $(this).data('id');
+            var cantorNome = $(this).data('nome');
+            var cantorMesaId = $(this).data('mesa-id');
+            // REMOVIDO: var cantorPrioridade = $(this).data('prioridade');
+
+            // Preenche o modal com os dados do cantor
+            $('#editCantorId').val(cantorId);
+            $('#editCantorNome').val(cantorNome);
+            $('#editCantorMesa').val(cantorMesaId);
+            // REMOVIDO: $('#editCantorPrior').prop('checked', cantorPrioridade == 1);
+
+            // Exibe o modal
+            var editCantorModal = new bootstrap.Modal(document.getElementById('editCantorModal'));
+            editCantorModal.show();
+        });
+
+        // Evento de clique no botão "Salvar Alterações" dentro do modal de edição de cantor
+        $('#btnSalvarEditCantor').on('click', function() {
+            var cantorId = $('#editCantorId').val();
+            var novoNomeCantor = $('#editCantorNome').val();
+            var novaMesaId = $('#editCantorMesa').val();
+            // REMOVIDO: var proximoOrdemMusica = $('#editCantorPrior').is(':checked') ? 1 : 0;
+
+            var editCantorModalInstance = bootstrap.Modal.getInstance(document.getElementById('editCantorModal'));
+
+            if (novoNomeCantor.trim() === '') {
+                showAlert('O nome do cantor não pode ser vazio!', 'warning');
+                return;
+            }
+            if (novaMesaId === '' || novaMesaId === null) {
+                showAlert('Por favor, selecione uma mesa para o cantor!', 'warning');
+                return;
+            }
+
+            $.ajax({
+                url: 'api.php',
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'edit_cantor',
+                    cantor_id: cantorId,
+                    novo_nome_cantor: novoNomeCantor,
+                    nova_mesa_id: novaMesaId
+                    // REMOVIDO: proximo_ordem_musica: proximoOrdemMusica
+                },
+                success: function(response) {
+                    if (response.success) {
+                        showAlert(response.message, 'success');
+                        editCantorModalInstance.hide();
+                        refreshCantoresList();
+                    } else {
+                        showAlert('Erro ao salvar: ' + response.message, 'danger');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Erro na requisição AJAX para editar cantor:", status, error);
+                    showAlert('Erro na comunicação com o servidor ao editar cantor.', 'danger');
                 }
             });
         });

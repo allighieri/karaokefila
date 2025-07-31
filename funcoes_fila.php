@@ -92,7 +92,7 @@ function excluirMesa(PDO $pdo, int $mesaId): array {
 
         if ($stmtDeleteMesa->rowCount() > 0) {
             $pdo->commit(); // Confirma a transação
-            return ['success' => true, 'message' => "Mesa '{$nomeMesa}' excluída com sucesso."];
+            return ['success' => true, 'message' => "Mesa <strong>{$nomeMesa}</strong> excluída!"];
         } else {
             $pdo->rollBack(); // Reverte a transação se a mesa não foi encontrada
             return ['success' => false, 'message' => 'Mesa não encontrada ou já excluída.'];
@@ -133,11 +133,11 @@ function adicionarMesa(PDO $pdo, $nomeMesa) {
     try {
         $stmtInsert = $pdo->prepare("INSERT INTO mesas (nome_mesa) VALUES (?)");
         if ($stmtInsert->execute([$nomeMesa])) {
-            return ['success' => true, 'message' => "Mesa '{$nomeMesa}' adicionada com sucesso!"];
+            return ['success' => true, 'message' => "Mesa <strong>{$nomeMesa}</strong> adicionada!"];
         } else {
             // Isso pode acontecer se houver alguma outra restrição no banco de dados,
             // embora com a verificação de COUNT(*) seja menos provável para nome_mesa.
-            return ['success' => false, 'message' => "Não foi possível adicionar a mesa '{$nomeMesa}' por um motivo desconhecido."];
+            return ['success' => false, 'message' => "Não foi possível adicionar a mesa <strong>{$nomeMesa}</strong> por um motivo desconhecido."];
         }
     } catch (\PDOException $e) {
         // Este catch é para erros durante a INSERÇÃO (ex: falha de conexão, restrição de DB inesperada)
