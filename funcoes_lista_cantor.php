@@ -3,6 +3,11 @@
 $mensagem_sucesso = '';
 $mensagem_erro = '';
 
+// --- Variáveis estáticas para simular o tenant e o evento logados para fins de teste ---
+$id_tenants_logado = 1;
+$id_evento_ativo = 1;
+// --- FIM das variáveis estáticas ---
+
 // --- Lógica para exibir mensagens da sessão após redirecionamento ---
 if (isset($_SESSION['mensagem_sucesso'])) {
     $mensagem_sucesso = $_SESSION['mensagem_sucesso'];
@@ -24,6 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     $redirect_cantor_id = $id_cantor ?: $cantor_selecionado_id;
 
+    global $id_evento_ativo;
+
     if ($id_cantor && $id_musica) {
         try {
             $stmtLastOrder = $pdo->prepare("SELECT MAX(ordem_na_lista) AS max_order FROM musicas_cantor WHERE id_cantor = ?");
@@ -31,8 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $lastOrder = $stmtLastOrder->fetchColumn();
             $proximaOrdem = ($lastOrder !== null) ? $lastOrder + 1 : 1;
 
-            $stmt = $pdo->prepare("INSERT INTO musicas_cantor (id_cantor, id_musica, ordem_na_lista) VALUES (?, ?, ?)");
-            if ($stmt->execute([$id_cantor, $id_musica, $proximaOrdem])) {
+            $stmt = $pdo->prepare("INSERT INTO musicas_cantor (id_eventos, id_cantor, id_musica, ordem_na_lista) VALUES (?, ?, ?, ?)");
+            if ($stmt->execute([$id_evento_ativo, $id_cantor, $id_musica, $proximaOrdem])) {
                 $_SESSION['mensagem_sucesso'] = "Música adicionada à lista do cantor com sucesso!";
                 header("Location: musicas_cantores.php?cantor_id=" . $redirect_cantor_id);
                 exit;
@@ -58,9 +65,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-// Obter cantores para o select
-$stmtCantores = $pdo->query("SELECT id, nome_cantor FROM cantores ORDER BY nome_cantor ASC");
+global $id_tenants_logado;
+// Obter cantores para o select, filtrando pelo id_tenants
+$stmtCantores = $pdo->prepare("SELECT id, nome_cantor FROM cantores WHERE id_tenants = ? ORDER BY nome_cantor ASC");
+$stmtCantores->execute([$id_tenants_logado]);
 $cantores_disponiveis = $stmtCantores->fetchAll(PDO::FETCH_ASSOC);
+
 
 // Obter músicas do cantor selecionado (para exibição inicial)
 $musicas_do_cantor = [];

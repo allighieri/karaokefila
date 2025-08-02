@@ -1,8 +1,9 @@
 <?php
 require_once 'funcoes_fila.php';
+global $id_tenants_logado; // Garanta que a variável esteja disponível
 
 if (!empty($pdo)) {
-    $rodada_atual = getRodadaAtual($pdo);
+    $rodada_atual = getRodadaAtual($pdo, $id_tenants_logado);
 }
 $musica_em_execucao = getMusicaEmExecucao($pdo);
 $proxima_musica_aguardando = getProximaMusicaFila($pdo);
@@ -16,7 +17,26 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta content="icos/android-icon-144x144.png" itemprop="image">
     <title>Gerenciador de Karaokê - MC Panel</title>
+    <link rel="shortcut icon" href="icos/favicon.ico" type="image/x-icon">
+    <link rel="apple-touch-icon" sizes="57x57" href="icos/apple-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="icos/apple-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="icos/apple-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="icos/apple-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="icos/apple-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="icos/apple-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="icos/apple-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icos/apple-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icos/apple-icon-180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192"  href="icos/android-icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icos/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="icos/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icos/favicon-16x16.png">
+    <link rel="manifest" href="icos/manifest.json">
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-TileImage" content="/ms-icon-144x144.png">
+    <meta name="theme-color" content="#ffffff">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
     <link rel="stylesheet" href="css/style_index.css">
@@ -165,7 +185,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 
 <?php include_once 'modal_resetar_sistema.php'?>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
 <script src="https://localhost/fila/js/resetar_sistema.js"></script>

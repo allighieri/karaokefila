@@ -340,7 +340,9 @@ switch ($action) {
 
     if ($idCantor !== false) {
         try {
-            $rodadaAtual = getRodadaAtual($pdo);
+            // Código corrigido
+            global $id_tenants_logado; // Se a variável for global
+            $rodadaAtual = getRodadaAtual($pdo, $id_tenants_logado);
             error_log("DEBUG get_musicas_cantor_atualizadas (START): Rodada Atual Detectada: " . $rodadaAtual);
 
             $musicaEmExecucaoGeral = getMusicaEmExecucao($pdo);
