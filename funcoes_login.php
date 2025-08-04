@@ -138,7 +138,7 @@ function logar_usuario($email, $senha) {
         // Armazena o objeto na sessão
         $_SESSION['usuario_logado'] = $sessao;
 
-        return true;
+        return 'success';
 
     } catch (PDOException $e) {
         // Em caso de erro no banco de dados

@@ -522,7 +522,7 @@ switch ($action) {
 
         $resultado_login = logar_usuario($email, $senha);
 
-        if ($resultado_login === 'sucesso') {
+        if ($resultado_login === 'success') {
             $response = ['success' => true, 'message' => 'Login realizado com sucesso!'];
         } else {
             $response = ['success' => false, 'message' => $resultado_login];
