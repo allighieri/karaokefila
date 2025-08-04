@@ -492,20 +492,43 @@ switch ($action) {
         $telefone = trim(filter_input(INPUT_POST, 'telefone', FILTER_DEFAULT));
         $cidade = trim(filter_input(INPUT_POST, 'cidade', FILTER_DEFAULT));
         $uf = trim(filter_input(INPUT_POST, 'uf', FILTER_DEFAULT));
-        $senha = $_POST['senha'] ?? '';
-        $code = $_POST['code'] ?? ''; // NOVO: Captura o código
+
+        // CORREÇÃO AQUI: Remove os espaços em branco da senha antes de criar o hash
+        $senha = trim($_POST['senha'] ?? '');
+
         $senha_hash = password_hash($senha, PASSWORD_DEFAULT);
 
-        // Remove a variável fixa $id_tenants_logado.
-        // O id do tenant será obtido através do código.
+        $code = $_POST['code'] ?? '';
 
-        // Chama a nova função do arquivo de funções com o código
         $resultado = cadastrarUsuario($pdo, $nome, $email, $telefone, $cidade, $uf, $senha_hash, $code);
 
-        // A resposta da API agora é o que a função retorna
         $response['success'] = $resultado['success'];
         $response['message'] = $resultado['message'];
         break;
+
+    case 'validar_codigo':
+        $codigo = $_POST['codigo'] ?? '';
+
+        if (!empty($codigo)) {
+            // Chamando a função com apenas o código
+            $response = validar_codigo($pdo, $codigo);
+        } else {
+            $response = ["success" => false, "message" => "O código de acesso é obrigatório."];
+        }
+        break;
+    case 'logar':
+        $email = $_POST['email'] ?? '';
+        $senha = $_POST['senha'] ?? '';
+
+        $resultado_login = logar_usuario($email, $senha);
+
+        if ($resultado_login === 'sucesso') {
+            $response = ['success' => true, 'message' => 'Login realizado com sucesso!'];
+        } else {
+            $response = ['success' => false, 'message' => $resultado_login];
+        }
+        break;
+
 
 
     default:

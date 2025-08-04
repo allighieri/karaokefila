@@ -62,11 +62,6 @@ $rootPath = '/fila/';
             display: none;
         }
 
-        /* Oculta o ícone de sucesso padrão do Bootstrap */
-        .form-floating .form-control.is-valid ~ .form-control:not(:focus)::after {
-            display: none;
-        }
-
         /* Estilo do nosso gatilho do tooltip (invisível, mas clicável) */
         .form-floating .tooltip-trigger {
             position: absolute;
@@ -190,10 +185,27 @@ $rootPath = '/fila/';
         }, 5000); // Alerta desaparece após 5 segundos
     }
 
+    // NOVA FUNÇÃO: Limpa todos os campos, classes de validação e alertas
+    function resetAllForms() {
+        // Reseta os formulários para o estado inicial
+        $('.logar')[0].reset();
+        $('.cadUser')[0].reset();
+
+        // Remove as classes de validação do Bootstrap de todos os campos
+        $('.form-control').removeClass('is-valid is-invalid');
+
+        // Remove os tooltips de erro
+        $('.tooltip-trigger').remove();
+
+        // Limpa os containers de alertas
+        $('#alertContainerLogin').empty();
+        $('#alertContainerCad').empty();
+    }
+
     $(document).ready(function() {
         // Inicialização global dos tooltips do Bootstrap
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl)
         })
 
@@ -215,20 +227,110 @@ $rootPath = '/fila/';
 
         $('#link-cadastro').on('click', function(e) {
             e.preventDefault();
+            resetAllForms(); // Chama a nova função de reset
             loginContainer.css('height', cadForm.outerHeight() + 'px');
             loginInner.css('transform', 'translateX(-50%)');
         });
 
         $('#link-login').on('click', function(e) {
             e.preventDefault();
+            resetAllForms(); // Chama a nova função de reset
             loginContainer.css('height', loginForm.outerHeight() + 'px');
             loginInner.css('transform', 'translateX(0)');
         });
 
+        // Funções para manipular o estado do campo e do ícone de erro
+        function setInvalid(element, message) {
+            const parent = element.closest('.form-floating');
+            parent.find('.tooltip-trigger').remove();
+            element.removeClass('is-valid').addClass('is-invalid');
+            const tooltipTrigger = $('<span>')
+                .addClass('tooltip-trigger')
+                .attr('title', message)
+                .attr('data-bs-toggle', 'tooltip');
+            parent.append(tooltipTrigger);
+            new bootstrap.Tooltip(tooltipTrigger[0]);
+        }
+
+        function setValid(element) {
+            const parent = element.closest('.form-floating');
+            parent.find('.tooltip-trigger').remove();
+            element.removeClass('is-invalid').addClass('is-valid');
+        }
+
+        // Lógica do botão de login
+        $('#btn_logar').on('click', function(e) {
+            e.preventDefault();
+            const $btn = $(this);
+            const email = $('#email').val().trim();
+            const password = $('#password').val().trim();
+            const alertContainerId = 'alertContainerLogin';
+
+            if (!email || !password) {
+                showAlert("Por favor, preencha todos os campos.", "danger", alertContainerId);
+                return;
+            }
+
+            $btn.prop('disabled', true).text('Verificando...');
+
+            $.ajax({
+                url: '<?php echo $rootPath; ?>api.php',
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'logar',
+                    email: email,
+                    senha: password
+                },
+                success: function(response) {
+                    $btn.prop('disabled', false).text('Logar');
+                    if (response.success) {
+                        showAlert(response.message, 'success', alertContainerId);
+                        setTimeout(() => {
+                            window.location.href = '<?php echo $rootPath; ?>rodadas.php';
+                        }, 1000);
+                    } else {
+                        showAlert(response.message, 'danger', alertContainerId);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Erro na requisição AJAX:", status, error);
+                    showAlert("Ocorreu um erro na comunicação com o servidor.", "danger", alertContainerId);
+                    $btn.prop('disabled', false).text('Logar');
+                }
+            });
+        });
+
+        // Lógica de validação do formulário de cadastro
         $('.cadUser').validate({
-            // ... (regras e mensagens permanecem as mesmas) ...
+            onfocusout: function(element) {
+                this.element(element);
+                if (element.id === 'cad_password' || element.id === 'cad_password_confirma') {
+                    const otherPasswordId = element.id === 'cad_password' ? '#cad_password_confirma' : '#cad_password';
+                    this.element($(otherPasswordId)[0]);
+                }
+            },
+            onkeyup: false,
+
             rules: {
-                cad_code: { required: true },
+                cad_code: {
+                    required: true,
+                    remote: {
+                        url: '<?php echo $rootPath; ?>api.php',
+                        type: 'post',
+                        dataType: 'json',
+                        data: {
+                            action: 'validar_codigo',
+                            codigo: function() {
+                                return $('#cad_code').val();
+                            }
+                        },
+                        dataFilter: function(response) {
+                            const jsonResponse = JSON.parse(response);
+                            return jsonResponse.success;
+                        }
+                    }
+                },
                 cad_nome: { required: true },
                 cad_email: { required: true, email: true },
                 cad_telefone: { required: true },
@@ -238,7 +340,7 @@ $rootPath = '/fila/';
                 cad_password_confirma: { required: true, minlength: 6, equalTo: '#cad_password' }
             },
             messages: {
-                cad_code: "Por favor, digite o código de acesso.",
+                cad_code: "O código de acesso é inválido ou expirou.",
                 cad_nome: "Por favor, digite seu nome.",
                 cad_email: { required: "Por favor, digite seu e-mail.", email: "Por favor, digite um e-mail válido." },
                 cad_telefone: "Por favor, digite seu telefone.",
@@ -247,41 +349,34 @@ $rootPath = '/fila/';
                 cad_password: { required: "Por favor, crie uma senha.", minlength: "A senha deve ter no mínimo 6 caracteres." },
                 cad_password_confirma: { required: "Por favor, confirme sua senha.", minlength: "A senha deve ter no mínimo 6 caracteres.", equalTo: "As senhas não coincidem." }
             },
-
+            highlight: function(element, errorClass, validClass) {
+                const errorMessage = this.errorMap[element.name];
+                setInvalid($(element), errorMessage);
+                if (element.id === 'cad_code' && errorMessage) {
+                    window.showAlert(errorMessage, 'danger', 'alertContainerCad');
+                }
+            },
+            unhighlight: function(element, errorClass, validClass) {
+                setValid($(element));
+                if (element.id === 'cad_code') {
+                    const isCodeValid = $(element).hasClass('is-valid');
+                    if (isCodeValid) {
+                        window.showAlert("Código válido!", 'success', 'alertContainerCad');
+                    } else {
+                        $('#alertContainerCad').empty();
+                    }
+                }
+            },
             errorPlacement: function(error, element) {
-                const parent = element.closest('.form-floating');
-
-                // Remove o gatilho do tooltip anterior, se existir
-                parent.find('.tooltip-trigger').remove();
-
-                // Adiciona a classe de erro do Bootstrap
-                element.addClass('is-invalid');
-
-                // Cria o elemento que será o gatilho do tooltip
-                const tooltipTrigger = $('<span>')
-                    .addClass('tooltip-trigger')
-                    .attr('title', error.text())
-                    .attr('data-bs-toggle', 'tooltip');
-
-                parent.append(tooltipTrigger);
-
-                // Inicializa o tooltip imediatamente
-                new bootstrap.Tooltip(tooltipTrigger[0]);
+                return false;
             },
-
-            unhighlight: function(element) {
-                $(element).removeClass('is-invalid');
-                $(element).closest('.form-floating').find('.tooltip-trigger').remove();
-            },
-
-            success: function(label, element) {
-                $(element).removeClass('is-invalid').addClass('is-valid');
-                $(element).closest('.form-floating').find('.tooltip-trigger').remove();
-            },
-
-            // Esta função é executada APENAS se o formulário for válido
             submitHandler: function(form) {
                 const $btn = $('#btn_cad_user');
+
+                if ($('#cad_code').hasClass('is-valid') && !this.submitted) {
+                    window.showAlert("Por favor, aguarde a validação do código.", "info", "alertContainerCad");
+                    return false;
+                }
 
                 const nome = $('#cad_nome').val().trim();
                 const email = $('#cad_email').val().trim();
@@ -289,7 +384,7 @@ $rootPath = '/fila/';
                 const telefone = $('#cad_telefone').val().trim();
                 const cidade = $('#cad_cidade').val().trim();
                 const uf = $('#cad_uf').val().trim();
-                const password = $('#cad_password').val();
+                const password = $('#cad_password').val().trim();
 
                 $btn.prop('disabled', true).text('Cadastrando...');
 
@@ -309,12 +404,12 @@ $rootPath = '/fila/';
                     },
                     success: function(response) {
                         $btn.prop('disabled', false).text('Cadastrar');
-
                         if (response.success) {
                             const alertType = 'success';
                             window.showAlert(response.message, alertType, "alertContainerCad");
 
-                            $('#cad_nome, #cad_email, #cad_telefone, #cad_cidade, #cad_uf, #cad_password, #cad_password_confirma, #cad_code').val("").removeClass('is-valid');
+                            // Limpa os campos do formulário de cadastro após o sucesso
+                            resetAllForms();
 
                             setTimeout(() => {
                                 $('#link-login').trigger('click');
@@ -322,7 +417,6 @@ $rootPath = '/fila/';
                         } else {
                             const alertType = 'danger';
                             window.showAlert(response.message, alertType, "alertContainerCad");
-                            // Remove a classe de validação se houver erro do servidor
                             $('.cadUser').find('.is-valid').removeClass('is-valid');
                         }
                     },
