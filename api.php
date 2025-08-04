@@ -4,6 +4,7 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 require_once 'funcoes_fila.php'; // Inclui as funções e a conexão PDO
+require_once 'funcoes_login.php'; // Inclui as funções e a conexão PDO
 
 header('Content-Type: application/json; charset=utf-8'); // Garante que a resposta seja JSON UTF-8
 
@@ -485,6 +486,27 @@ switch ($action) {
 			$response['message'] = 'Erro ao definir regras padrão.';
 		}
 		break;
+    case 'cadastrar_usuario':
+        $nome = trim(filter_input(INPUT_POST, 'nome', FILTER_DEFAULT));
+        $email = filter_input(INPUT_POST, 'email', FILTER_VALIDATE_EMAIL);
+        $telefone = trim(filter_input(INPUT_POST, 'telefone', FILTER_DEFAULT));
+        $cidade = trim(filter_input(INPUT_POST, 'cidade', FILTER_DEFAULT));
+        $uf = trim(filter_input(INPUT_POST, 'uf', FILTER_DEFAULT));
+        $senha = $_POST['senha'] ?? '';
+        $code = $_POST['code'] ?? ''; // NOVO: Captura o código
+        $senha_hash = password_hash($senha, PASSWORD_DEFAULT);
+
+        // Remove a variável fixa $id_tenants_logado.
+        // O id do tenant será obtido através do código.
+
+        // Chama a nova função do arquivo de funções com o código
+        $resultado = cadastrarUsuario($pdo, $nome, $email, $telefone, $cidade, $uf, $senha_hash, $code);
+
+        // A resposta da API agora é o que a função retorna
+        $response['success'] = $resultado['success'];
+        $response['message'] = $resultado['message'];
+        break;
+
 
     default:
         // Se a ação não for reconhecida, a $response padrão já é retornada
