@@ -73,9 +73,11 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
         </div>
     </form>
 
-    <hr class="my-4">
-    <h3>Estabelecimentos Cadastrados</h3>
+    <h4 class="mt-4">Estabelecimentos Cadastrados</h4>
     <div id="tenantsListContainer"></div>
+
+    <h4 class="mt-4">Estabelecimentos Inativos</h4>
+    <div id="inactiveTenantsListContainer"></div>
 </div>
 
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
@@ -150,6 +152,27 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
     </div>
 </div>
 
+<div class="modal fade" id="viewTenantModal" tabindex="-1" aria-labelledby="viewTenantModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewTenantModalLabel">Detalhes do Estabelecimento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Nome:</strong> <span id="viewNome"></span></p>
+                <p><strong>Telefone:</strong> <span id="viewTelefone"></span></p>
+                <p><strong>E-mail:</strong> <span id="viewEmail"></span></p>
+                <p><strong>Endereço:</strong> <span id="viewEndereco"></span></p>
+                <p><strong>Cidade/UF:</strong> <span id="viewCidadeUf"></span></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
@@ -180,7 +203,7 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
             return text == null ? '' : String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
         }
 
-        // Função para recarregar a lista de tenants via AJAX
+        // Função para recarregar a lista de tenants ATIVOS
         window.refreshTenantsList = function() {
             $.ajax({
                 url: 'api_tenants.php',
@@ -196,17 +219,36 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
                                 '<thead><tr>' +
                                 '<th scope="col">Nome</th>' +
                                 '<th scope="col">Telefone</th>' +
-                                '<th scope="col">Ações</th>' +
+                                '<th scope="col" style="width: 1%;">Ações</th>' + // ALTERADO AQUI
                                 '</tr></thead><tbody>';
                             $.each(response.tenants, function(index, tenant) {
+                                // Limpa o número de telefone para o formato do WhatsApp
+                                var whatsappNumber = htmlspecialchars(tenant.telefone).replace(/\D/g, '');
+
                                 tableHtml += '<tr>' +
                                     '<td>' + htmlspecialchars(tenant.nome) + '</td>' +
-                                    '<td>' + htmlspecialchars(tenant.telefone) + '</td>' +
+                                    '<td>' +
+                                    '<a class="text-decoration-none" href="https://wa.me/' + whatsappNumber + '" target="_blank" title="Enviar mensagem via WhatsApp">' +
+                                    htmlspecialchars(tenant.telefone) + ' <i class="bi bi-whatsapp text-success"></i>' +
+                                    '</a>' +
+                                    '</td>' +
                                     '<td>' +
                                     '<div class="d-flex flex-nowrap gap-1">' +
+                                    '<button class="btn btn-sm btn-info view-tenant-btn" ' +
+                                    'data-id="' + htmlspecialchars(tenant.id) + '" ' +
+                                    'data-nome="' + htmlspecialchars(tenant.nome) + '" ' +
+                                    'data-telefone="' + htmlspecialchars(tenant.telefone) + '" ' +
+                                    'data-email="' + htmlspecialchars(tenant.email) + '" ' +
+                                    'data-endereco="' + htmlspecialchars(tenant.endereco) + '" ' +
+                                    'data-cidade="' + htmlspecialchars(tenant.cidade) + '" ' +
+                                    'data-uf="' + htmlspecialchars(tenant.uf) + '" ' +
+                                    'title="Visualizar Detalhes">' +
+                                    '<i class="bi bi-eye"></i></button> ' +
                                     '<button class="btn btn-sm btn-warning edit-tenant-btn" data-id="' + htmlspecialchars(tenant.id) + '" data-nome="' + htmlspecialchars(tenant.nome) + '" data-telefone="' + htmlspecialchars(tenant.telefone) + '" data-email="' + htmlspecialchars(tenant.email) + '" data-endereco="' + htmlspecialchars(tenant.endereco) + '" data-cidade="' + htmlspecialchars(tenant.cidade) + '" data-uf="' + htmlspecialchars(tenant.uf) + '" title="Editar Estabelecimento">' +
                                     '<i class="bi bi-pencil-square"></i></button> ' +
-                                    '<button class="btn btn-sm btn-danger delete-tenant-btn" data-id="' + htmlspecialchars(tenant.id) + '" data-nome="' + htmlspecialchars(tenant.nome) + '" title="Excluir Estabelecimento">' +
+                                    '<button class="btn btn-sm btn-secondary inactivate-tenant-btn" data-id="' + htmlspecialchars(tenant.id) + '" data-nome="' + htmlspecialchars(tenant.nome) + '" title="Inativar Estabelecimento">' +
+                                    '<i class="bi bi-box-arrow-down"></i></button>' +
+                                    '<button class="btn btn-sm btn-danger delete-tenant-btn" data-id="' + htmlspecialchars(tenant.id) + '" data-nome="' + htmlspecialchars(tenant.nome) + '" title="Excluir Permanentemente">' +
                                     '<i class="bi bi-trash-fill"></i></button>' +
                                     '</div></td></tr>';
                             });
@@ -225,6 +267,98 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
                 }
             });
         }
+
+        // Função para recarregar a lista de tenants INATIVOS
+        window.refreshInactiveTenantsList = function() {
+            $.ajax({
+                url: 'api_tenants.php',
+                type: 'GET',
+                dataType: 'json',
+                data: { action: 'get_inactive_tenants' },
+                success: function(response) {
+                    if (response.success) {
+                        var tableHtml = '';
+                        if (response.tenants.length > 0) {
+                            tableHtml += '<div class="table-responsive-sm">' +
+                                '<table class="table table-striped table-hover table-sm">' +
+                                '<thead><tr>' +
+                                '<th scope="col">Nome</th>' +
+                                '<th scope="col">Telefone</th>' +
+                                '<th scope="col" style="width: 1%;">Ações</th>' + // ALTERADO AQUI
+                                '</tr></thead><tbody>';
+                            $.each(response.tenants, function(index, tenant) {
+                                // Limpa o número de telefone para o formato do WhatsApp
+                                var whatsappNumber = htmlspecialchars(tenant.telefone).replace(/\D/g, '');
+
+                                tableHtml += '<tr>' +
+                                    '<td>' + htmlspecialchars(tenant.nome) + '</td>' +
+                                    '<td>' +
+                                    '<a class="text-decoration-none" href="https://wa.me/' + whatsappNumber + '" target="_blank" title="Enviar mensagem via WhatsApp">' +
+                                    htmlspecialchars(tenant.telefone) + ' <i class="bi bi-whatsapp text-success"></i>' +
+                                    '</a>' +
+                                    '</td>' +
+                                    '<td>' +
+                                    '<div class="d-flex flex-nowrap gap-1">' +
+                                    '<button class="btn btn-sm btn-info view-tenant-btn" ' +
+                                    'data-id="' + htmlspecialchars(tenant.id) + '" ' +
+                                    'data-nome="' + htmlspecialchars(tenant.nome) + '" ' +
+                                    'data-telefone="' + htmlspecialchars(tenant.telefone) + '" ' +
+                                    'data-email="' + htmlspecialchars(tenant.email) + '" ' +
+                                    'data-endereco="' + htmlspecialchars(tenant.endereco) + '" ' +
+                                    'data-cidade="' + htmlspecialchars(tenant.cidade) + '" ' +
+                                    'data-uf="' + htmlspecialchars(tenant.uf) + '" ' +
+                                    'title="Visualizar Detalhes">' +
+                                    '<i class="bi bi-eye"></i></button>' +
+                                    '<button class="btn btn-sm btn-warning edit-tenant-btn" data-id="' + htmlspecialchars(tenant.id) + '" data-nome="' + htmlspecialchars(tenant.nome) + '" data-telefone="' + htmlspecialchars(tenant.telefone) + '" data-email="' + htmlspecialchars(tenant.email) + '" data-endereco="' + htmlspecialchars(tenant.endereco) + '" data-cidade="' + htmlspecialchars(tenant.cidade) + '" data-uf="' + htmlspecialchars(tenant.uf) + '" title="Editar Estabelecimento">' +
+                                    '<i class="bi bi-pencil-square"></i></button>' +
+                                    '<button class="btn btn-sm btn-success reactivate-tenant-btn" data-id="' + htmlspecialchars(tenant.id) + '" title="Reativar Estabelecimento">' +
+                                    '<i class="bi bi-box-arrow-up"></i></button>' +
+                                    '<button class="btn btn-sm btn-danger delete-inactive-tenant-btn" data-id="' + htmlspecialchars(tenant.id) + '" data-nome="' + htmlspecialchars(tenant.nome) + '" title="Excluir Permanentemente">' +
+                                    '<i class="bi bi-trash-fill"></i></button>' +
+                                    '</div></td></tr>';
+                            });
+                            tableHtml += '</tbody></table></div>';
+                        } else {
+                            tableHtml = '<p>Nenhum estabelecimento inativo encontrado.</p>';
+                        }
+                        $('#inactiveTenantsListContainer').html(tableHtml);
+                    } else {
+                        showAlert('Erro ao recarregar a lista de estabelecimentos inativos: ' + response.message, 'danger');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Erro na requisição AJAX para recarregar tenants inativos:", status, error);
+                    showAlert('Erro na comunicação com o servidor ao recarregar estabelecimentos inativos.', 'danger');
+                }
+            });
+        }
+
+        // Os manipuladores de evento para os botões de visualização e edição foram movidos para "document"
+        // para que funcionem em ambas as tabelas (ativas e inativas)
+        $(document).on('click', '.view-tenant-btn', function() {
+            var tenant = $(this).data();
+            $('#viewNome').text(tenant.nome);
+            $('#viewTelefone').text(tenant.telefone);
+            $('#viewEmail').text(tenant.email);
+            $('#viewEndereco').text(tenant.endereco);
+            $('#viewCidadeUf').text(tenant.cidade + '/' + tenant.uf);
+
+            var viewModal = new bootstrap.Modal(document.getElementById('viewTenantModal'));
+            viewModal.show();
+        });
+
+        $(document).on('click', '.edit-tenant-btn', function() {
+            var tenant = $(this).data();
+            $('#editTenantId').val(tenant.id);
+            $('#editNome').val(tenant.nome);
+            $('#editTelefone').val(tenant.telefone);
+            $('#editEmail').val(tenant.email);
+            $('#editEndereco').val(tenant.endereco);
+            $('#editCidade').val(tenant.cidade);
+            $('#editUf').val(tenant.uf);
+            var editModal = new bootstrap.Modal(document.getElementById('editTenantModal'));
+            editModal.show();
+        });
 
         // Evento de envio do formulário de adicionar tenant
         $('#addTenants').on('submit', function(e) {
@@ -251,20 +385,6 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
             });
         });
 
-        // Evento para abrir o modal de edição
-        $('#tenantsListContainer').on('click', '.edit-tenant-btn', function() {
-            var tenant = $(this).data();
-            $('#editTenantId').val(tenant.id);
-            $('#editNome').val(tenant.nome);
-            $('#editTelefone').val(tenant.telefone);
-            $('#editEmail').val(tenant.email);
-            $('#editEndereco').val(tenant.endereco);
-            $('#editCidade').val(tenant.cidade);
-            $('#editUf').val(tenant.uf);
-            var editModal = new bootstrap.Modal(document.getElementById('editTenantModal'));
-            editModal.show();
-        });
-
         // Evento para salvar a edição do tenant
         $('#btnSalvarEditTenant').on('click', function() {
             var formData = $('#formEditTenant').serialize() + '&action=edit_tenant';
@@ -279,6 +399,7 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
                         showAlert(response.message, 'success');
                         editModalInstance.hide();
                         refreshTenantsList();
+                        refreshInactiveTenantsList();
                     } else {
                         showAlert('Erro ao salvar: ' + response.message, 'danger');
                     }
@@ -290,19 +411,59 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
             });
         });
 
-        // Evento para abrir o modal de exclusão
+        // Evento para inativar o tenant (sem modal de confirmação)
+        $('#tenantsListContainer').on('click', '.inactivate-tenant-btn', function() {
+            var tenantId = $(this).data('id');
+            var tenantNome = $(this).data('nome');
+            $.ajax({
+                url: 'api_tenants.php',
+                type: 'POST',
+                dataType: 'json',
+                data: { action: 'inactivate_tenant', id: tenantId },
+                success: function(response) {
+                    if (response.success) {
+                        showAlert('Estabelecimento "' + tenantNome + '" inativado com sucesso.', 'success');
+                        refreshTenantsList();
+                        refreshInactiveTenantsList();
+                    } else {
+                        showAlert(response.message, 'danger');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Erro na requisição AJAX para inativar tenant:", status, error);
+                    showAlert('Erro na comunicação com o servidor ao inativar estabelecimento.', 'danger');
+                }
+            });
+        });
+
+        // Evento para abrir o modal de exclusão (agora para exclusão permanente, ativos)
         $('#tenantsListContainer').on('click', '.delete-tenant-btn', function() {
             var id = $(this).data('id');
             var nome = $(this).data('nome');
             $('#tenantNomeExcluir').text(nome);
             $('#btnConfirmarExclusao').data('tenant-id', id);
+            // Adiciona um atributo para saber de qual lista a exclusão veio
+            $('#btnConfirmarExclusao').data('list-type', 'active');
             var confirmModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
             confirmModal.show();
         });
 
-        // Evento para confirmar a exclusão do tenant
+        // Evento para abrir o modal de exclusão (agora para exclusão permanente, inativos)
+        $('#inactiveTenantsListContainer').on('click', '.delete-inactive-tenant-btn', function() {
+            var id = $(this).data('id');
+            var nome = $(this).data('nome');
+            $('#tenantNomeExcluir').text(nome);
+            $('#btnConfirmarExclusao').data('tenant-id', id);
+            // Adiciona um atributo para saber de qual lista a exclusão veio
+            $('#btnConfirmarExclusao').data('list-type', 'inactive');
+            var confirmModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+            confirmModal.show();
+        });
+
+        // Evento para confirmar a exclusão PERMANENTE do tenant
         $('#btnConfirmarExclusao').on('click', function() {
             var tenantId = $(this).data('tenant-id');
+            var listType = $(this).data('list-type');
             var confirmModal = bootstrap.Modal.getInstance(document.getElementById('confirmDeleteModal'));
             $.ajax({
                 url: 'api_tenants.php',
@@ -313,7 +474,11 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
                     if (response.success) {
                         showAlert(response.message, 'success');
                         confirmModal.hide();
-                        refreshTenantsList();
+                        if(listType === 'active') {
+                            refreshTenantsList();
+                        } else {
+                            refreshInactiveTenantsList();
+                        }
                     } else {
                         showAlert(response.message, 'danger');
                         confirmModal.hide();
@@ -326,8 +491,32 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
             });
         });
 
-        // Carrega a lista de tenants na inicialização da página
+        // Evento para reativar o tenant
+        $('#inactiveTenantsListContainer').on('click', '.reactivate-tenant-btn', function() {
+            var tenantId = $(this).data('id');
+            $.ajax({
+                url: 'api_tenants.php',
+                type: 'POST',
+                dataType: 'json',
+                data: { action: 'reactivate_tenant', id: tenantId },
+                success: function(response) {
+                    if (response.success) {
+                        showAlert(response.message, 'success');
+                        refreshTenantsList();
+                        refreshInactiveTenantsList();
+                    } else {
+                        showAlert(response.message, 'danger');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Erro na requisição AJAX para reativar tenant:", status, error);
+                    showAlert('Erro na comunicação com o servidor ao reativar estabelecimento.', 'danger');
+                }
+            });
+        });
+
         refreshTenantsList();
+        refreshInactiveTenantsList();
     });
 </script>
 </body>

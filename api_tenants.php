@@ -7,19 +7,17 @@ header('Content-Type: application/json');
 
 $response = ['success' => false, 'message' => 'Ação inválida.'];
 
-// Ação para buscar todos os tenants (via GET)
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'get_all_tenants') {
-    $tenants = getAllTenants($pdo);
-    if ($tenants !== null) {
-        $response = ['success' => true, 'tenants' => $tenants];
-    } else {
-        $response['message'] = 'Nenhum estabelecimento encontrado.';
-    }
-}
+if (isset($_REQUEST['action'])) {
+    switch ($_REQUEST['action']) {
+        case 'get_all_tenants':
+            $tenants = getAllTenants($pdo);
+            if ($tenants !== null) {
+                $response = ['success' => true, 'tenants' => $tenants];
+            } else {
+                $response['message'] = 'Nenhum estabelecimento encontrado.';
+            }
+            break;
 
-// Ações para adicionar, editar ou excluir (via POST)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    switch ($_POST['action']) {
         case 'add_tenant':
             $dados = [
                 'nome' => $_POST['nome'] ?? '',
@@ -44,8 +42,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $response = editTenant($pdo, $_POST['id'] ?? 0, $dados);
             break;
 
+        // AÇÃO INATIVAR: Usa a nova função inactivateTenant (antiga função deleteTenant)
+        case 'inactivate_tenant':
+            $response = inactivateTenant($pdo, $_POST['id'] ?? 0);
+            break;
+
+        // AÇÃO EXCLUIR: Usa a função deleteTenant atualizada para exclusão permanente
         case 'delete_tenant':
             $response = deleteTenant($pdo, $_POST['id'] ?? 0);
+            break;
+
+        case 'get_inactive_tenants':
+            $tenants = getInactiveTenants($pdo);
+            if ($tenants !== null) {
+                $response = ['success' => true, 'tenants' => $tenants];
+            } else {
+                $response['message'] = 'Nenhum estabelecimento inativo encontrado.';
+            }
+            break;
+
+        case 'reactivate_tenant':
+            $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+            if ($id) {
+                $response = reactivateTenant($pdo, $id);
+            } else {
+                $response['message'] = 'ID de estabelecimento inválido.';
+            }
             break;
     }
 }
