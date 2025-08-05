@@ -2,29 +2,48 @@
 session_start();
 
 
-$base_url = '/fila/login';
+
 $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 $rootPath = '/fila/';
 
 require_once 'conn.php';
 
-
-if (!isset($_SESSION['usuario_logado'])) {
-    header("Location: " . $base_url);
+// Lógica de logout
+if (isset($_GET['action']) && $_GET['action'] == 'logout') {
+    session_destroy();
+    header("Location: " . $rootPath . "login"); // Use a constante base_url para evitar redirecionamento quebrado
     exit();
 }
 
+
+//if (!isset($_SESSION['usuario_logado'])) {
+//    header("Location: " . $base_url);
+//    exit();
+//}
+
+if (isset($_SESSION['usuario_logado'])) {
 // dados do usuário
-$dados_sessao = $_SESSION['usuario_logado'];
+    $dados_sessao = $_SESSION['usuario_logado'];
 
 // Definimos constantes para fácil acesso (recomendado)
 // Isso é mais seguro e evita reatribuições
-define('ID_TENANTS', $dados_sessao['usuario']['id_tenants']);
-define('NIVEL_ACESSO', $dados_sessao['usuario']['nivel']);
-define('NOME_USUARIO', $dados_sessao['usuario']['nome']);
-define('NOME_TENANT', $dados_sessao['tenant']['nome']);
+    define('ID_TENANTS', $dados_sessao['usuario']['id_tenants']);
+    define('NIVEL_ACESSO', $dados_sessao['usuario']['nivel']);
+    define('NOME_USUARIO', $dados_sessao['usuario']['nome']);
+    define('NOME_TENANT', $dados_sessao['tenant']['nome']);
 
+    $idEventoAtivo = get_id_evento_ativo($pdo, ID_TENANTS);
 
+    if ($idEventoAtivo !== null) {
+        define('ID_EVENTO_ATIVO', $idEventoAtivo);
+    } else {
+        // Se não houver um evento ativo, defina a constante como null ou um valor padrão
+        define('ID_EVENTO_ATIVO', null);
+        // Exemplo: header("Location: /fila/erro_sem_evento.php");
+        // exit();
+    }
+
+}
 /**
  * Busca o ID do evento ativo para um determinado tenant.
  *
@@ -52,16 +71,7 @@ function get_id_evento_ativo(PDO $pdo, int $id_tenants): ?int {
     }
 }
 
-$idEventoAtivo = get_id_evento_ativo($pdo, ID_TENANTS);
 
-if ($idEventoAtivo !== null) {
-    define('ID_EVENTO_ATIVO', $idEventoAtivo);
-} else {
-    // Se não houver um evento ativo, defina a constante como null ou um valor padrão
-    define('ID_EVENTO_ATIVO', null);
-    // Exemplo: header("Location: /fila/erro_sem_evento.php");
-    // exit();
-}
 
 // Verificar o nível de acesso
 function check_access($required_level) {

@@ -30,6 +30,9 @@ $rootPath = '/fila/';
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                         <li><a class="dropdown-item <?php echo ($current_page == 'regras.php') ? 'active' : ''; ?>" href="<?php echo $rootPath; ?>regras.php">Regras</a></li>
                         <li><a class="dropdown-item" id="resetarSistema" href="#sectionResetarSistema">Resetar Todo o Sistema</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="<?php echo $rootPath; ?>index.php?action=logout">Sair</a></li>
+
                     </ul>
                 </li>
             </ul>

@@ -211,7 +211,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
         // --- NOVA FUNÇÃO: Atualiza a lista de regras formatadas (ul) ---
         function refreshRegrasDisplay() {
             $.ajax({
-                url: 'processar_regras.php',
+                url: 'api_processar_regras.php',
                 type: 'POST',
                 dataType: 'json',
                 data: { action: 'get_regras_formatadas' },
@@ -239,7 +239,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
         // --- NOVA FUNÇÃO: Atualiza o formulário de regras (#regras-container) ---
         function refreshRegrasForm() {
             $.ajax({
-                url: 'processar_regras.php',
+                url: 'api_processar_regras.php',
                 type: 'POST',
                 dataType: 'json',
                 data: { action: 'get_all_regras_data' },
@@ -368,7 +368,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                 clickedButton.prop('disabled', true);
 
                 $.ajax({
-                    url: 'processar_regras.php',
+                    url: 'api_processar_regras.php',
                     type: 'POST',
                     dataType: 'json',
                     data: {
@@ -447,7 +447,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
             };
 
             $.ajax({
-                url: 'processar_regras.php',
+                url: 'api_processar_regras.php',
                 type: 'POST',
                 dataType: 'json',
                 data: dataToSend,
@@ -477,7 +477,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
             var resetRulesModalInstance = bootstrap.Modal.getInstance(document.getElementById('confirmResetRulesModal'));
 
             $.ajax({
-                url: 'processar_regras.php',
+                url: 'api_processar_regras.php',
                 type: 'POST',
                 dataType: 'json',
                 data: {

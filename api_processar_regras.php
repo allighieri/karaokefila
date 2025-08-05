@@ -1,6 +1,5 @@
 <?php
-include_once 'funcoes_fila.php'; // Onde suas funções como 'adicionarOuAtualizarRegraMesa' e 'getAllRegrasMesa' estão
-
+require_once 'funcoes_fila.php';
 header('Content-Type: application/json');
 
 $response = ['success' => false, 'message' => ''];
