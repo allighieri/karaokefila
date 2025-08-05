@@ -42,7 +42,9 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
     <h3>Adicionar Mesa</h3>
     <form method="POST" id="addMesas">
         <input type="hidden" name="action" value="add_mesa">
-        <div class="row"> <div class="col-12 col-lg-6"> <div class="input-group mb-3">
+        <div class="row">
+            <div class="col-12 col-lg-6">
+                <div class="input-group mb-3">
                     <input type="text" id="nome_mesa" name="nome_mesa"  class="form-control" placeholder="Nome da mesa" aria-label="Nome da mesa" aria-describedby="button-addon2" required>
                     <button class="btn btn-success" type="submit" id="button-addon2">Adicionar</button>
                 </div>
@@ -58,7 +60,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                 <thead>
                 <tr>
                     <th scope="col">Mesa</th>
-                    <th scope="col">Participantes</th>
+                    <th scope="col">Cantores</th>
                     <th scope="col">Ações</th>
                 </tr>
                 </thead>
@@ -173,7 +175,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                                 '<thead>' +
                                 '<tr>' +
                                 '<th scope="col">Mesa</th>' +
-                                '<th scope="col">Participantes</th>' +
+                                '<th scope="col">Cantores</th>' +
                                 '<th scope="col">Ações</th>' +
                                 '</tr>' +
                                 '</thead>' +

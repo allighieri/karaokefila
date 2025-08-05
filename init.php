@@ -8,8 +8,8 @@ $rootPath = '/fila/';
 //paginas permitidas sem login
 $public_pages = [
     'index.php',
-    'conn.php', // O arquivo de conexão
-    'api.php' // O endpoint da sua API
+    'conn.php',
+    'api.php'
 ];
 
 // Lógica de logout
@@ -87,8 +87,8 @@ function get_id_evento_ativo(PDO $pdo, int $id_tenants): ?int {
  * @return bool True se o usuário tiver acesso suficiente, false caso contrário.
  */
 function check_access(string $user_level, $required_levels): bool {
-    // Se o usuário for admin, ele tem acesso a tudo
-    if ($user_level === 'admin') {
+    // Se o usuário for super_admin, ele tem acesso a tudo
+    if ($user_level === 'super_admin') {
         return true;
     }
 

@@ -28,7 +28,19 @@ $rootPath = '/fila/';
                         Configuração
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                        <li><a class="dropdown-item <?php echo ($current_page == 'regras.php') ? 'active' : ''; ?>" href="<?php echo $rootPath; ?>regras.php">Regras</a></li>
+                        <?php if (check_access(NIVEL_ACESSO, ['admin', 'mc'])): ?>
+                            <li><a class="dropdown-item <?php echo ($current_page == 'regras.php') ? 'active' : ''; ?>" href="<?php echo $rootPath; ?>regras.php">Regras</a></li>
+                        <?php endif; ?>
+
+                        <?php if (check_access(NIVEL_ACESSO, ['super_admin'])): ?>
+                            <li><a class="dropdown-item <?php echo ($current_page == 'tenants.php') ? 'active' : ''; ?>" href="<?php echo $rootPath; ?>tenants.php">Clientes</a></li>
+                        <?php endif; ?>
+
+                        <?php if (check_access(NIVEL_ACESSO, ['super_admin'])): ?>
+                            <li><a class="dropdown-item <?php echo ($current_page == 'permissao.php') ? 'active' : ''; ?>" href="<?php echo $rootPath; ?>permissao.php">Permissão</a></li>
+                        <?php endif; ?>
+
+
                         <li><a class="dropdown-item" id="resetarSistema" href="#sectionResetarSistema">Resetar Todo o Sistema</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="<?php echo $rootPath; ?>index.php?action=logout">Sair</a></li>
