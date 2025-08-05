@@ -1,12 +1,13 @@
 <?php
 
+require_once 'init.php';
+// Lembre-se de incluir a conexão com o banco de dados aqui (e.g., require_once 'conn.php';)
+
 $mensagem_sucesso = '';
 $mensagem_erro = '';
 
-// --- Variáveis estáticas para simular o tenant e o evento logados para fins de teste ---
-$id_tenants_logado = 1;
-$id_evento_ativo = 1;
-// --- FIM das variáveis estáticas ---
+// --- REMOVIDO: Variáveis estáticas para simular o tenant e o evento logados para fins de teste ---
+// As constantes ID_TENANTS e ID_EVENTO_ATIVO já fornecem esses valores de forma segura.
 
 // --- Lógica para exibir mensagens da sessão após redirecionamento ---
 if (isset($_SESSION['mensagem_sucesso'])) {
@@ -29,17 +30,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     $redirect_cantor_id = $id_cantor ?: $cantor_selecionado_id;
 
-    global $id_evento_ativo;
+    // Removido: global $id_evento_ativo;
 
     if ($id_cantor && $id_musica) {
         try {
-            $stmtLastOrder = $pdo->prepare("SELECT MAX(ordem_na_lista) AS max_order FROM musicas_cantor WHERE id_cantor = ?");
-            $stmtLastOrder->execute([$id_cantor]);
+            // CORRIGIDO: Adicionado filtro por id_eventos para segurança
+            $stmtLastOrder = $pdo->prepare("SELECT MAX(ordem_na_lista) AS max_order FROM musicas_cantor WHERE id_cantor = ? AND id_eventos = ?");
+            // Alterado: Usa a constante ID_EVENTO_ATIVO
+            $stmtLastOrder->execute([$id_cantor, ID_EVENTO_ATIVO]);
             $lastOrder = $stmtLastOrder->fetchColumn();
             $proximaOrdem = ($lastOrder !== null) ? $lastOrder + 1 : 1;
 
             $stmt = $pdo->prepare("INSERT INTO musicas_cantor (id_eventos, id_cantor, id_musica, ordem_na_lista) VALUES (?, ?, ?, ?)");
-            if ($stmt->execute([$id_evento_ativo, $id_cantor, $id_musica, $proximaOrdem])) {
+            // Alterado: Usa a constante ID_EVENTO_ATIVO
+            if ($stmt->execute([ID_EVENTO_ATIVO, $id_cantor, $id_musica, $proximaOrdem])) {
                 $_SESSION['mensagem_sucesso'] = "Música adicionada à lista do cantor com sucesso!";
                 header("Location: musicas_cantores.php?cantor_id=" . $redirect_cantor_id);
                 exit;
@@ -65,10 +69,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-global $id_tenants_logado;
+// Removido: global $id_tenants_logado;
 // Obter cantores para o select, filtrando pelo id_tenants
 $stmtCantores = $pdo->prepare("SELECT id, nome_cantor FROM cantores WHERE id_tenants = ? ORDER BY nome_cantor ASC");
-$stmtCantores->execute([$id_tenants_logado]);
+// Alterado: Usa a constante ID_TENANTS
+$stmtCantores->execute([ID_TENANTS]);
 $cantores_disponiveis = $stmtCantores->fetchAll(PDO::FETCH_ASSOC);
 
 
@@ -106,9 +111,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         try {
             $pdo->beginTransaction();
 
+            // VALIDAÇÃO DE SEGURANÇA: Verificar se o cantor pertence ao tenant logado
+            $stmtCheckCantor = $pdo->prepare("SELECT COUNT(*) FROM cantores WHERE id = ? AND id_tenants = ?");
+            // Alterado: Usa a constante ID_TENANTS
+            $stmtCheckCantor->execute([$cantor_id, ID_TENANTS]);
+            if ($stmtCheckCantor->fetchColumn() == 0) {
+                $pdo->rollBack();
+                $_SESSION['mensagem_erro'] = "Operação não permitida: Cantor não pertence ao seu tenant.";
+                header("Location: musicas_cantores.php?cantor_id=" . $redirect_cantor_id);
+                exit;
+            }
+
             // 1. Obter id_musica e ordem_na_lista da tabela musicas_cantor
-            $stmtGetMusicInfo = $pdo->prepare("SELECT id_musica, ordem_na_lista FROM musicas_cantor WHERE id = ? AND id_cantor = ?");
-            $stmtGetMusicInfo->execute([$musica_cantor_id, $cantor_id]);
+            // CORRIGIDO: Adicionado filtro por id_eventos para segurança
+            $stmtGetMusicInfo = $pdo->prepare("SELECT id_musica, ordem_na_lista FROM musicas_cantor WHERE id = ? AND id_cantor = ? AND id_eventos = ?");
+            // Alterado: Usa a constante ID_EVENTO_ATIVO
+            $stmtGetMusicInfo->execute([$musica_cantor_id, $cantor_id, ID_EVENTO_ATIVO]);
             $musicaInfo = $stmtGetMusicInfo->fetch(PDO::FETCH_ASSOC);
 
             if (!$musicaInfo) {
@@ -124,13 +142,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             error_log("Tentando remover musica_cantor_id: " . $musica_cantor_id . ", id_cantor: " . $cantor_id . ", id_musica (real): " . $idMusicaParaRemover);
 
             // 2. Verificar se a música está na fila em status ativo
+            // CORRIGIDO: Adicionado filtro por id_tenants para segurança
             $stmtCheckFila = $pdo->prepare(
                 "SELECT COUNT(*) FROM fila_rodadas
                  WHERE id_cantor = ?
                    AND musica_cantor_id = ?
-                   AND (status = 'aguardando' OR status = 'em_execucao')"
+                   AND (status = 'aguardando' OR status = 'em_execucao')
+                   AND id_tenants = ?"
             );
-            $stmtCheckFila->execute([$cantor_id, $musica_cantor_id]);
+            // Alterado: Usa a constante ID_TENANTS
+            $stmtCheckFila->execute([$cantor_id, $musica_cantor_id, ID_TENANTS]);
             $isInFila = $stmtCheckFila->fetchColumn();
 
             error_log("Verificação da fila - id_cantor: " . $cantor_id . ", musica_cantor_id: " . $musica_cantor_id . ", Status na Fila: " . ($isInFila > 0 ? "TRUE" : "FALSE") . " (Count: " . $isInFila . ")");
@@ -149,29 +170,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 error_log("DEBUG: Música (musica_cantor_id: " . $musica_cantor_id . ") removida com sucesso da musicas_cantor.");
 
                 // Reajusta a ordem das músicas restantes
+                // CORRIGIDO: Adicionado filtro por id_eventos para segurança
                 $stmtUpdateOrder = $pdo->prepare("
                     UPDATE musicas_cantor
                     SET ordem_na_lista = ordem_na_lista - 1
-                    WHERE id_cantor = ? AND ordem_na_lista > ?
+                    WHERE id_cantor = ? AND id_eventos = ? AND ordem_na_lista > ?
                 ");
-                $stmtUpdateOrder->execute([$cantor_id, $ordemRemovida]);
+                // Alterado: Usa a constante ID_EVENTO_ATIVO
+                $stmtUpdateOrder->execute([$cantor_id, ID_EVENTO_ATIVO, $ordemRemovida]);
                 error_log("DEBUG: Ordens de musicas_cantor para o cantor " . $cantor_id . " ajustadas. Músicas com ordem > " . $ordemRemovida . " foram decrementadas.");
 
                 // --- INÍCIO DA CORREÇÃO ADICIONAL PARA CUIDAR DO CENÁRIO DE RESET ---
 
                 // 1. Obter o valor atual de proximo_ordem_musica para o cantor
-                $stmtGetProximoOrdemCantor = $pdo->prepare("SELECT proximo_ordem_musica FROM cantores WHERE id = ?");
-                $stmtGetProximoOrdemCantor->execute([$cantor_id]);
+                // CORRIGIDO: Adicionado filtro por id_tenants
+                $stmtGetProximoOrdemCantor = $pdo->prepare("SELECT proximo_ordem_musica FROM cantores WHERE id = ? AND id_tenants = ?");
+                // Alterado: Usa a constante ID_TENANTS
+                $stmtGetProximoOrdemCantor->execute([$cantor_id, ID_TENANTS]);
                 $proximoOrdemCantorAtual = $stmtGetProximoOrdemCantor->fetchColumn();
                 error_log("DEBUG: proximo_ordem_musica atual do cantor " . $cantor_id . ": " . ($proximoOrdemCantorAtual !== false ? $proximoOrdemCantorAtual : 'NULL/false'));
 
                 // 2. Encontrar a menor ordem_na_lista disponível para o cantor (status 'aguardando' ou 'pulou')
+                // CORRIGIDO: Adicionado filtro por id_eventos para segurança
                 $stmtGetMinOrdemDisponivel = $pdo->prepare("
                     SELECT MIN(ordem_na_lista)
                     FROM musicas_cantor
-                    WHERE id_cantor = ? AND status IN ('aguardando', 'pulou')
+                    WHERE id_cantor = ? AND id_eventos = ? AND status IN ('aguardando', 'pulou')
                 ");
-                $stmtGetMinOrdemDisponivel->execute([$cantor_id]);
+                // Alterado: Usa a constante ID_EVENTO_ATIVO
+                $stmtGetMinOrdemDisponivel->execute([$cantor_id, ID_EVENTO_ATIVO]);
                 $minOrdemDisponivel = $stmtGetMinOrdemDisponivel->fetchColumn(); // Retorna NULL se não houver registros
 
                 error_log("DEBUG: Menor ordem disponível (aguardando/pulou) para o cantor " . $cantor_id . ": " . ($minOrdemDisponivel !== false ? ($minOrdemDisponivel ?? 'NULL') : 'NULL/false'));
@@ -179,27 +206,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $novaProximaOrdemCantor = $proximoOrdemCantorAtual; // Inicializa com o valor atual
 
                 if ($minOrdemDisponivel === null) {
-                    // Cenario: Cantor ficou sem músicas 'aguardando' ou 'pulou'.
-                    // Precisamos garantir que proximo_ordem_musica seja 1 para que,
-                    // ao adicionar novas músicas, elas sejam selecionáveis a partir da ordem 1.
-                    if ($proximoOrdemCantorAtual === null || $proximoOrdemCantorAtual > 1) { // Verifica se já não é 1
+                    if ($proximoOrdemCantorAtual === null || $proximoOrdemCantorAtual > 1) {
                         $novaProximaOrdemCantor = 1;
                         error_log("DEBUG: Cantor " . $cantor_id . " sem músicas aguardando/pulou. proximo_ordem_musica será ajustado para 1 para futuras adições.");
                     }
                 } else {
-                    // Cenário normal: há músicas 'aguardando' ou 'pulou'.
-                    // Se o proximo_ordem_musica atual for NULL ou maior que a menor ordem disponível, ajuste-o.
                     if ($proximoOrdemCantorAtual === null || $proximoOrdemCantorAtual > $minOrdemDisponivel) {
                         $novaProximaOrdemCantor = $minOrdemDisponivel;
                         error_log("DEBUG: Ajustando proximo_ordem_musica do cantor " . $cantor_id . " de " . ($proximoOrdemCantorAtual !== false ? $proximoOrdemCantorAtual : 'NULL') . " para " . $novaProximaOrdemCantor . " (menor ordem disponível).");
                     }
                 }
 
-                // Apenas atualize se o valor realmente mudou para evitar writes desnecessários
-                // E garanta que o valor não é NULL (embora a lógica acima previna isso para $novaProximaOrdemCantor)
                 if ($proximoOrdemCantorAtual != $novaProximaOrdemCantor && $novaProximaOrdemCantor !== false && $novaProximaOrdemCantor !== null) {
-                    $stmtUpdateCantorProximaOrdem = $pdo->prepare("UPDATE cantores SET proximo_ordem_musica = ? WHERE id = ?");
-                    $stmtUpdateCantorProximaOrdem->execute([$novaProximaOrdemCantor, $cantor_id]);
+                    // CORRIGIDO: Adicionado filtro por id_tenants na atualização
+                    $stmtUpdateCantorProximaOrdem = $pdo->prepare("UPDATE cantores SET proximo_ordem_musica = ? WHERE id = ? AND id_tenants = ?");
+                    // Alterado: Usa a constante ID_TENANTS
+                    $stmtUpdateCantorProximaOrdem->execute([$novaProximaOrdemCantor, $cantor_id, ID_TENANTS]);
                     error_log("INFO: proximo_ordem_musica do cantor " . $cantor_id . " finalizado em: " . $novaProximaOrdemCantor . ".");
                 } else {
                     error_log("DEBUG: proximo_ordem_musica do cantor " . $cantor_id . " permaneceu em " . ($proximoOrdemCantorAtual !== false ? $proximoOrdemCantorAtual : 'NULL') . " (nenhuma mudança necessária).");

@@ -1,9 +1,9 @@
 <?php
+require_once 'init.php';
 require_once 'funcoes_fila.php';
-global $id_tenants_logado; // Garanta que a variável esteja disponível
 
 if (!empty($pdo)) {
-    $rodada_atual = getRodadaAtual($pdo, $id_tenants_logado);
+    $rodada_atual = getRodadaAtual($pdo, ID_TENANTS);
 }
 $musica_em_execucao = getMusicaEmExecucao($pdo);
 $proxima_musica_aguardando = getProximaMusicaFila($pdo);
