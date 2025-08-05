@@ -749,30 +749,6 @@ function isRodadaAtualFinalizada(PDO $pdo) {
     }
 }
 
-
-/**
- * Função auxiliar para obter um ID de música aleatória.
- * Em um sistema real, o MC escolheria a música.
- * @param PDO $pdo Objeto de conexão PDO.
- * @return int O ID de uma música aleatória, ou 0 se não houver músicas.
- */
-function getRandomMusicaId(PDO $pdo) {
-    // Removido: A constante ID_TENANTS é global
-    try {
-        // Adiciona a cláusula WHERE para filtrar por tenant
-        $stmt = $pdo->prepare("SELECT id FROM musicas WHERE id_tenants = ? ORDER BY RAND() LIMIT 1");
-        // Alterado: Usa a constante ID_TENANTS
-        $stmt->execute([ID_TENANTS]);
-        $row = $stmt->fetch();
-        return $row ? $row['id'] : 0;
-    } catch (\PDOException $e) {
-        error_log("Erro ao obter música aleatória para o tenant " . ID_TENANTS . ": " . $e->getMessage());
-        return 0;
-    }
-}
-
-
-
 /**
  * Reseta o 'proximo_ordem_musica' de todos os cantores para 1,
  * e trunca as tabelas 'controle_rodada' e 'fila_rodadas' APENAS para o tenant logado.

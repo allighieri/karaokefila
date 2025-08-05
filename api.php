@@ -22,12 +22,16 @@ if (!isset($pdo) || !$pdo instanceof PDO) {
 // O switch agora processará a $action independentemente do método HTTP
 switch ($action) {
     case 'montar_rodada':
-        $modoFila = $_POST['modo_fila'] ?? 'mesa'; // Pega o modo da requisição AJAX
-        if (montarProximaRodada($pdo, $modoFila)) {
+        $modoFila = $_POST['modo_fila'] ?? 'mesa';
+        $resultado = montarProximaRodada($pdo, $modoFila);
+
+        if ($resultado === true) {
             $response['success'] = true;
             $response['message'] = "Nova rodada montada com sucesso no modo '" . htmlspecialchars($modoFila) . "'!";
         } else {
-            $response['message'] = "Não foi possível montar uma nova rodada. Verifique os logs do servidor para mais detalhes.";
+            // Se a função não retornou TRUE, ela retornou a mensagem de erro
+            $response['success'] = false;
+            $response['message'] = $resultado;
         }
         break;
     case 'add_cantor':

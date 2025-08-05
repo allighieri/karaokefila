@@ -204,7 +204,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
         $('#alertContainer').html(alertHtml);
         setTimeout(function() {
             $('#alertContainer .alert').alert('close');
-        }, 5000); // Alerta desaparece após 5 segundos
+        }, 10000); // Alerta desaparece após 5 segundos
     }
 
     $(document).ready(function() {
@@ -230,7 +230,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                             location.reload(); // Recarrega a página após sucesso para mostrar a nova fila
                         }, 0); // Pequeno atraso para o usuário ver a mensagem
                     } else {
-                        showAlert('Erro: ' + response.message, 'danger');
+                        showAlert(response.message, 'danger');
                     }
                 },
                 error: function(xhr, status, error) {

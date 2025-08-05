@@ -42,9 +42,10 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
             $regrasConfiguracaoMesa[] = $row;
         }
         if (empty($regrasConfiguracaoMesa)) {
-            error_log("ERRO: Nenhuma regra de configuração de mesa encontrada para o tenant " . ID_TENANTS . ". Por favor, configure as regras.");
+            $mensagemErro = "Parece que você não definiu as regras para quantidade de música por mesa por rodada!";
+            error_log("ERRO: " . $mensagemErro);
             $pdo->rollBack();
-            return false;
+            return $mensagemErro; // Retorna a mensagem de erro
         }
         error_log("DEBUG: Regras de configuração de mesa carregadas: " . json_encode($regrasConfiguracaoMesa));
         // --- FIM NOVO ---
@@ -101,9 +102,13 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
         $cantoresDisponiveisGlobal = $stmtTodosCantores->fetchAll(PDO::FETCH_ASSOC);
 
         if (empty($cantoresDisponiveisGlobal)) {
+
+
+            $mensagemErro = "Não há cantores cadastrados para montar a rodada para o tenant " . ID_TENANTS;
+            error_log("ERRO: " . $mensagemErro);
             $pdo->rollBack();
-            error_log("INFO: Não há cantores cadastrados para montar a rodada para o tenant " . ID_TENANTS);
-            return false;
+            return $mensagemErro; // Retorna a mensagem de erro
+
         }
 
         $cantoresPorMesa = [];
@@ -181,8 +186,15 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
             }
 
             if (empty($eligibleMesasWithScores)) {
-                error_log("DEBUG: Nenhuma mesa possui slots disponíveis (modo mesa) ou cantores elegíveis (modo cantor) que ainda não cantaram nesta rodada. Quebrando o loop de montagem da rodada.");
-                break;
+
+
+                $mensagemErro = "Todas as músicas das filas de cada cantor já foram cantadas. Solicite que escolham novas músicas!";
+                error_log("ERRO: " . $mensagemErro);
+                $pdo->rollBack();
+                return $mensagemErro; // Retorna a mensagem de erro
+
+
+
             }
 
             $mesaMaisPrioritariaId = array_keys($eligibleMesasWithScores, max($eligibleMesasWithScores))[0];

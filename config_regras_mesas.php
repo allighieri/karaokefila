@@ -1,4 +1,4 @@
-<?php 
+<?php
 
 /**
  * Adiciona ou atualiza uma regra de configuração de mesa.
@@ -10,10 +10,13 @@
  * @param int $maxMusicasPorRodada Número máximo de músicas permitida por rodada para esta regra.
  * @return bool|string True em caso de sucesso, ou uma string com a mensagem de erro.
  */
-function adicionarOuAtualizarRegraMesa(PDO $pdo, ?int $id, int $minPessoas, ?int $maxPessoas, int $maxMusicasPorRodada) // Retorna bool|string para erros de validação
+function adicionarOuAtualizarRegraMesa(PDO $pdo, ?int $id, int $minPessoas, ?int $maxPessoas, int $maxMusicasPorRodada)
 {
     error_log("DEBUG (Regra Mesa): INÍCIO da função adicionarOuAtualizarRegraMesa.");
     error_log("DEBUG (Regra Mesa): ID (entrada): " . ($id ?? 'NULL') . ", minPessoas (nova): " . $minPessoas . ", maxPessoas (nova): " . ($maxPessoas !== null ? $maxPessoas : 'NULL') . ", maxMusicasPorRodada (nova): " . $maxMusicasPorRodada);
+
+    // Usa a constante do tenant logado
+    $id_tenants = ID_TENANTS;
 
     try {
         // Validação 1: max_pessoas não pode ser menor que min_pessoas na mesma regra
@@ -23,11 +26,12 @@ function adicionarOuAtualizarRegraMesa(PDO $pdo, ?int $id, int $minPessoas, ?int
         }
 
         // Validação 2: Verificar sobreposição com OUTRAS regras existentes
-        // Pega todas as regras, exceto a que pode estar sendo editada (se $id não for NULL)
-        $sqlFetchExisting = "SELECT id, min_pessoas, max_pessoas FROM configuracao_regras_mesa";
-        $paramsFetchExisting = [];
+        // Corrigido: Agora filtra pelo ID_TENANTS logado
+        $sqlFetchExisting = "SELECT id, min_pessoas, max_pessoas FROM configuracao_regras_mesa WHERE id_tenants = :id_tenants";
+        $paramsFetchExisting = [':id_tenants' => $id_tenants];
+
         if ($id !== null) { // Se estamos atualizando, excluímos a própria regra da checagem de sobreposição
-            $sqlFetchExisting .= " WHERE id != :current_id_exclude";
+            $sqlFetchExisting .= " AND id != :current_id_exclude";
             $paramsFetchExisting[':current_id_exclude'] = $id;
         }
 
@@ -37,17 +41,16 @@ function adicionarOuAtualizarRegraMesa(PDO $pdo, ?int $id, int $minPessoas, ?int
 
         error_log("DEBUG (Regra Mesa): Verificando sobreposição com " . count($regrasExistentes) . " regras existentes (excluindo a regra sendo atualizada, se houver).");
 
-        $newMaxAdjusted = $maxPessoas !== null ? $maxPessoas : PHP_INT_MAX; // Tratar NULL da nova regra como "infinito"
+        $newMaxAdjusted = $maxPessoas !== null ? $maxPessoas : PHP_INT_MAX;
 
         foreach ($regrasExistentes as $regraExistente) {
             $existingMin = (int)$regraExistente['min_pessoas'];
-            $existingMax = $regraExistente['max_pessoas'] !== null ? (int)$regraExistente['max_pessoas'] : PHP_INT_MAX; // Tratar NULL da regra existente como "infinito"
+            $existingMax = $regraExistente['max_pessoas'] !== null ? (int)$regraExistente['max_pessoas'] : PHP_INT_MAX;
 
             error_log("DEBUG (Regra Mesa): Comparando com regra existente ID " . $regraExistente['id'] . ": Min: " . $existingMin . ", Max: " . ($regraExistente['max_pessoas'] !== null ? $regraExistente['max_pessoas'] : 'NULL/Infinity') . ".");
 
-            // Condição de sobreposição: os intervalos [minPessoas, newMaxAdjusted] e [existingMin, existingMax] se cruzam.
             if ($minPessoas <= $existingMax && $newMaxAdjusted >= $existingMin) {
-                // Formata a descrição da regra existente para a mensagem de erro
+                // ... (O resto da lógica de formatação de erro permanece o mesmo)
                 $descricaoRegraExistente = "";
                 if ($regraExistente['max_pessoas'] === null) {
                     $descricaoRegraExistente = "com " . $existingMin . " ou mais pessoas";
@@ -57,7 +60,6 @@ function adicionarOuAtualizarRegraMesa(PDO $pdo, ?int $id, int $minPessoas, ?int
                     $descricaoRegraExistente = "com " . $existingMin . " a " . $regraExistente['max_pessoas'] . " pessoas";
                 }
 
-                // Formata a descrição da nova regra para a mensagem de erro
                 $descricaoNovaRegra = "";
                 if ($maxPessoas === null) {
                     $descricaoNovaRegra = "com " . $minPessoas . " ou mais pessoas";
@@ -72,26 +74,28 @@ function adicionarOuAtualizarRegraMesa(PDO $pdo, ?int $id, int $minPessoas, ?int
                 return $msg;
             }
         }
-        
-        // --- Lógica de INSERT/UPDATE (agora usando o $id passado como parâmetro) ---
+
+        // --- Lógica de INSERT/UPDATE corrigida ---
         $stmt = null;
         if ($id) {
-            // Se ID fornecido, é uma atualização
-            $sql = "UPDATE configuracao_regras_mesa SET min_pessoas = :min_pessoas, max_pessoas = :max_pessoas, max_musicas_por_rodada = :max_musicas_por_rodada WHERE id = :id";
+            // Corrigido: Inclui id_tenants na cláusula WHERE para segurança
+            $sql = "UPDATE configuracao_regras_mesa SET min_pessoas = :min_pessoas, max_pessoas = :max_pessoas, max_musicas_por_rodada = :max_musicas_por_rodada WHERE id = :id AND id_tenants = :id_tenants";
             $stmt = $pdo->prepare($sql);
             $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+            $stmt->bindValue(':id_tenants', $id_tenants, PDO::PARAM_INT); // Bind do ID do tenant
             error_log("DEBUG (Regra Mesa): Preparando UPDATE SQL para ID: " . $id);
         } else {
-            // Se ID não fornecido, é uma inserção
-            $sql = "INSERT INTO configuracao_regras_mesa (min_pessoas, max_pessoas, max_musicas_por_rodada) VALUES (:min_pessoas, :max_pessoas, :max_musicas_por_rodada)";
+            // Corrigido: Inclui a coluna id_tenants no INSERT
+            $sql = "INSERT INTO configuracao_regras_mesa (id_tenants, min_pessoas, max_pessoas, max_musicas_por_rodada) VALUES (:id_tenants, :min_pessoas, :max_pessoas, :max_musicas_por_rodada)";
             $stmt = $pdo->prepare($sql);
+            $stmt->bindValue(':id_tenants', $id_tenants, PDO::PARAM_INT); // Bind do ID do tenant
             error_log("DEBUG (Regra Mesa): Preparando INSERT SQL.");
         }
-        
+
         $stmt->bindValue(':min_pessoas', $minPessoas, PDO::PARAM_INT);
-        $stmt->bindValue(':max_pessoas', $maxPessoas, PDO::PARAM_INT); // Pode ser NULL
+        $stmt->bindValue(':max_pessoas', $maxPessoas, PDO::PARAM_INT);
         $stmt->bindValue(':max_musicas_por_rodada', $maxMusicasPorRodada, PDO::PARAM_INT);
-        
+
         $result = $stmt->execute();
 
         if ($result) {
@@ -112,6 +116,7 @@ function adicionarOuAtualizarRegraMesa(PDO $pdo, ?int $id, int $minPessoas, ?int
     }
 }
 
+
 /**
  * Reseta a tabela de configuração de regras de mesa e insere regras padrão.
  *
@@ -120,44 +125,42 @@ function adicionarOuAtualizarRegraMesa(PDO $pdo, ?int $id, int $minPessoas, ?int
  */
 function setRegrasPadrao(PDO $pdo): bool
 {
-    try {
-        // 1. Truncate na tabela para remover todas as regras existentes
-        // MOVIDO PARA FORA DA TRANSAÇÃO, POIS TRUNCATE FAZ COMMIT IMPLICITAMENTE
-        $pdo->exec("TRUNCATE TABLE configuracao_regras_mesa");
+    // Usa a constante do tenant logado
+    $id_tenants = ID_TENANTS;
 
-        // Agora sim, inicia a transação para proteger os INSERTs
+    try {
         $pdo->beginTransaction();
 
-        // 2. Inserir as regras padrão
-        $sql = "INSERT INTO `configuracao_regras_mesa` (`min_pessoas`, `max_pessoas`, `max_musicas_por_rodada`) VALUES 
-                (1, 2, 1),
-                (3, 4, 2),
-                (5, NULL, 3)"; // NULL para o campo max_pessoas quando é 'ou mais'
+        // Corrigido: Usa DELETE para remover APENAS as regras do tenant logado
+        $stmtDelete = $pdo->prepare("DELETE FROM configuracao_regras_mesa WHERE id_tenants = ?");
+        $stmtDelete->execute([$id_tenants]);
+
+        // 2. Inserir as regras padrão para o tenant logado
+        // Corrigido: Inclui id_tenants nos valores a serem inseridos
+        $sql = "INSERT INTO `configuracao_regras_mesa` (`id_tenants`, `min_pessoas`, `max_pessoas`, `max_musicas_por_rodada`) VALUES 
+                (?, 1, 2, 1),
+                (?, 3, 4, 2),
+                (?, 5, NULL, 3)";
 
         $stmt = $pdo->prepare($sql);
-        $result = $stmt->execute();
+        $result = $stmt->execute([$id_tenants, $id_tenants, $id_tenants]); // Passa o ID do tenant para cada regra
 
         if ($result) {
             $pdo->commit();
             return true;
         } else {
-            // Se o INSERT falhar, faz rollback da transação (que está ativa)
             $pdo->rollBack();
             return false;
         }
 
     } catch (PDOException $e) {
-        // Verifica se há uma transação ativa antes de tentar um rollback
-        // Isso é uma medida de segurança, pois se o erro ocorrer antes do beginTransaction, não haverá transação.
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        error_log("Erro ao definir regras padrão: " . $e->getMessage());
+        error_log("Erro ao definir regras padrão para o tenant " . $id_tenants . ": " . $e->getMessage());
         return false;
     }
 }
-
-
 
 
 /**
@@ -169,8 +172,13 @@ function setRegrasPadrao(PDO $pdo): bool
 function getRegrasMesaFormatadas(PDO $pdo): array
 {
     $regrasFormatadas = [];
+    // Usa a constante do tenant logado
+    $id_tenants = ID_TENANTS;
+
     try {
-        $stmt = $pdo->query("SELECT min_pessoas, max_pessoas, max_musicas_por_rodada FROM configuracao_regras_mesa ORDER BY min_pessoas ASC");
+        // Corrigido: Adiciona a cláusula WHERE para filtrar por tenant
+        $stmt = $pdo->prepare("SELECT min_pessoas, max_pessoas, max_musicas_por_rodada FROM configuracao_regras_mesa WHERE id_tenants = ? ORDER BY min_pessoas ASC");
+        $stmt->execute([$id_tenants]);
         $regras = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (empty($regras)) {
@@ -179,20 +187,18 @@ function getRegrasMesaFormatadas(PDO $pdo): array
 
         foreach ($regras as $regra) {
             $min = (int)$regra['min_pessoas'];
-            $max = $regra['max_pessoas']; // Pode ser NULL
+            $max = $regra['max_pessoas'];
             $musicas = (int)$regra['max_musicas_por_rodada'];
 
             $descricaoPessoas = "";
             if ($max === null) {
                 $descricaoPessoas = "com {$min} ou mais cantores";
             } elseif ($min === $max) {
-                // Se min e max são iguais, trata como um número específico (singular ou plural)
                 $descricaoPessoas = "com {$min} " . ($min === 1 ? "cantor" : "cantores");
             } else {
-                // Caso geral: min e max são diferentes e não nulos. Use "a"
                 $descricaoPessoas = "com {$min} a {$max} cantores";
             }
-            
+
             $descricaoMusicas = "música";
             if ($musicas > 1) {
                 $descricaoMusicas = "músicas";
@@ -202,7 +208,7 @@ function getRegrasMesaFormatadas(PDO $pdo): array
         }
 
     } catch (PDOException $e) {
-        error_log("Erro ao buscar regras de mesa: " . $e->getMessage());
+        error_log("Erro ao buscar regras de mesa para o tenant " . $id_tenants . ": " . $e->getMessage());
         return ["Erro ao carregar as regras de mesa."];
     }
     return $regrasFormatadas;
@@ -216,12 +222,16 @@ function getRegrasMesaFormatadas(PDO $pdo): array
  */
 function getAllRegrasMesa(PDO $pdo): array
 {
+    // Usa a constante do tenant logado
+    $id_tenants = ID_TENANTS;
+
     try {
-        $stmt = $pdo->query("SELECT id, min_pessoas, max_pessoas, max_musicas_por_rodada FROM configuracao_regras_mesa ORDER BY min_pessoas ASC");
+        // Corrigido: Adiciona a cláusula WHERE para filtrar por tenant
+        $stmt = $pdo->prepare("SELECT id, min_pessoas, max_pessoas, max_musicas_por_rodada FROM configuracao_regras_mesa WHERE id_tenants = ? ORDER BY min_pessoas ASC");
+        $stmt->execute([$id_tenants]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
-        error_log("ERRO ao buscar todas as regras de mesa: " . $e->getMessage());
+        error_log("ERRO ao buscar todas as regras de mesa para o tenant " . $id_tenants . ": " . $e->getMessage());
         return [];
     }
 }
-?>
