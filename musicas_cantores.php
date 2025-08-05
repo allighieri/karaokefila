@@ -2,9 +2,15 @@
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
-
+require_once 'init.php';
 require_once 'funcoes_fila.php'; // Inclui as funções e a conexão PDO
 require_once 'funcoes_lista_cantor.php';
+
+if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
+    header("Location: " . $rootPath . "login");
+    exit();
+}
+
 ?>
 
 <!DOCTYPE html>

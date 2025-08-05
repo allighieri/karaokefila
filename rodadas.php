@@ -2,6 +2,12 @@
 require_once 'init.php';
 require_once 'funcoes_fila.php';
 
+
+if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
+    header("Location: " . $rootPath . "login");
+    exit();
+}
+
 if (!empty($pdo)) {
     $rodada_atual = getRodadaAtual($pdo, ID_TENANTS);
 }
@@ -47,7 +53,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 
 <div class="container">
 
-    <h1>Gerenciador de Karaokê</h1>
+    <h1><?php echo NOME_TENANT ;?></h1>
 
 
 

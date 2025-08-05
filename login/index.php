@@ -1,4 +1,5 @@
 <?php
+require_once '../init.php';
 require_once '../funcoes_fila.php';
 
 $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);

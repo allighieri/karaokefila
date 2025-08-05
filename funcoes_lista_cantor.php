@@ -1,7 +1,6 @@
 <?php
 
-require_once 'init.php';
-// Lembre-se de incluir a conexão com o banco de dados aqui (e.g., require_once 'conn.php';)
+
 
 $mensagem_sucesso = '';
 $mensagem_erro = '';

@@ -1,5 +1,11 @@
 <?php
+require_once 'init.php';
 require_once 'funcoes_fila.php';
+
+if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
+    header("Location: " . $rootPath . "login");
+    exit();
+}
 
 // Removendo o bloco de fallback PDO aqui, assumindo que funcoes_fila.php já o lida.
 // if (empty($pdo)) { ... } // Comentado/Removido conforme sua instrução anterior.

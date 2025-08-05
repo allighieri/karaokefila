@@ -1,4 +1,5 @@
 <?php
+require_once 'init.php';
 require_once 'funcoes_fila.php';
 header('Content-Type: application/json');
 
