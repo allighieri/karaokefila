@@ -46,6 +46,8 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
     <link rel="stylesheet" href="css/style_index.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
 </head>
 <body>
 
@@ -58,16 +60,19 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 
 
     <div id="alertContainer" class="mt-3"></div>
+    <p><strong><?php echo count($fila_completa); ?></strong> <?php echo (count($fila_completa) > 1) ? 'músicas' : 'música'; ?> nessa rodada</p>
 
     <?php if ($musica_em_execucao): ?>
         <div class="current-song">
-            <h3>CANTANDO AGORA</h3>
-            <p><strong><?php echo htmlspecialchars($musica_em_execucao['titulo_musica']); ?></strong> de <?php echo htmlspecialchars($musica_em_execucao['artista_musica']); ?></p>
-            <p><strong>Código: <?php echo htmlspecialchars($musica_em_execucao['codigo_musica']); ?></strong> - Mesa <?php echo htmlspecialchars($musica_em_execucao['nome_mesa']); ?> - <?php echo htmlspecialchars($musica_em_execucao['nome_cantor']); ?></p>
-            <div class="actions">
-                <button type="button" class="btn btn-success" onclick="finalizarMusica(<?php echo $musica_em_execucao['fila_id']; ?>)">Próxima</button>
-                <button type="button" class="btn btn-danger" onclick="pularMusica(<?php echo $musica_em_execucao['fila_id']; ?>)">Pular Música</button>
-                <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#trocarMusicaModal" data-fila-id="<?php echo $musica_em_execucao['fila_id']; ?>" data-current-music-title="<?php echo htmlspecialchars($musica_em_execucao['titulo_musica'] . ' (' . $musica_em_execucao['artista_musica'] . ')'); ?>">Trocar Música</button>
+            <h3 class="text-danger h2"><strong>CANTANDO AGORA</strong></h3>
+            <h4 class="h4 text-uppercase"><i class="bi bi-file-earmark-person h5"></i> <strong><?php echo htmlspecialchars($musica_em_execucao['nome_cantor']); ?></strong></h4>
+            <p><i class="bi bi-pin-angle h5"></i> <?php echo htmlspecialchars($musica_em_execucao['nome_mesa']); ?></p>
+            <p><i class="bi bi-file-music h5"></i> <strong><?php echo htmlspecialchars($musica_em_execucao['titulo_musica']); ?> - <?php echo htmlspecialchars($musica_em_execucao['codigo_musica']); ?></strong></p>
+            <p><i class="bi bi-mic  h5"></i> <?php echo htmlspecialchars($musica_em_execucao['artista_musica']); ?></p>
+            <div class="actions btn-group-sm mt-3">
+                <button type="button" class="btn btn-success" onclick="finalizarMusica(<?php echo $musica_em_execucao['fila_id']; ?>)" title="Próxima"><i class="bi bi-arrow-right"></i></button>
+                <button type="button" class="btn btn-danger" onclick="pularMusica(<?php echo $musica_em_execucao['fila_id']; ?>)" title="Pular"><i class="bi bi-arrow-up-right"></i></button>
+                <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#trocarMusicaModal" data-fila-id="<?php echo $musica_em_execucao['fila_id']; ?>" data-current-music-title="<?php echo htmlspecialchars($musica_em_execucao['titulo_musica'] . ' (' . $musica_em_execucao['artista_musica'] . ')'); ?>" title="Trocar Música"><i class="bi bi-arrow-left-right"></i></button>
             </div>
         </div>
     <?php else: ?>
@@ -76,6 +81,8 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
             <span>Nenhuma música na fila atual. Monte uma nova rodada!</span>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
+
+
 
         <div class="form-section">
             <form id="formMontarRodada"> <div class="mb-3">
@@ -100,7 +107,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
     <?php if (empty($fila_completa)): ?>
         <p>A fila está vazia. Adicione cantores ou monte a próxima rodada.</p>
     <?php else: ?>
-        <p>Total de músicas nesta rodada: <strong><?php echo count($fila_completa); ?></strong></p>
+
         <ul class="queue-list" id="sortable-queue">
             <?php
             $musica_em_execucao_na_fila = null;
@@ -191,10 +198,12 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 
 <?php include_once 'modal_resetar_sistema.php'?>
 
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
-<script src="https://localhost/fila/js/resetar_sistema.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui-touch-punch/0.2.3/jquery.ui.touch-punch.min.js"></script>
+<script src="/fila/js/resetar_sistema.js"></script>
 
 
 

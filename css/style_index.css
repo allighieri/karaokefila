@@ -1,15 +1,14 @@
 body { margin: 70px 20px 20px 20px; background-color: #f4f4f4; color: #333; }
         .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
 
-        
-        .current-song {
-            background-color: #e8f5e9;
-            border: 2px solid #4CAF50;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
+
+    .current-song {
+        background: #e8f5e9 url("../img/bg_now_mobile.jpg") no-repeat center / cover;
+        border: 2px solid #4CAF50;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
         .current-song h3 { margin-top: 0; color: #2e7d32; border-bottom: none; }
         .current-song p { margin: 5px 0; font-size: 1.1em; }
         .current-song .actions button {
@@ -70,4 +69,11 @@ body { margin: 70px 20px 20px 20px; background-color: #f4f4f4; color: #333; }
         /* Estilos para os radio buttons/checkboxes do modo de fila */
         .form-check-inline {
             margin-right: 15px;
+        }
+
+        /* Media query para telas maiores que 768px de largura */
+        @media (min-width: 768px) {
+            .current-song {
+                background-image: url("../img/bg_now.jpg"); /* Imagem para desktop */
+            }
         }
