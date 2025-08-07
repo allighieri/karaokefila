@@ -60,7 +60,11 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 
 
     <div id="alertContainer" class="mt-3"></div>
-    <p><strong><?php echo count($fila_completa); ?></strong> <?php echo (count($fila_completa) > 1) ? 'músicas' : 'música'; ?> nessa rodada</p>
+    <?php if (!$musica_em_execucao): ?>
+        <p><strong><?php echo count($fila_completa); ?></strong> <?php echo (count($fila_completa) > 1) ? 'músicas foram cantadas' : 'música foi cantada'; ?> nessa rodada.</p>
+    <?php else: ?>
+        <p><strong><?php echo count($fila_completa); ?></strong> <?php echo (count($fila_completa) > 1) ? 'músicas' : 'música'; ?> nessa rodada.</p>
+    <?php endif; ?>
 
     <?php if ($musica_em_execucao): ?>
         <div class="current-song">
@@ -78,15 +82,16 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
     <?php else: ?>
 
         <div class="alert alert-info alert-dismissible fade show" role="alert">
-            <span>Nenhuma música na fila atual. Monte uma nova rodada!</span>
+            <span>Monte uma nova rodada!</span>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
 
 
 
         <div class="form-section">
-            <form id="formMontarRodada"> <div class="mb-3">
-                    <label class="form-label">Escolha o modo da rodada:</label><br>
+            <form id="formMontarRodada">
+                <div class="mb-3">
+                    <label class="form-label fs-3">Escolha o modo da rodada:</label><br>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input" type="radio" name="modo_fila" id="modoMesa" value="mesa" checked>
                         <label class="form-check-label" for="modoMesa">Por Mesa</label>
@@ -96,12 +101,16 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                         <label class="form-check-label" for="modoCantor">Por Cantores</label>
                     </div>
                 </div>
-                <button type="submit" class="btn btn-success" id="btnMontarRodada">Montar Nova Rodada</button>
+                <button type="submit" class="btn btn-success mb-3" id="btnMontarRodada">Montar Nova Rodada</button>
             </form>
         </div>
 
 
+
     <?php endif; ?>
+
+    <hr class="mt-3"/>
+
 
     <h2>Fila Completa da Rodada <?php echo $rodada_atual; ?></h2>
     <?php if (empty($fila_completa)): ?>
