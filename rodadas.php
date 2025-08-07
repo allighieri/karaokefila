@@ -70,12 +70,12 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
         <div class="current-song">
             <h3 class="text-danger h2"><strong>CANTANDO AGORA</strong></h3>
             <h4 class="h4 text-uppercase"><i class="bi bi-file-earmark-person h5"></i> <strong><?php echo htmlspecialchars($musica_em_execucao['nome_cantor']); ?></strong></h4>
-            <p><i class="bi bi-pin-angle h5"></i> <?php echo htmlspecialchars($musica_em_execucao['nome_mesa']); ?></p>
-            <p><i class="bi bi-file-music h5"></i> <strong><?php echo htmlspecialchars($musica_em_execucao['titulo_musica']); ?> - <?php echo htmlspecialchars($musica_em_execucao['codigo_musica']); ?></strong></p>
-            <p><i class="bi bi-mic  h5"></i> <?php echo htmlspecialchars($musica_em_execucao['artista_musica']); ?></p>
+            <p class="mt-2 mb-0"><i class="bi bi-pin-angle h5"></i> <?php echo htmlspecialchars($musica_em_execucao['nome_mesa']); ?></p>
+            <p class="mt-2 mb-0"><i class="bi bi-file-music h5"></i> <strong><?php echo htmlspecialchars($musica_em_execucao['titulo_musica']); ?> - <?php echo htmlspecialchars($musica_em_execucao['codigo_musica']); ?></strong></p>
+            <p class="mt-2 mb-0"><i class="bi bi-mic  h5"></i> <?php echo htmlspecialchars($musica_em_execucao['artista_musica']); ?></p>
             <div class="actions btn-group-sm mt-3">
-                <button type="button" class="btn btn-success" onclick="finalizarMusica(<?php echo $musica_em_execucao['fila_id']; ?>)" title="Próxima"><i class="bi bi-arrow-right"></i></button>
-                <button type="button" class="btn btn-danger" onclick="pularMusica(<?php echo $musica_em_execucao['fila_id']; ?>)" title="Pular"><i class="bi bi-arrow-up-right"></i></button>
+                <button type="button" class="btn btn-success me-2" onclick="finalizarMusica(<?php echo $musica_em_execucao['fila_id']; ?>)" title="Próxima"><i class="bi bi-arrow-right"></i></button>
+                <button type="button" class="btn btn-danger me-2" onclick="pularMusica(<?php echo $musica_em_execucao['fila_id']; ?>)" title="Pular"><i class="bi bi-arrow-up-right"></i></button>
                 <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#trocarMusicaModal" data-fila-id="<?php echo $musica_em_execucao['fila_id']; ?>" data-current-music-title="<?php echo htmlspecialchars($musica_em_execucao['titulo_musica'] . ' (' . $musica_em_execucao['artista_musica'] . ')'); ?>" title="Trocar Música"><i class="bi bi-arrow-left-right"></i></button>
             </div>
         </div>
@@ -91,7 +91,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
         <div class="form-section">
             <form id="formMontarRodada">
                 <div class="mb-3">
-                    <label class="form-label fs-3">Escolha o modo da rodada:</label><br>
+                    <label class="form-label fs-4">Escolha o modo da rodada:</label><br>
                     <div class="form-check form-check-inline">
                         <input class="form-check-input" type="radio" name="modo_fila" id="modoMesa" value="mesa" checked>
                         <label class="form-check-label" for="modoMesa">Por Mesa</label>
@@ -99,6 +99,19 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                     <div class="form-check form-check-inline">
                         <input class="form-check-input" type="radio" name="modo_fila" id="modoCantor" value="cantor">
                         <label class="form-check-label" for="modoCantor">Por Cantores</label>
+                    </div>
+                    <div class="form-text">
+                        <p class="mb-0">A escolha por mesa limita o número de músicas que uma mesa tem direito na rodada...</p>
+
+                        <div class="collapse" id="collapseHelpText">
+                            <p class="mb-1">Se uma mesa tiver direito a 3 músicas por rodada e tiver mais de 3 pessoas cantando, as demais pessoas cantarão somente na próxima rodada.</p>
+                            <p>As 3 primeiras pessoas que cantaram, só voltarão a cantar em uma rodada em que todos da sua mesa já tiverem cantado.</p>
+                        </div>
+
+                        <a class="btn btn-link p-0 text-decoration-none" data-bs-toggle="collapse" href="#collapseHelpText" role="button" aria-expanded="false" aria-controls="collapseHelpText">
+                            <span class="collapsed-text">Ler mais &#9660;</span>
+                            <span class="expanded-text d-none">Ler menos &#9650;</span>
+                        </a>
                     </div>
                 </div>
                 <button type="submit" class="btn btn-success mb-3" id="btnMontarRodada">Montar Nova Rodada</button>
@@ -163,17 +176,13 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                 }
                 ?>
                 <li class="<?php echo trim($item_class); ?>" data-id="<?php echo htmlspecialchars($item['fila_id']); ?>">
-                    <div class="queue-info">
-                        <?php
-                        if ($item['fila_id'] === $next_music_to_display_id) {
-                            echo '<strong>Próxima música</strong><br>';
-                        }
-                        ?>
-                        <strong><?php echo htmlspecialchars($item['nome_mesa']); ?></strong>: <?php echo htmlspecialchars($item['nome_cantor']); ?>
-                        <br>
-                        <small><?php echo htmlspecialchars($item['titulo_musica']); ?> de <?php echo htmlspecialchars($item['artista_musica']); ?> - <strong>Código: </strong><?php echo htmlspecialchars($item['codigo_musica'] ?? 'N/A'); ?></small>
-                        <br>
-                        <small><?php echo htmlspecialchars(ucfirst($item['status'])); ?></small>
+                    <div>
+                        <?php if ($item['fila_id'] === $next_music_to_display_id) { echo '<p class="proxima_musica mb-0 text-danger"><strong>PRÓXIMA MÚSICA</strong></p>'; } ?>
+                        <p class="text-uppercase mb-0"><i class="bi bi-file-earmark-person h5"></i>  <strong><?php echo htmlspecialchars($item['nome_cantor']); ?></strong></p>
+                        <p class="mb-0"><i class="bi bi-pin-angle h5"></i> <?php echo htmlspecialchars($item['nome_mesa']); ?></p>
+                        <p class="mb-0"><i class="bi bi-file-music h5"></i> <strong><?php echo htmlspecialchars($item['titulo_musica']); ?> - <?php echo htmlspecialchars($item['codigo_musica'] ?? 'N/A'); ?></strong></p>
+                        <p class="mb-0"><i class="bi bi-mic  h5"></i> <?php echo htmlspecialchars($item['artista_musica']); ?></p>
+                        <p class="mt-2 mb-0 fs-8 bg-white rounded-3 d-inline-block px-2 py-1 status"><?php echo htmlspecialchars(ucfirst($item['status'])); ?></p>
                     </div>
                 </li>
             <?php endforeach; ?>
@@ -521,22 +530,12 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
         $("#sortable-queue").disableSelection();
 
         function updateQueueVisualStatus() {
-            // 1. Primeiro, remove a classe 'next-up' de TODOS os itens.
-            // Isso garante que a estilização vermelha (se associada a 'next-up') seja removida.
+            // 1. Remove a classe 'next-up' de TODOS os itens da fila.
             $("#sortable-queue li").removeClass('next-up');
 
-            // 2. Remove o elemento 'strong' que contém 'Próxima música' e o '<br>' adjacente de TODOS os itens.
-            // Usamos uma iteração para garantir que removemos APENAS o strong que contém "Próxima música".
-            $("#sortable-queue li .queue-info strong").each(function() {
-                var $thisStrong = $(this);
-                // Verifica se o conteúdo do strong é exatamente "Próxima música"
-                // Ou se começa com "Próxima música" para ser mais flexível, dependendo de como o PHP gera.
-                if ($thisStrong.text().trim() === 'Próxima música') {
-                    // Remove o elemento strong e a quebra de linha adjacente se ela existir
-                    $thisStrong.next('br').remove(); // Remove o <br> que vem logo depois (se houver)
-                    $thisStrong.remove(); // Remove o <strong>Próxima música</strong>
-                }
-            });
+            // 2. Remove o parágrafo que contém a "Próxima música" de TODOS os itens.
+            // O seletor agora busca a classe '.proxima_musica' que você adicionou no PHP.
+            $("#sortable-queue li .proxima_musica").remove();
 
             // 3. Encontra o novo primeiro item "aguardando" e adiciona o status "Próxima música".
             var foundNext = false;
@@ -546,23 +545,22 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
                 // Verifica se o item não é 'completed', nem 'skipped', nem 'active'
                 // e se ainda não encontramos o primeiro "próximo".
                 if (!$item.hasClass('completed') && !$item.hasClass('skipped') && !$item.hasClass('active') && !foundNext) {
-                    // Adiciona a classe visual 'next-up'
+                    // Adiciona a classe visual 'next-up' para estilização.
                     $item.addClass('next-up');
 
-                    // Adiciona o texto "Próxima música" no início do conteúdo da div .queue-info
-                    var $queueInfo = $item.find('.queue-info').first();
+                    // Encontra o div que contém o conteúdo do item.
+                    var $itemDiv = $item.find('div').first();
 
-                    // Cria o elemento <strong> com o texto e o <br>
-                    var $newNextUpText = $('<strong>Próxima música</strong><br>');
+                    // Cria o novo elemento <p> com a classe correta e o texto.
+                    var $newNextUpText = $('<p class="proxima_musica  mb-0 text-danger"><strong>PRÓXIMA MÚSICA</strong></p>');
 
-                    // Verifica se o texto já não está lá para evitar duplicação acidental
-                    // (Embora o passo 2 deva ter removido, é uma verificação de segurança)
-                    if (!$queueInfo.html().includes('Próxima música')) {
-                        // Adiciona o novo texto no início do .queue-info
-                        $queueInfo.prepend($newNextUpText);
+                    // Verifica se o parágrafo já não está lá para evitar duplicação.
+                    if ($itemDiv.find('.proxima_musica').length === 0) {
+                        // Adiciona o novo parágrafo no início do <div> do item.
+                        $itemDiv.prepend($newNextUpText);
                     }
 
-                    foundNext = true; // Marca que o próximo foi encontrado
+                    foundNext = true; // Marca que o próximo foi encontrado.
                 }
             });
         }

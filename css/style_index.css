@@ -1,79 +1,83 @@
 body { margin: 70px 20px 20px 20px; background-color: #f4f4f4; color: #333; }
         .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
 
+    .fs-7 {
+        font-size: 0.875rem; /* Isso corresponde a 14px */
+    }
+
+    /* Se precisar ainda menor, pode criar uma fs-8 */
+    .fs-8 {
+        font-size: 0.75rem; /* Isso corresponde a 12px */
+    }
 
     .current-song {
         background: #e8f5e9 url("../img/bg_now_mobile.jpg") no-repeat center / cover;
-        border: 2px solid #4CAF50;
+        border: 2px solid #0b4c59;
         padding: 15px;
         border-radius: 8px;
         margin-bottom: 20px;
     }
-        .current-song h3 { margin-top: 0; color: #2e7d32; border-bottom: none; }
-        .current-song p { margin: 5px 0; font-size: 1.1em; }
-        .current-song .actions button {
-            /* Removido estilos fixos para usar classes Bootstrap */
-            margin: 0 5px;
-        }
-        /* Os estilos .skip e outros podem ser mantidos se quiser sobrescrever Bootstrap */
-        .queue-list { list-style: none; padding: 0; }
-        .queue-item {
-            background-color: #f0f8ff;
-            border: 1px solid #e0e0e0;
-            padding: 10px 15px;
-            margin-bottom: 8px;
-            border-radius: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .queue-item.active { background-color: #cceeff; border-color: #3399ff; font-weight: bold; }
-        .queue-item.completed { background-color: #e0ffe0; color: #666; text-decoration: line-through; }
-		.queue-item.skipped {
-			background-color: #e0e0e0; /* Alterado para um tom de cinza mais neutro */
-			color: #666;
-			text-decoration: line-through;
-		}
-		.queue-info strong { color: #34495e; }
-		.queue-info small { color: #7f8c8d; }
-		
-		/* Estilo para a próxima música */
-		.queue-item.next-up {
-			background-color: #ffdddd; /* Um tom suave de vermelho */
-			border: 1px solid #ffaaaa; /* Borda mais escura para combinar */
-			/* Você pode adicionar outros estilos se desejar, como um texto mais escuro ou negrito */
-		}
-        
-        /* NOVO: Estilo para indicar que o item é arrastável */
-        .queue-item {
-            cursor: grab; /* Mude o cursor para indicar arrastável */
-        }
-        .queue-item.ui-sortable-helper {
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2); /* Sombra para o item sendo arrastado */
-            opacity: 0.8;
-        }
-        #sortable-queue .ui-sortable-placeholder {
-            background-color: #e0e0e0;
-            border: 1px dashed #ccc;
-            visibility: visible !important;
-            height: 97px; /* Ajuste conforme a altura média dos seus itens de fila */
-			margin-bottom: 8px;
-			border-radius: 5px;
-        }
 
-        /* NOVO: Garante que o autocomplete apareça acima do modal */
-        .ui-autocomplete {
-            z-index: 2000 !important; /* Um valor alto o suficiente para sobrepor o modal do Bootstrap */
-        }
+    /* Os estilos .skip e outros podem ser mantidos se quiser sobrescrever Bootstrap */
+    .queue-list { list-style: none; padding: 0; }
+    .queue-item {
+        background-color: #f0f8ff;
+        border: 1px solid #e0e0e0;
+        padding: 10px 15px;
+        margin-bottom: 8px;
+        border-radius: 5px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .queue-item.active { background-color: #b41515; border-color: #3399ff; font-weight: bold; }
+    .queue-item.completed { background-color: #e0ffe0; color: #666; text-decoration: line-through; }
+    .queue-item.skipped { background-color: #e0e0e0; color: #666; text-decoration: line-through; }
 
-        /* Estilos para os radio buttons/checkboxes do modo de fila */
-        .form-check-inline {
-            margin-right: 15px;
-        }
+    /* Estilo para a próxima música */
+    .queue-item.next-up {
+        background-color: #ffdddd;
+        border: 1px solid #ffaaaa;
+     }
 
-        /* Media query para telas maiores que 768px de largura */
-        @media (min-width: 768px) {
-            .current-song {
-                background-image: url("../img/bg_now.jpg"); /* Imagem para desktop */
-            }
+    /* NOVO: Estilo para indicar que o item é arrastável */
+    .queue-item {
+        cursor: grab; /* Mude o cursor para indicar arrastável */
+    }
+    .queue-item.ui-sortable-helper {
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2); /* Sombra para o item sendo arrastado */
+        opacity: 0.8;
+    }
+    #sortable-queue .ui-sortable-placeholder {
+        background-color: #e0e0e0;
+        border: 1px dashed #ccc;
+        visibility: visible !important;
+        height: 97px; /* Ajuste conforme a altura média dos seus itens de fila */
+        margin-bottom: 8px;
+        border-radius: 5px;
+    }
+
+    /* NOVO: Garante que o autocomplete apareça acima do modal */
+    .ui-autocomplete {
+        z-index: 2000 !important; /* Um valor alto o suficiente para sobrepor o modal do Bootstrap */
+    }
+
+    /* Esconde o texto "Ler menos" por padrão */
+    .expanded-text {
+        display: none;
+    }
+
+    /* Quando o collapse está aberto, mostra o texto "Ler menos" e esconde "Ler mais" */
+    .collapse.show + .btn .expanded-text {
+        display: inline !important;
+    }
+    .collapse.show + .btn .collapsed-text {
+        display: none;
+    }
+
+    /* Media query para telas maiores que 768px de largura */
+    @media (min-width: 768px) {
+        .current-song {
+            background-image: url("../img/bg_now.jpg"); /* Imagem para desktop */
         }
+    }
