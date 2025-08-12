@@ -30,13 +30,84 @@ function addTenant(PDO $pdo, array $dados): array {
         }
 
         $pdo->commit();
-        return ['success' => true, 'message' => 'Estabelecimento cadastrado com sucesso!'];
+        return ['success' => true, 'message' => 'Estabelecimento cadastrado com sucesso!', 'tenant_id' => $newTenantId];
     } catch (PDOException $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
         error_log("Erro ao adicionar tenant e regras: " . $e->getMessage());
         return ['success' => false, 'message' => 'Erro ao cadastrar estabelecimento.'];
+    }
+}
+
+/**
+ * Adiciona um código para um tenant na tabela tenant_codes.
+ *
+ * @param PDO $pdo Objeto de conexão com o banco de dados.
+ * @param int $tenantId O ID do tenant.
+ * @param string $code O código do estabelecimento.
+ * @return array Um array com 'success' (bool) e 'message' (string).
+ */
+function addTenantCode(PDO $pdo, int $tenantId, string $code): array {
+    try {
+        // Verifica se o código já existe
+        $stmt = $pdo->prepare("SELECT id FROM tenant_codes WHERE code = ?");
+        $stmt->execute([$code]);
+        if ($stmt->fetch()) {
+            return ['success' => false, 'message' => 'Este código já está em uso.'];
+        }
+
+        // Insere o novo código
+        $stmt = $pdo->prepare("INSERT INTO tenant_codes (id_tenants, code, status) VALUES (?, ?, 'active')");
+        $stmt->execute([$tenantId, $code]);
+        
+        return ['success' => true, 'message' => 'Código do estabelecimento salvo com sucesso!'];
+    } catch (PDOException $e) {
+        error_log("Erro ao adicionar código do tenant: " . $e->getMessage());
+        return ['success' => false, 'message' => 'Erro interno do servidor.'];
+    }
+}
+
+/**
+ * Atualiza o código de um tenant no banco de dados.
+ *
+ * @param PDO $pdo Objeto de conexão com o banco de dados.
+ * @param int $tenantId O ID do tenant.
+ * @param string $code O novo código do tenant.
+ * @return array Um array com 'success' (bool) e 'message' (string).
+ */
+function updateTenantCode(PDO $pdo, int $tenantId, string $code, string $status = 'active'): array {
+    try {
+        // Verifica se já existe um código ativo para outro tenant (apenas se o status for 'active')
+        if ($status === 'active') {
+            $stmt_check = $pdo->prepare("SELECT id_tenants FROM tenant_codes WHERE code = ? AND status = 'active' AND id_tenants != ?");
+            $stmt_check->execute([$code, $tenantId]);
+            if ($stmt_check->fetch()) {
+                return ['success' => false, 'message' => 'Este código já existe em outro estabelecimento.'];
+            }
+        }
+
+        // Verifica se já existe um código para este tenant
+        $stmt_existing = $pdo->prepare("SELECT id FROM tenant_codes WHERE id_tenants = ?");
+        $stmt_existing->execute([$tenantId]);
+        $existing = $stmt_existing->fetch();
+
+        if ($existing) {
+            // Atualiza o código existente
+            $stmt_update = $pdo->prepare("UPDATE tenant_codes SET code = ?, status = ?, updated_at = NOW() WHERE id_tenants = ?");
+            $stmt_update->execute([$code, $status, $tenantId]);
+            $statusMessage = $status === 'active' ? 'ativado' : 'desativado';
+            return ['success' => true, 'message' => "Código do estabelecimento atualizado e {$statusMessage} com sucesso."];
+        } else {
+            // Cria um novo código se não existir
+            $stmt_insert = $pdo->prepare("INSERT INTO tenant_codes (id_tenants, code, status, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())");
+            $stmt_insert->execute([$tenantId, $code, $status]);
+            $statusMessage = $status === 'active' ? 'ativo' : 'inativo';
+            return ['success' => true, 'message' => "Código do estabelecimento definido como {$statusMessage} com sucesso."];
+        }
+    } catch (PDOException $e) {
+        error_log("Erro ao atualizar código do tenant: " . $e->getMessage());
+        return ['success' => false, 'message' => 'Erro interno do servidor.'];
     }
 }
 
@@ -48,7 +119,13 @@ function addTenant(PDO $pdo, array $dados): array {
  */
 function getAllTenants(PDO $pdo): array {
     try {
-        $stmt = $pdo->prepare("SELECT * FROM tenants WHERE status = ? ORDER BY nome ASC");
+        $stmt = $pdo->prepare("
+            SELECT t.*, tc.code as tenant_code, tc.status as code_status
+            FROM tenants t 
+            LEFT JOIN tenant_codes tc ON t.id = tc.id_tenants
+            WHERE t.status = ? 
+            ORDER BY t.nome ASC
+        ");
         $status_ativo = 1;
         $stmt->execute([$status_ativo]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -130,7 +207,13 @@ function deleteTenant(PDO $pdo, int $id): array {
 function getInactiveTenants(PDO $pdo): array {
     try {
         // Agora seleciona todos os campos para exibir na tabela de inativos
-        $stmt = $pdo->prepare("SELECT * FROM tenants WHERE status = 0 ORDER BY nome ASC");
+        $stmt = $pdo->prepare("
+            SELECT t.*, tc.code as tenant_code, tc.status as code_status
+            FROM tenants t 
+            LEFT JOIN tenant_codes tc ON t.id = tc.id_tenants
+            WHERE t.status = 0 
+            ORDER BY t.nome ASC
+        ");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {

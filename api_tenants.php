@@ -69,6 +69,27 @@ if (isset($_REQUEST['action'])) {
                 $response['message'] = 'ID de estabelecimento inválido.';
             }
             break;
+
+        case 'add_tenant_code':
+            $tenantId = filter_input(INPUT_POST, 'tenant_id', FILTER_VALIDATE_INT);
+            $code = trim($_POST['code'] ?? '');
+            if ($tenantId && !empty($code)) {
+                $response = addTenantCode($pdo, $tenantId, $code);
+            } else {
+                $response['message'] = 'ID do estabelecimento ou código inválido.';
+            }
+            break;
+
+        case 'update_tenant_code':
+            $tenantId = filter_input(INPUT_POST, 'tenant_id', FILTER_VALIDATE_INT);
+            $code = trim($_POST['code'] ?? '');
+            $status = trim($_POST['status'] ?? 'active');
+            if ($tenantId && !empty($code)) {
+                $response = updateTenantCode($pdo, $tenantId, $code, $status);
+            } else {
+                $response['message'] = 'ID do estabelecimento ou código inválido.';
+            }
+            break;
     }
 }
 

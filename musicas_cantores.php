@@ -234,21 +234,27 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                 }
             });
 
-            if ($("#search_musica").data("ui-autocomplete")) {
-                $("#search_musica").data("ui-autocomplete")._renderItem = function(ul, item) {
-                    if (item.value === "") {
+            // Aguardar a inicialização completa do autocomplete antes de configurar _renderItem
+            setTimeout(function() {
+                if ($("#search_musica").length > 0 && $("#search_musica").data("ui-autocomplete")) {
+                    $("#search_musica").data("ui-autocomplete")._renderItem = function(ul, item) {
+                        if (item.value === "") {
+                            return $("<li>")
+                                .append($("<div>").text(item.label))
+                                .appendTo(ul);
+                        }
+                        var highlightedLabel = highlightMatch(item.label, this.term);
                         return $("<li>")
-                            .append($("<div>").text(item.label))
+                            .append($("<div>").html(highlightedLabel))
                             .appendTo(ul);
-                    }
-                    var highlightedLabel = highlightMatch(item.label, this.term);
-                    return $("<li>")
-                        .append($("<div>").html(highlightedLabel))
-                        .appendTo(ul);
-                };
-            } else {
-                console.error("jQuery UI Autocomplete não inicializado em #search_musica.");
-            }
+                    };
+                    console.log("jQuery UI Autocomplete inicializado com sucesso em #search_musica");
+                } else if ($("#search_musica").length === 0) {
+                    console.log("Elemento #search_musica não encontrado no DOM");
+                } else {
+                    console.log("jQuery UI Autocomplete não inicializado em #search_musica após timeout");
+                }
+            }, 100);
 
             // Lógica de validação do formulário no momento do submit (manter como está)
             $('form[action="musicas_cantores.php"][method="POST"]').on('submit', function(event) {

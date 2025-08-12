@@ -74,6 +74,8 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
     </form>
 
     <h4 class="mt-4">Estabelecimentos Cadastrados</h4>
+    <p class="text-danger"><i class="bi bi-info-circle-fill"></i> Clique no código para adicionar ou alterar.</p>
+
     <div id="tenantsListContainer"></div>
 
     <h4 class="mt-4">Estabelecimentos Inativos</h4>
@@ -173,14 +175,99 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
     </div>
 </div>
 
+<!-- Modal para Código do Estabelecimento -->
+<div class="modal fade" id="tenantCodeModal" tabindex="-1" aria-labelledby="tenantCodeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tenantCodeModalLabel">Código do Estabelecimento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Estabelecimento cadastrado com sucesso! Agora defina um código único para este estabelecimento:</p>
+                <div id="alertContainerTenantCode" class="mb-3"></div>
+                <form id="formTenantCode">
+                    <input type="hidden" id="tenantIdForCode" name="tenant_id">
+                    <div class="mb-3">
+                        <label for="tenantCode" class="form-label">Código do Estabelecimento</label>
+                        <input type="text" class="form-control" id="tenantCode" name="code" required 
+                               placeholder="Ex: KARAOKE_CENTRO, BAR_MUSIC, etc." maxlength="50">
+                        <div class="form-text">O código deve ser único e será usado para identificar o estabelecimento.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Pular</button>
+                <button type="button" class="btn btn-primary" id="btnSalvarCodigo">Salvar Código</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Código do Estabelecimento -->
+<div class="modal fade" id="editTenantCodeModal" tabindex="-1" aria-labelledby="editTenantCodeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editTenantCodeModalLabel">Editar Código do Estabelecimento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Altere o código do estabelecimento <strong id="editCodeTenantName"></strong>:</p>
+                <div id="alertContainerEditTenantCode" class="mb-3"></div>
+                <form id="formEditTenantCode">
+                    <input type="hidden" id="editTenantIdForCode" name="tenant_id">
+                    <div class="mb-3">
+                        <label for="editTenantCodeInput" class="form-label">Código do Estabelecimento</label>
+                        <input type="text" class="form-control" id="editTenantCodeInput" name="code" required 
+                               placeholder="Ex: KARAOKE_CENTRO, BAR_MUSIC, etc." maxlength="50">
+                        <div class="form-text">O código deve ser único e será usado para identificar o estabelecimento.</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="editTenantCodeStatus" checked>
+                            <label class="form-check-label" for="editTenantCodeStatus">
+                                Código ativo
+                            </label>
+                            <div class="form-text">Desmarque para desativar o código (status: expired)</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSalvarEditCodigo">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
 <script src="/fila/js/resetar_sistema.js"></script>
 
 <script>
     $(document).ready(function() {
+        // Aplicar máscaras nos campos
+        $('#telefone, #editTelefone').mask('(00) 00000-0000');
+        
+        // Máscara alfanumérica para códigos (substitui espaços por underscore)
+        $('#tenantCode, #editTenantCodeInput').on('input', function() {
+            var value = $(this).val();
+            // Remove caracteres especiais, mantém apenas letras, números, espaços e underscores
+            value = value.replace(/[^a-zA-Z0-9\s_]/g, '');
+            // Substitui espaços por underscore
+            value = value.replace(/\s/g, '_');
+            // Converte para maiúsculo
+            value = value.toUpperCase();
+            $(this).val(value);
+        });
+        
+        // CSS para deixar o texto dos códigos em maiúsculo
+        $('#tenantCode, #editTenantCodeInput').css('text-transform', 'uppercase');
 
         window.showAlert = function(message, type) {
             var alertHtml = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' +
@@ -220,7 +307,8 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
                                 '<thead><tr>' +
                                 '<th scope="col">Nome</th>' +
                                 '<th scope="col">Telefone</th>' +
-                                '<th scope="col" style="width: 1%;">Ações</th>' + // ALTERADO AQUI
+                                '<th scope="col">Código</th>' +
+                                '<th scope="col" style="width: 1%;">Ações</th>' +
                                 '</tr></thead><tbody>';
                             $.each(response.tenants, function(index, tenant) {
                                 // Limpa o número de telefone para o formato do WhatsApp
@@ -233,6 +321,7 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
                                     htmlspecialchars(tenant.telefone) + ' <i class="bi bi-whatsapp text-success"></i>' +
                                     '</a>' +
                                     '</td>' +
+                                    '<td>' + (tenant.tenant_code ? '<span class="badge ' + (tenant.code_status === 'active' ? 'bg-success' : 'bg-danger') + ' edit-code-btn" style="cursor: pointer;" data-id="' + htmlspecialchars(tenant.id) + '" data-nome="' + htmlspecialchars(tenant.nome) + '" data-code="' + htmlspecialchars(tenant.tenant_code) + '" data-status="' + (tenant.code_status || 'active') + '" title="Clique para editar o código">' + htmlspecialchars(tenant.tenant_code) + '</span>' : '<span class="text-muted edit-code-btn" style="cursor: pointer;" data-id="' + htmlspecialchars(tenant.id) + '" data-nome="' + htmlspecialchars(tenant.nome) + '" data-code="" data-status="active" title="Clique para definir o código">Não definido</span>') + '</td>' +
                                     '<td>' +
                                     '<div class="d-flex flex-nowrap gap-1">' +
                                     '<button class="btn btn-sm btn-info view-tenant-btn" ' +
@@ -285,7 +374,8 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
                                 '<thead><tr>' +
                                 '<th scope="col">Nome</th>' +
                                 '<th scope="col">Telefone</th>' +
-                                '<th scope="col" style="width: 1%;">Ações</th>' + // ALTERADO AQUI
+                                '<th scope="col">Código</th>' +
+                                '<th scope="col" style="width: 1%;">Ações</th>' +
                                 '</tr></thead><tbody>';
                             $.each(response.tenants, function(index, tenant) {
                                 // Limpa o número de telefone para o formato do WhatsApp
@@ -298,6 +388,7 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
                                     htmlspecialchars(tenant.telefone) + ' <i class="bi bi-whatsapp text-success"></i>' +
                                     '</a>' +
                                     '</td>' +
+                                    '<td>' + (tenant.tenant_code ? '<span class="badge ' + (tenant.code_status === 'active' ? 'bg-success' : 'bg-danger') + ' edit-code-btn" style="cursor: pointer;" data-id="' + htmlspecialchars(tenant.id) + '" data-nome="' + htmlspecialchars(tenant.nome) + '" data-code="' + htmlspecialchars(tenant.tenant_code) + '" data-status="' + (tenant.code_status || 'active') + '" title="Clique para editar o código">' + htmlspecialchars(tenant.tenant_code) + '</span>' : '<span class="text-muted edit-code-btn" style="cursor: pointer;" data-id="' + htmlspecialchars(tenant.id) + '" data-nome="' + htmlspecialchars(tenant.nome) + '" data-code="" data-status="active" title="Clique para definir o código">Não definido</span>') + '</td>' +
                                     '<td>' +
                                     '<div class="d-flex flex-nowrap gap-1">' +
                                     '<button class="btn btn-sm btn-info view-tenant-btn" ' +
@@ -375,8 +466,16 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
                         showAlert(response.message, 'success');
                         form[0].reset();
                         refreshTenantsList();
+                        
+                        // Mostrar modal para código do estabelecimento
+                        if (response.tenant_id) {
+                            $('#tenantIdForCode').val(response.tenant_id);
+                            $('#tenantCode').val('');
+                            var codeModal = new bootstrap.Modal(document.getElementById('tenantCodeModal'));
+                            codeModal.show();
+                        }
                     } else {
-                        showAlert('Erro: ' + response.message, 'danger');
+                        showAlert(response.message, 'danger');
                     }
                 },
                 error: function(xhr, status, error) {
@@ -512,6 +611,107 @@ if (!check_access(NIVEL_ACESSO, ['super_admin'])) {
                 error: function(xhr, status, error) {
                     console.error("Erro na requisição AJAX para reativar tenant:", status, error);
                     showAlert('Erro na comunicação com o servidor ao reativar estabelecimento.', 'danger');
+                }
+            });
+        });
+
+        // Evento para salvar o código do estabelecimento
+        $('#btnSalvarCodigo').on('click', function() {
+            var tenantId = $('#tenantIdForCode').val();
+            var code = $('#tenantCode').val().trim();
+            
+            // Limpar alertas anteriores
+            $('#alertContainerTenantCode').empty();
+            
+            if (!code) {
+                $('#alertContainerTenantCode').html('<div class="alert alert-warning alert-dismissible fade show" role="alert">Por favor, digite um código para o estabelecimento.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+                return;
+            }
+            
+            $.ajax({
+                url: 'api_tenants.php',
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'add_tenant_code',
+                    tenant_id: tenantId,
+                    code: code
+                },
+                success: function(response) {
+                    if (response.success) {
+                        showAlert(response.message, 'success');
+                        var codeModal = bootstrap.Modal.getInstance(document.getElementById('tenantCodeModal'));
+                        codeModal.hide();
+                        refreshTenantsList();
+                        refreshInactiveTenantsList();
+                    } else {
+                        $('#alertContainerTenantCode').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Erro: ' + response.message + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Erro na requisição AJAX para salvar código:", status, error);
+                    $('#alertContainerTenantCode').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Erro na comunicação com o servidor ao salvar código.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+                }
+            });
+        });
+
+        // Evento para abrir o modal de edição de código ao clicar no código
+        $(document).on('click', '.edit-code-btn', function() {
+            var tenantId = $(this).data('id');
+            var tenantNome = $(this).data('nome');
+            var currentCode = $(this).data('code');
+            var currentStatus = $(this).data('status') || 'active';
+            
+            $('#editTenantIdForCode').val(tenantId);
+            $('#editCodeTenantName').text(tenantNome);
+            $('#editTenantCodeInput').val(currentCode);
+            $('#editTenantCodeStatus').prop('checked', currentStatus === 'active');
+            
+            // Limpar alertas anteriores
+            $('#alertContainerEditTenantCode').empty();
+            
+            var editCodeModal = new bootstrap.Modal(document.getElementById('editTenantCodeModal'));
+            editCodeModal.show();
+        });
+
+        // Evento para salvar a edição do código do estabelecimento
+        $('#btnSalvarEditCodigo').on('click', function() {
+            var tenantId = $('#editTenantIdForCode').val();
+            var code = $('#editTenantCodeInput').val().trim();
+            var status = $('#editTenantCodeStatus').is(':checked') ? 'active' : 'expired';
+            
+            // Limpar alertas anteriores
+            $('#alertContainerEditTenantCode').empty();
+            
+            if (!code) {
+                $('#alertContainerEditTenantCode').html('<div class="alert alert-warning alert-dismissible fade show" role="alert">Por favor, digite um código para o estabelecimento.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+                return;
+            }
+            
+            $.ajax({
+                url: 'api_tenants.php',
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'update_tenant_code',
+                    tenant_id: tenantId,
+                    code: code,
+                    status: status
+                },
+                success: function(response) {
+                    if (response.success) {
+                        showAlert(response.message, 'success');
+                        var editCodeModal = bootstrap.Modal.getInstance(document.getElementById('editTenantCodeModal'));
+                        editCodeModal.hide();
+                        refreshTenantsList();
+                        refreshInactiveTenantsList();
+                    } else {
+                        $('#alertContainerEditTenantCode').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"> ' + response.message + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Erro na requisição AJAX para editar código:", status, error);
+                    $('#alertContainerEditTenantCode').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Erro na comunicação com o servidor ao editar código.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
                 }
             });
         });
