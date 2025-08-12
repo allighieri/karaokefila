@@ -269,3 +269,36 @@ function setRegrasPadrao(PDO $pdo, int $id_tenants): bool
         return false;
     }
 }
+
+/**
+ * Busca o código do tenant atual.
+ *
+ * @param PDO $pdo Objeto de conexão com o banco de dados.
+ * @param int $tenantId O ID do tenant.
+ * @return array Um array indicando o sucesso ou falha da operação.
+ */
+function getCurrentTenantCode(PDO $pdo, int $tenantId): array {
+    try {
+        $stmt = $pdo->prepare("SELECT code, status FROM tenant_codes WHERE id_tenants = ?");
+        $stmt->execute([$tenantId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result) {
+            return [
+                'success' => true,
+                'code' => $result['code'],
+                'status' => $result['status']
+            ];
+        } else {
+            return [
+                'success' => true,
+                'code' => '',
+                'status' => 'active',
+                'message' => 'Nenhum código cadastrado para este estabelecimento.'
+            ];
+        }
+    } catch (PDOException $e) {
+        error_log("Erro ao buscar código do tenant: " . $e->getMessage());
+        return ['success' => false, 'message' => 'Erro ao buscar código do estabelecimento.'];
+    }
+}

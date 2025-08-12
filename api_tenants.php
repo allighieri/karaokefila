@@ -90,6 +90,30 @@ if (isset($_REQUEST['action'])) {
                 $response['message'] = 'ID do estabelecimento ou código inválido.';
             }
             break;
+
+        case 'get_current_tenant_code':
+            // Buscar o código do tenant atual (baseado na sessão)
+            if (defined('ID_TENANTS') && ID_TENANTS) {
+                $response = getCurrentTenantCode($pdo, ID_TENANTS);
+            } else {
+                $response['message'] = 'Sessão inválida. Faça login novamente.';
+            }
+            break;
+
+        case 'update_current_tenant_code':
+            // Atualizar o código do tenant atual (baseado na sessão)
+            if (defined('ID_TENANTS') && ID_TENANTS) {
+                $code = trim($_POST['code'] ?? '');
+                $status = trim($_POST['status'] ?? 'active');
+                if (!empty($code)) {
+                    $response = updateTenantCode($pdo, ID_TENANTS, $code, $status);
+                } else {
+                    $response['message'] = 'Código inválido.';
+                }
+            } else {
+                $response['message'] = 'Sessão inválida. Faça login novamente.';
+            }
+            break;
     }
 }
 

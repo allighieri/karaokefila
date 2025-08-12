@@ -134,6 +134,7 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 </div>
 
 <?php include_once 'modal_resetar_sistema.php'?>
+<?php include_once 'modal_editar_codigo.php'?>
 
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -141,6 +142,8 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui-touch-punch/0.2.3/jquery.ui.touch-punch.min.js"></script>
 <script src="/fila/js/resetar_sistema.js"></script>
+<script src="/fila/js/gerenciar_codigo.js"></script>
+
 
 <script>
 
