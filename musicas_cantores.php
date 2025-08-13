@@ -190,39 +190,85 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                 return text.replace(matcher, "<strong>$1</strong>");
             }
 
-            // Inicialize o Autocomplete (manter como está, está funcional)
+            // Configuração do autocomplete para busca de músicas com melhorias baseadas no musicasbusca.php
+            var searchTimer;
+            var searchDelay = 300; // Delay para evitar muitas requisições
+            var isSearching = false;
+            
             $("#search_musica").autocomplete({
                 source: function(request, response) {
-                    $.ajax({
-                        url: 'api.php', // Endpoint da sua API
-                        type: 'GET',
-                        dataType: 'json',
-                        data: {
-                            action: 'search_musicas', // Nova ação para o backend
-                            term: request.term // Termo digitado pelo usuário
-                        },
-                        success: function(data) {
-                            if (data.length === 0) {
-                                response([{ label: "Nenhum resultado encontrado!", value: "" }]);
-                            } else {
-                                response($.map(data, function(item) {
-                                    return {
-                                        label: item.titulo + ' (' + item.artista + ')',
-                                        value: item.id_musica,
-                                        titulo: item.titulo,
-                                        artista: item.artista,
-                                        codigo: item.codigo
-                                    };
-                                }));
-                            }
-                        },
-                        error: function(xhr, status, error) {
-                            console.error("Erro na busca de músicas:", status, error);
-                            response([{ label: "Erro ao buscar resultados.", value: "" }]);
+                    // Limpa o timer anterior se existir
+                    clearTimeout(searchTimer);
+                    
+                    // Define um novo timer para a busca
+                    searchTimer = setTimeout(function() {
+                        // Verifica se já está fazendo uma busca
+                        if (isSearching) {
+                            return;
                         }
-                    });
+                        
+                        isSearching = true;
+                        
+                        $.ajax({
+                            url: 'api.php',
+                            type: 'POST',
+                            dataType: 'json',
+                            data: {
+                                action: 'search_musicas',
+                                term: request.term
+                            },
+                            beforeSend: function() {
+                                // Adiciona indicador visual de carregamento
+                                $('#search_musica').addClass('loading');
+                            },
+                            success: function(data) {
+                                if (data.length === 0) {
+                                    response([{ label: "Nenhum resultado encontrado para '" + request.term + "'", value: "" }]);
+                                } else {
+                                    response($.map(data, function(item) {
+                                        return {
+                                            label: item.titulo + ' (' + item.artista + ') - Código: ' + item.codigo,
+                                            value: item.id_musica,
+                                            titulo: item.titulo,
+                                            artista: item.artista,
+                                            codigo: item.codigo
+                                        };
+                                    }));
+                                }
+                            },
+                            error: function(xhr, status, error) {
+                                console.error("Erro na busca de músicas:", {
+                                    status: status,
+                                    error: error,
+                                    responseText: xhr.responseText
+                                });
+                                
+                                // Tenta parsear a resposta para verificar se é erro de sessão
+                                try {
+                                    var errorData = JSON.parse(xhr.responseText);
+                                    if (errorData.error && errorData.error.includes('Sessão')) {
+                                        response([{ label: "Sessão expirada. Faça login novamente.", value: "" }]);
+                                        // Opcional: redirecionar para login após alguns segundos
+                                        setTimeout(function() {
+                                            window.location.href = '/fila/login';
+                                        }, 3000);
+                                        return;
+                                    }
+                                } catch (e) {
+                                    // Se não conseguir parsear, continua com erro genérico
+                                }
+                                
+                                response([{ label: "Erro ao buscar resultados. Tente novamente.", value: "" }]);
+                            },
+                            complete: function() {
+                                $('#search_musica').removeClass('loading');
+                                isSearching = false;
+                            }
+                        });
+                    }, searchDelay);
                 },
-                minLength: 1,
+                minLength: 2, // Aumentado para 2 caracteres como no musicasbusca.php
+                delay: 0, // Removemos o delay do autocomplete pois controlamos manualmente
                 select: function(event, ui) {
                     if (ui.item.value === "") {
                         event.preventDefault();
@@ -230,6 +276,13 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                     }
                     $('#id_musica').val(ui.item.value);
                     $(this).val(ui.item.label.replace(/<strong>|<\/strong>/g, ''));
+                    
+                    // Feedback visual de seleção
+                    $(this).addClass('selected');
+                    setTimeout(function() {
+                        $('#search_musica').removeClass('selected');
+                    }, 1000);
+                    
                     return false;
                 },
                 focus: function(event, ui) {
@@ -237,6 +290,14 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                         event.preventDefault();
                     }
                     return false;
+                },
+                open: function() {
+                    // Melhora a acessibilidade
+                    $(this).autocomplete('widget').addClass('custom-autocomplete');
+                },
+                close: function() {
+                    // Limpa o timer quando o autocomplete fecha
+                    clearTimeout(searchTimer);
                 }
             });
 
@@ -262,23 +323,70 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                 }
             }, 100);
 
-            // Lógica de validação do formulário no momento do submit (manter como está)
+            // Melhorias na validação do formulário com feedback visual
             $('form[action="musicas_cantores.php"][method="POST"]').on('submit', function(event) {
                 const idMusicaInput = $('#id_musica');
                 const searchMusicaInput = $('#search_musica');
+                const submitButton = $(this).find('button[type="submit"]');
 
-                if (!idMusicaInput.val()) {
-                    alert("Por favor, selecione uma música da lista de sugestões.");
+                // Remove classes de erro anteriores
+                searchMusicaInput.removeClass('is-invalid');
+                $('.invalid-feedback').remove();
+
+                if (!idMusicaInput.val() || !searchMusicaInput.val()) {
+                    // Adiciona feedback visual de erro
+                    searchMusicaInput.addClass('is-invalid');
+                    searchMusicaInput.after('<div class="invalid-feedback">Por favor, selecione uma música da lista de sugestões.</div>');
+                    
+                    // Foca no campo e adiciona shake animation
                     searchMusicaInput.focus();
+                    searchMusicaInput.addClass('shake');
+                    setTimeout(function() {
+                        searchMusicaInput.removeClass('shake');
+                    }, 600);
+                    
                     event.preventDefault();
                     return false;
                 }
+                
+                // Adiciona indicador de carregamento no botão
+                submitButton.prop('disabled', true);
+                const originalText = submitButton.html();
+                submitButton.html('<span class="spinner-border spinner-border-sm me-2" role="status"></span>Adicionando...');
+                
+                // Restaura o botão após um tempo (caso não haja redirecionamento)
+                setTimeout(function() {
+                    submitButton.prop('disabled', false);
+                    submitButton.html(originalText);
+                }, 3000);
             });
 
-            // Limpar o campo hidden se o campo de texto for esvaziado ou alterado manualmente (manter como está)
+            // Melhorias na limpeza do campo com debounce
+            let inputTimer;
             $('#search_musica').on('input', function() {
-                if ($(this).val() === '') {
-                    $('#id_musica').val('');
+                const $this = $(this);
+                clearTimeout(inputTimer);
+                
+                // Remove classes de erro quando o usuário começa a digitar
+                $this.removeClass('is-invalid');
+                $('.invalid-feedback').remove();
+                
+                inputTimer = setTimeout(function() {
+                    if ($this.val() === '') {
+                        $('#id_musica').val('');
+                        $this.removeClass('selected');
+                    }
+                }, 300);
+            });
+            
+            // Adiciona suporte para tecla Enter no campo de busca
+            $('#search_musica').on('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    // Se há um valor selecionado, submete o formulário
+                    if ($('#id_musica').val()) {
+                        $(this).closest('form').submit();
+                    }
                 }
             });
 
@@ -374,6 +482,10 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                             id_cantor: idCantorAtual
                         },
                         dataType: 'json',
+                        timeout: 10000, // Timeout de 10 segundos
+                        beforeSend: function() {
+                            $('#musicas-loading-indicator').fadeIn(200);
+                        },
                         success: function(response) {
                             if (response.success) {
                                 const musicasAPI = response.musicas;
@@ -418,7 +530,7 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
 
                                         if (!$item) {
                                             // Cria um novo item se não existir no DOM
-                                            $item = $(`<li class="queue-item" data-musica-cantor-id="${musicaCantorId}" data-id-musica="${musica.id_musica}" data-id-cantor="${musica.id_cantor}" data-status="${statusSortable}">
+                                            $item = $(`<li class="queue-item fade-in" data-musica-cantor-id="${musicaCantorId}" data-id-musica="${musica.id_musica}" data-id-cantor="${musica.id_cantor}" data-status="${statusSortable}">
                                         <div>
                                             <span class="ordem-numero"></span>
                                             <span></span>
@@ -429,7 +541,7 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                                             <input type="hidden" name="action" value="remove_musica_cantor">
                                             <input type="hidden" name="musica_cantor_id" value="${musicaCantorId}">
                                             <input type="hidden" name="cantor_id" value="${idCantorAtual}">
-                                            <button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-trash-fill"></i></button>
+                                            <button type="submit" class="btn btn-sm btn-danger" title="Remover música"><i class="bi bi-trash-fill"></i></button>
                                         </form>
                                     </li>`);
                                             currentDomItems[musicaCantorId] = $item;
@@ -457,31 +569,74 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                                     // Remove itens do DOM que não estão mais na lista da API
                                     Object.keys(currentDomItems).forEach(function(id) {
                                         if (newOrderMusicaIds.indexOf(parseInt(id)) === -1) {
-                                            currentDomItems[id].remove();
+                                            currentDomItems[id].fadeOut(300, function() {
+                                                $(this).remove();
+                                            });
                                         }
                                     });
 
                                     $musicasListContainer.empty().append(fragment);
+                                    
+                                    // Adiciona animação fade-in para novos itens
+                                    setTimeout(function() {
+                                        $('.fade-in').addClass('visible');
+                                    }, 100);
                                 }
                             } else {
-                                console.error("Erro na resposta da API:", response.message);
+                                console.error("Erro na resposta da API:", response.message || 'Resposta inválida');
+                                showErrorMessage('Erro ao carregar a lista de músicas. Tentando novamente...');
                             }
                         },
                         error: function(jqXHR, textStatus, errorThrown) {
-                            console.error("Erro na requisição AJAX:", textStatus, errorThrown);
+                            console.error("Erro na requisição AJAX:", {
+                                status: textStatus,
+                                error: errorThrown,
+                                responseText: jqXHR.responseText,
+                                statusCode: jqXHR.status
+                            });
+                            
+                            let errorMsg = 'Erro de conexão. ';
+                            if (textStatus === 'timeout') {
+                                errorMsg = 'Tempo limite excedido. ';
+                            } else if (jqXHR.status === 0) {
+                                errorMsg = 'Sem conexão com o servidor. ';
+                            } else if (jqXHR.status >= 500) {
+                                errorMsg = 'Erro interno do servidor. ';
+                            }
+                            
+                            showErrorMessage(errorMsg + 'Tentando reconectar...');
                         },
                         complete: function() {
+                            $('#musicas-loading-indicator').fadeOut(200);
                             // Após a atualização do DOM, reinicialize o Sortable
                             inicializarOuAtualizarSortable();
                         }
                     });
+                }
+                
+                // Função para exibir mensagens de erro
+                function showErrorMessage(message) {
+                    const $errorDiv = $('#error-message');
+                    if ($errorDiv.length) {
+                        $errorDiv.text(message).fadeIn();
+                    } else {
+                        $('#sortable-musicas-cantor').before(`<div id="error-message" class="alert alert-warning text-center small" style="display: none;"><i class="bi bi-exclamation-triangle"></i> ${message}</div>`);
+                        $('#error-message').fadeIn();
+                    }
+                    
+                    // Remove a mensagem após 5 segundos
+                    setTimeout(function() {
+                        $('#error-message').fadeOut(300, function() {
+                            $(this).remove();
+                        });
+                    }, 5000);
                 }
 
                 // Chame a função uma vez no carregamento para popular/atualizar a lista e inicializar o Sortable
                 atualizarListaMusicasCantor();
 
                 // Configure o intervalo para atualizações futuras
-                refreshIntervalId = setInterval(atualizarListaMusicasCantor, 3000); // A cada 3 segundos
+                refreshIntervalId = setInterval(atualizarListaMusicasCantor, 5000); // A cada 3 segundos
             }
         });
     </script>

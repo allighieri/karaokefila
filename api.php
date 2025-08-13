@@ -195,85 +195,82 @@ switch ($action) {
         }
         break;
     case 'search_musicas':
-        $term = $_GET['term'] ?? '';
-        $originalTerm = $term;
-        $term = '%' . $term . '%'; // Adiciona curingas para a busca LIKE
+        // Verificar se a sessão está ativa e a constante ID_TENANTS está definida
+        if (!isset($_SESSION['usuario_logado']) || !defined('ID_TENANTS')) {
+            echo json_encode([
+                'error' => 'Sessão não ativa ou usuário não logado',
+                'message' => 'É necessário estar logado para realizar a busca'
+            ]);
+            exit;
+        }
+        
+        $term = $_REQUEST['term'] ?? ''; // Aceita tanto GET quanto POST
+        $originalTerm = trim($term);
+        
+        if (strlen($originalTerm) < 1) {
+            echo json_encode([]);
+            exit;
+        }
 
         try {
-            // Otimização: Busca primeiro por código exato (mais rápido) se o termo for numérico
-            if (is_numeric($originalTerm)) {
-                $stmt = $pdo->prepare("SELECT id AS id_musica, titulo, artista, codigo FROM musicas WHERE codigo = ? AND id_tenants = ? ORDER BY titulo ASC");
-                $stmt->execute([$originalTerm, ID_TENANTS]);
-                $musicas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                
-                // Se encontrou resultado exato por código, retorna imediatamente
-                if (!empty($musicas)) {
-                    $formatted_musicas = [];
-                    foreach ($musicas as $musica) {
-                        $formatted_musicas[] = [
-                            'id_musica' => $musica['id_musica'],
-                            'label' => $musica['titulo'] . ' (' . $musica['artista'] . ')',
-                            'value' => $musica['id_musica'],
-                            'titulo' => $musica['titulo'],
-                            'artista' => $musica['artista'],
-                            'codigo' => $musica['codigo'] ?? ''
-                        ];
-                    }
-                    echo json_encode($formatted_musicas);
-                    exit;
-                }
-            }
+            // Query otimizada com prepared statement para evitar SQL injection baseada no search.php
+            $sql = "SELECT 
+                        m.id AS id_musica,
+                        m.artista as interprete,
+                        m.codigo,
+                        m.titulo,
+                        m.trecho as inicio,
+                        -- Relevância baseada em matches exatos e parciais
+                        CASE 
+                            WHEN m.codigo = ? THEN 100
+                            WHEN m.titulo LIKE ? THEN 95
+                            WHEN m.artista LIKE ? THEN 90
+                            WHEN m.titulo LIKE ? THEN 85
+                            WHEN m.trecho LIKE ? THEN 75
+                            WHEN m.artista LIKE ? THEN 60
+                            WHEN m.trecho LIKE ? THEN 45
+                            ELSE 30
+                        END as relevancia
+                    FROM musicas m
+                    WHERE (m.artista LIKE ? 
+                        OR m.titulo LIKE ? 
+                        OR m.codigo LIKE ? 
+                        OR m.trecho LIKE ?)
+                        AND m.id_tenants = ?
+                    ORDER BY relevancia DESC, m.artista ASC, m.titulo ASC";
             
-            // Busca flexível com múltiplas variações do termo para capturar nomes parciais
-            $termWords = explode(' ', trim($originalTerm));
-            $searchConditions = [];
-            $searchParams = [];
+            $stmt = $pdo->prepare($sql);
             
-            // Para cada palavra do termo, cria condições de busca flexíveis
-            foreach ($termWords as $word) {
-                if (strlen($word) >= 2) { // Ignora palavras muito pequenas
-                    $wordTerm = '%' . $word . '%';
-                    $searchConditions[] = "(titulo LIKE ? OR artista LIKE ? OR codigo LIKE ? OR trecho LIKE ?)";
-                    $searchParams = array_merge($searchParams, [$wordTerm, $wordTerm, $wordTerm, $wordTerm]);
-                }
-            }
+            // Parâmetros para busca
+            $searchTerm = "%{$originalTerm}%";
+            $exactCode = $originalTerm;
+            $exactMatch = "{$originalTerm}%";
             
-            // Se não há palavras válidas, usa o termo original
-            if (empty($searchConditions)) {
-                $searchConditions[] = "(titulo LIKE ? OR artista LIKE ? OR codigo LIKE ? OR trecho LIKE ?)";
-                $searchParams = [$term, $term, $term, $term];
-            }
+            $stmt->execute([
+                $exactCode,      // Para relevância de código exato
+                $exactMatch,     // Para relevância de título (início)
+                $exactMatch,     // Para relevância de intérprete (início)
+                $searchTerm,     // Para relevância de título (qualquer posição)
+                $exactMatch,     // Para relevância de início (início)
+                $searchTerm,     // Para relevância de intérprete (qualquer posição)
+                $searchTerm,     // Para relevância de início (qualquer posição)
+                $searchTerm,     // artista LIKE (WHERE)
+                $searchTerm,     // titulo LIKE (WHERE)
+                $searchTerm,     // codigo LIKE (WHERE)
+                $searchTerm,     // trecho LIKE (WHERE)
+                ID_TENANTS       // filtro por tenant
+            ]);
             
-            $whereClause = '(' . implode(' OR ', $searchConditions) . ')';
-            
-            // Busca otimizada com priorização e relevância por correspondência de palavras
-            $stmt = $pdo->prepare("
-                SELECT id AS id_musica, titulo, artista, codigo,
-                       CASE 
-                           WHEN titulo LIKE ? THEN 1
-                           WHEN artista LIKE ? THEN 2
-                           WHEN codigo LIKE ? THEN 3
-                           WHEN trecho LIKE ? THEN 4
-                           ELSE 5
-                       END as relevancia
-                FROM musicas 
-                WHERE $whereClause AND id_tenants = ? 
-                ORDER BY relevancia ASC, titulo ASC
-            ");
-            
-            // Parâmetros para relevância + parâmetros de busca + id_tenants
-            $allParams = array_merge([$term, $term, $term, $term], $searchParams, [ID_TENANTS]);
-            $stmt->execute($allParams);
             $musicas = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             $formatted_musicas = [];
             foreach ($musicas as $musica) {
                 $formatted_musicas[] = [
                     'id_musica' => $musica['id_musica'],
-                    'label' => $musica['titulo'] . ' (' . $musica['artista'] . ')',
+                    'label' => ($musica['titulo'] ?? '') . ' (' . ($musica['interprete'] ?? '') . ')',
                     'value' => $musica['id_musica'],
-                    'titulo' => $musica['titulo'],
-                    'artista' => $musica['artista'],
+                    'titulo' => $musica['titulo'] ?? '',
+                    'artista' => $musica['interprete'] ?? '',
                     'codigo' => $musica['codigo'] ?? ''
                 ];
             }
