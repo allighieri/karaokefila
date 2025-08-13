@@ -735,6 +735,23 @@ function atualizarStatusMusicaFila(PDO $pdo, $filaId, $status) {
             // Alterado: Usa a constante ID_EVENTO_ATIVO
             $successMusicasCantorUpdate = $stmtUpdateMusicasCantor->execute([$musicaCantorId, ID_EVENTO_ATIVO]);
             error_log("DEBUG: Resultado do UPDATE musicas_cantor (cantou): " . ($successMusicasCantorUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmtUpdateMusicasCantor->rowCount());
+            
+            // Move a música cantada para o final da fila do cantor
+            if ($successMusicasCantorUpdate) {
+                // Commit da transação atual antes de chamar a função que cria sua própria transação
+                $pdo->commit();
+                
+                // Chama a função para mover a música para o final
+                $successMoverParaFinal = moverMusicaCantouParaFinal($pdo, $musicaCantorId, $idCantor);
+                
+                if ($successMoverParaFinal) {
+                    error_log("DEBUG: Música cantada movida para o final da fila com sucesso.");
+                    return $successFilaUpdate && $successMusicasCantorUpdate;
+                } else {
+                    error_log("Alerta: Falha ao mover música cantada para o final da fila, mas status foi atualizado com sucesso.");
+                    return $successFilaUpdate && $successMusicasCantorUpdate;
+                }
+            }
 
         } elseif ($status === 'pulou') {
             // A sua lógica aqui depende da relação entre cantores e eventos. Se um cantor
@@ -771,6 +788,12 @@ function atualizarStatusMusicaFila(PDO $pdo, $filaId, $status) {
             return false;
         }
 
+        // Para o status 'cantou', a transação já foi commitada dentro do bloco específico
+        if ($status === 'cantou') {
+            // A lógica de commit já foi tratada no bloco 'cantou'
+            return $successFilaUpdate && $successMusicasCantorUpdate;
+        }
+        
         if ($successFilaUpdate && $successMusicasCantorUpdate) {
             $pdo->commit();
             error_log("DEBUG: Transação commitada para fila_id: " . $filaId . ", status: " . $status);
@@ -1821,6 +1844,94 @@ function resetarSistema(PDO $pdo): bool {
             $pdo->rollBack();
         }
         error_log("Erro ao realizar o reset completo da fila para o tenant " . ID_TENANTS . ": " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Move uma música com status 'cantou' para o final da fila do cantor e reordena as demais.
+ * @param PDO $pdo Objeto de conexão PDO.
+ * @param int $musicaCantorId ID da música na tabela musicas_cantor.
+ * @param int $idCantor ID do cantor.
+ * @return bool True em caso de sucesso, false caso contrário.
+ */
+function moverMusicaCantouParaFinal(PDO $pdo, int $musicaCantorId, int $idCantor): bool {
+    try {
+        $pdo->beginTransaction();
+        
+        // 1. Obter a ordem atual da música que foi cantada
+        $stmtOrdemAtual = $pdo->prepare("SELECT ordem_na_lista FROM musicas_cantor WHERE id = ? AND id_cantor = ? AND id_eventos = ?");
+        $stmtOrdemAtual->execute([$musicaCantorId, $idCantor, ID_EVENTO_ATIVO]);
+        $ordemAtual = $stmtOrdemAtual->fetchColumn();
+        
+        if ($ordemAtual === false || $ordemAtual === null) {
+            error_log("Erro: Não foi possível obter a ordem atual da música " . $musicaCantorId . " do cantor " . $idCantor);
+            $pdo->rollBack();
+            return false;
+        }
+        
+        // 2. Obter o total de músicas do cantor
+        $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM musicas_cantor WHERE id_cantor = ? AND id_eventos = ?");
+        $stmtCount->execute([$idCantor, ID_EVENTO_ATIVO]);
+        $totalMusicas = $stmtCount->fetchColumn();
+        
+        if ($totalMusicas === false || $totalMusicas === 0) {
+            error_log("Erro: Não foi possível obter o total de músicas para o cantor " . $idCantor);
+            $pdo->rollBack();
+            return false;
+        }
+        
+        // 3. Mover a música cantada para o final (última posição)
+        $stmtMoverParaFinal = $pdo->prepare("UPDATE musicas_cantor SET ordem_na_lista = ? WHERE id = ? AND id_cantor = ? AND id_eventos = ?");
+        $success = $stmtMoverParaFinal->execute([$totalMusicas, $musicaCantorId, $idCantor, ID_EVENTO_ATIVO]);
+        
+        if (!$success || $stmtMoverParaFinal->rowCount() === 0) {
+            error_log("Erro: Falha ao mover música cantada (ID: " . $musicaCantorId . ") para o final da fila do cantor " . $idCantor);
+            $pdo->rollBack();
+            return false;
+        }
+        
+        // 4. Reordenar as músicas que estavam após a música cantada (decrementar em 1)
+        $stmtReordenar = $pdo->prepare(
+            "UPDATE musicas_cantor 
+             SET ordem_na_lista = ordem_na_lista - 1 
+             WHERE id_cantor = ? AND id_eventos = ? AND ordem_na_lista > ? AND id != ?"
+        );
+        $stmtReordenar->execute([$idCantor, ID_EVENTO_ATIVO, $ordemAtual, $musicaCantorId]);
+        
+        // 5. Atualizar o proximo_ordem_musica do cantor para a menor ordem disponível
+        $stmtMinOrdem = $pdo->prepare(
+            "SELECT MIN(ordem_na_lista) 
+             FROM musicas_cantor 
+             WHERE id_cantor = ? AND id_eventos = ? AND status IN ('aguardando', 'pulou')"
+        );
+        $stmtMinOrdem->execute([$idCantor, ID_EVENTO_ATIVO]);
+        $minOrdemDisponivel = $stmtMinOrdem->fetchColumn();
+        
+        if ($minOrdemDisponivel !== false && $minOrdemDisponivel !== null) {
+            $stmtUpdateProximaOrdem = $pdo->prepare(
+                "UPDATE cantores SET proximo_ordem_musica = ? WHERE id = ? AND id_tenants = ?"
+            );
+            $stmtUpdateProximaOrdem->execute([$minOrdemDisponivel, $idCantor, ID_TENANTS]);
+            error_log("DEBUG: proximo_ordem_musica do cantor " . $idCantor . " atualizado para " . $minOrdemDisponivel);
+        } else {
+            // Se não há músicas disponíveis, manter o proximo_ordem_musica como 1
+            $stmtUpdateProximaOrdem = $pdo->prepare(
+                "UPDATE cantores SET proximo_ordem_musica = 1 WHERE id = ? AND id_tenants = ?"
+            );
+            $stmtUpdateProximaOrdem->execute([$idCantor, ID_TENANTS]);
+            error_log("DEBUG: proximo_ordem_musica do cantor " . $idCantor . " resetado para 1 (sem músicas disponíveis)");
+        }
+        
+        $pdo->commit();
+        error_log("DEBUG: Música cantada (ID: " . $musicaCantorId . ") movida para o final da fila do cantor " . $idCantor . " (posição " . $totalMusicas . ") e demais músicas reordenadas.");
+        return true;
+        
+    } catch (\PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log("Erro ao mover música cantada para o final da fila: " . $e->getMessage());
         return false;
     }
 }

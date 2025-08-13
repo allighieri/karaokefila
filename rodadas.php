@@ -47,6 +47,20 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
     <link rel="stylesheet" href="css/style_index.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        /* Estilo para adicionar rolagem ao dropdown do autocomplete */
+        .ui-autocomplete {
+            max-height: 200px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            z-index: 1050; /* Garante que fique acima do modal */
+        }
+        
+        /* Previne que o dropdown seja cortado pelo modal */
+        .ui-front {
+            z-index: 1050;
+        }
+    </style>
 
 </head>
 <body>

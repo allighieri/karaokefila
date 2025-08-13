@@ -33,12 +33,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     if ($id_cantor && $id_musica) {
         try {
-            // CORRIGIDO: Adicionado filtro por id_eventos para segurança
-            $stmtLastOrder = $pdo->prepare("SELECT MAX(ordem_na_lista) AS max_order FROM musicas_cantor WHERE id_cantor = ? AND id_eventos = ?");
-            // Alterado: Usa a constante ID_EVENTO_ATIVO
-            $stmtLastOrder->execute([$id_cantor, ID_EVENTO_ATIVO]);
-            $lastOrder = $stmtLastOrder->fetchColumn();
-            $proximaOrdem = ($lastOrder !== null) ? $lastOrder + 1 : 1;
+            // Buscar a menor ordem entre as músicas com status 'cantou' para inserir antes delas
+            $stmtMinCantou = $pdo->prepare(
+                "SELECT MIN(ordem_na_lista) 
+                 FROM musicas_cantor 
+                 WHERE id_cantor = ? AND id_eventos = ? AND status = 'cantou'"
+            );
+            $stmtMinCantou->execute([$id_cantor, ID_EVENTO_ATIVO]);
+            $minOrdemCantou = $stmtMinCantou->fetchColumn();
+            
+            if ($minOrdemCantou !== false && $minOrdemCantou !== null) {
+                // Há músicas cantadas - inserir antes da primeira música cantada
+                $proximaOrdem = $minOrdemCantou;
+                
+                // Incrementar a ordem de todas as músicas a partir da posição de inserção
+                $stmtIncrementOrder = $pdo->prepare(
+                    "UPDATE musicas_cantor 
+                     SET ordem_na_lista = ordem_na_lista + 1 
+                     WHERE id_cantor = ? AND id_eventos = ? AND ordem_na_lista >= ?"
+                );
+                $stmtIncrementOrder->execute([$id_cantor, ID_EVENTO_ATIVO, $proximaOrdem]);
+                error_log("DEBUG: Ordens incrementadas para inserir nova música na posição " . $proximaOrdem . " do cantor " . $id_cantor);
+            } else {
+                // Não há músicas cantadas - usar a lógica original (final da lista)
+                $stmtLastOrder = $pdo->prepare("SELECT MAX(ordem_na_lista) AS max_order FROM musicas_cantor WHERE id_cantor = ? AND id_eventos = ?");
+                $stmtLastOrder->execute([$id_cantor, ID_EVENTO_ATIVO]);
+                $lastOrder = $stmtLastOrder->fetchColumn();
+                $proximaOrdem = ($lastOrder !== null) ? $lastOrder + 1 : 1;
+            }
 
             $stmt = $pdo->prepare("INSERT INTO musicas_cantor (id_eventos, id_cantor, id_musica, ordem_na_lista) VALUES (?, ?, ?, ?)");
             // Alterado: Usa a constante ID_EVENTO_ATIVO
@@ -163,7 +185,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 exit;
             }
 
-            // Se chegou até aqui, a música não está em uso na fila, pode prosseguir com a exclusão
+            // Se chegou até aqui, a música não está em uso ativo na fila, pode prosseguir com a exclusão
+            // Primeiro, remover qualquer referência desta música na tabela fila_rodadas (especialmente com status 'cantou')
+            $stmtDeleteFilaRefs = $pdo->prepare(
+                "DELETE FROM fila_rodadas 
+                 WHERE id_cantor = ? AND musica_cantor_id = ? AND id_tenants = ?"
+            );
+            $stmtDeleteFilaRefs->execute([$cantor_id, $musica_cantor_id, ID_TENANTS]);
+            error_log("DEBUG: Referências da música (musica_cantor_id: " . $musica_cantor_id . ") removidas da tabela fila_rodadas.");
+            
+            // Agora pode excluir da tabela musicas_cantor sem violação de chave estrangeira
             $stmt = $pdo->prepare("DELETE FROM musicas_cantor WHERE id = ? AND id_cantor = ?");
             if ($stmt->execute([$musica_cantor_id, $cantor_id])) {
                 error_log("DEBUG: Música (musica_cantor_id: " . $musica_cantor_id . ") removida com sucesso da musicas_cantor.");

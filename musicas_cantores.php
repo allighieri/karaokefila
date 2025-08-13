@@ -23,6 +23,42 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
     <link rel="stylesheet" href="css/style_gerenciar_musicas.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        /* Otimizações para melhor performance do sortable */
+        .ui-sortable-helper {
+            opacity: 0.8;
+            transform: rotate(2deg);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+        
+        .ui-sortable-placeholder {
+            border: 2px dashed #007bff;
+            background-color: rgba(0,123,255,0.1);
+            visibility: visible !important;
+            height: 72px !important;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
+        
+        .ui-sortable-placeholder * {
+            visibility: hidden;
+        }
+        
+        /* Melhora a performance durante o drag */
+        .ui-sortable-helper * {
+            pointer-events: none;
+        }
+        
+        /* Transições suaves */
+        .queue-item {
+            transition: transform 0.2s ease;
+        }
+        
+        .queue-item:hover {
+            transform: translateX(2px);
+        }
+    </style>
 
 </head>
 <body>
@@ -78,21 +114,20 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
 
         <h5>Adicionar Nova Música para <?php echo htmlspecialchars($nome_cantor_selecionado); ?></h5>
 
-        <form method="POST">
+        <form method="POST" id="form-add-musica" style="display: none;">
             <input type="hidden" name="action" value="add_musica_cantor">
             <input type="hidden" name="id_cantor" value="<?php echo htmlspecialchars($cantor_selecionado_id); ?>">
-            <input type="hidden" id="id_musica" name="id_musica" required>
-            <label for="search_musica"><small>Pesquisar Música por título, artista, código ou trecho...</small></label>
+            <input type="hidden" id="id_musica" name="id_musica">
+        </form>
 
-            <div class="row">
-                <div class="col-12 col-lg-12">
-                    <div class="input-group mb-3">
-                        <input type="text" class="form-control" id="search_musica" placeholder="Digite para buscar músicas..." autocomplete="off" required>
-                        <button class="btn btn-success" type="submit" id="button-addon2">Add música</button>
-                    </div>
+        <label for="search_musica"><small>Pesquisar Música por título, artista, código ou trecho... (Clique na música para adicionar)</small></label>
+        <div class="row">
+            <div class="col-12 col-lg-12">
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" id="search_musica" placeholder="Digite para buscar músicas..." autocomplete="off">
                 </div>
             </div>
-        </form>
+        </div>
         <hr class="my-5" />
 
         <h3>Músicas de <?php echo htmlspecialchars($nome_cantor_selecionado); ?></h3>
@@ -243,20 +278,7 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                                     responseText: xhr.responseText
                                 });
                                 
-                                // Tenta parsear a resposta para verificar se é erro de sessão
-                                try {
-                                    var errorData = JSON.parse(xhr.responseText);
-                                    if (errorData.error && errorData.error.includes('Sessão')) {
-                                        response([{ label: "Sessão expirada. Faça login novamente.", value: "" }]);
-                                        // Opcional: redirecionar para login após alguns segundos
-                                        setTimeout(function() {
-                                            window.location.href = '/fila/login';
-                                        }, 3000);
-                                        return;
-                                    }
-                                } catch (e) {
-                                    // Se não conseguir parsear, continua com erro genérico
-                                }
+                                
                                 
                                 response([{ label: "Erro ao buscar resultados. Tente novamente.", value: "" }]);
                             },
@@ -274,14 +296,18 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                         event.preventDefault();
                         return false;
                     }
+                    
+                    // Define o ID da música e submete o formulário automaticamente
                     $('#id_musica').val(ui.item.value);
-                    $(this).val(ui.item.label.replace(/<strong>|<\/strong>/g, ''));
                     
                     // Feedback visual de seleção
                     $(this).addClass('selected');
-                    setTimeout(function() {
-                        $('#search_musica').removeClass('selected');
-                    }, 1000);
+                    
+                    // Submete o formulário automaticamente
+                    $('#form-add-musica').submit();
+                    
+                    // Limpa o campo de busca
+                    $(this).val('');
                     
                     return false;
                 },
@@ -410,9 +436,14 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                     axis: "y",
                     placeholder: "ui-sortable-placeholder",
                     helper: "clone",
-                    //revert: 200,
                     cursor: "grabbing",
                     items: "li:not([data-status='cantou']):not([data-status='em_execucao']):not([data-status='selecionada_para_rodada'])",
+                    tolerance: "pointer",
+                    forceHelperSize: true,
+                    forcePlaceholderSize: true,
+                    scroll: true,
+                    scrollSensitivity: 10,
+                    scrollSpeed: 20,
                     start: function(event, ui) {
                         isDragging = true;
                         clearInterval(refreshIntervalId); // Desabilita o polling durante o drag
@@ -446,8 +477,10 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                                 success: function(response) {
                                     if (response.success) {
                                         console.log('Ordem das músicas do cantor atualizada com sucesso no servidor!', response.message);
-                                        // Força uma atualização para refletir a ordem do servidor e reavaliar Sortable
-                                        atualizarListaMusicasCantor();
+                                        // Apenas atualiza os números de ordem visualmente, sem recarregar toda a lista
+                                        $sortableList.children('.queue-item').each(function(index) {
+                                            $(this).find('.ordem-numero').text((index + 1) + '.');
+                                        });
                                     } else {
                                         alert('Erro ao atualizar a ordem das músicas do cantor: ' + response.message);
                                         $sortableList.sortable('cancel');

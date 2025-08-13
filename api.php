@@ -195,15 +195,7 @@ switch ($action) {
         }
         break;
     case 'search_musicas':
-        // Verificar se a sessão está ativa e a constante ID_TENANTS está definida
-        if (!isset($_SESSION['usuario_logado']) || !defined('ID_TENANTS')) {
-            echo json_encode([
-                'error' => 'Sessão não ativa ou usuário não logado',
-                'message' => 'É necessário estar logado para realizar a busca'
-            ]);
-            exit;
-        }
-        
+       
         $term = $_REQUEST['term'] ?? ''; // Aceita tanto GET quanto POST
         $originalTerm = trim($term);
         
