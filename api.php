@@ -472,7 +472,8 @@ switch ($action) {
 			$response['message'] = 'Dados inválidos para a regra de mesa. Mínimo de pessoas e máximo de músicas são obrigatórios e devem ser números positivos.';
 		} else {
 			// ALTERADO: Captura o resultado da função
-			$result = adicionarOuAtualizarRegraMesa($pdo, $minPessoas, $maxPessoas, $maxMusicasPorRodada);
+			$result = adicionarOuAtualizarRegraMesa($pdo, $id, $minPessoas, $maxPessoas, $maxMusicasPorRodada);
+
 			
 			if ($result === true) { // Se o retorno for true, é sucesso
 				$response['success'] = true;
@@ -522,10 +523,11 @@ switch ($action) {
         }
         break;
     case 'logar':
+        $codigo = $_POST['codigo'] ?? '';
         $email = $_POST['email'] ?? '';
         $senha = $_POST['senha'] ?? '';
 
-        $resultado_login = logar_usuario($email, $senha);
+        $resultado_login = logar_usuario($codigo, $email, $senha);
 
         if ($resultado_login === 'success') {
             $response = ['success' => true, 'message' => 'Login realizado com sucesso!'];

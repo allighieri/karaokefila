@@ -67,14 +67,27 @@ function validar_codigo(PDO $pdo, $codigo) {
 // Função para sessao
 /**
  * Função para buscar um usuário e seu tenant para login.
+ * @param string $codigo O código de acesso do estabelecimento.
  * @param string $email O e-mail do usuário.
  * @param string $senha A senha do usuário.
  * @return bool Retorna true se o login for bem-sucedido, caso contrário false.
  */
-function logar_usuario($email, $senha) {
+function logar_usuario($codigo, $email, $senha) {
     global $pdo; // Assume que a conexão PDO está disponível globalmente
 
     try {
+        // Primeiro, verifica se o código de acesso é válido e está ativo
+        $stmt_code = $pdo->prepare("SELECT id_tenants FROM tenant_codes WHERE code = ? AND status = 'active'");
+        $stmt_code->execute([$codigo]);
+        $result_code = $stmt_code->fetch(PDO::FETCH_ASSOC);
+
+        if (!$result_code) {
+            return 'Código de acesso inválido ou expirado.';
+        }
+
+        $id_tenants = $result_code['id_tenants'];
+
+        // Agora busca o usuário pelo email E pelo tenant específico
         $stmt = $pdo->prepare("
             SELECT 
                 u.*, 
@@ -86,9 +99,9 @@ function logar_usuario($email, $senha) {
                 t.status AS tenant_status
             FROM usuarios u
             INNER JOIN tenants t ON u.id_tenants = t.id
-            WHERE u.email = ?
+            WHERE u.email = ? AND u.id_tenants = ?
         ");
-        $stmt->execute([$email]);
+        $stmt->execute([$email, $id_tenants]);
         $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
 
         // Se o usuário não for encontrado

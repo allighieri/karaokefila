@@ -89,6 +89,10 @@ $rootPath = '/fila/';
             <h1 class="h3 mb-3 fw-normal">Fazer login</h1>
 
             <div class="form-floating">
+                <input type="text" class="form-control" id="login_code" placeholder="Código de Acesso">
+                <label for="login_code">Código de Acesso</label>
+            </div>
+            <div class="form-floating">
                 <input type="email" class="form-control" id="email" placeholder="your-email@gmail.com">
                 <label for="email">E-mail</label>
             </div>
@@ -172,6 +176,7 @@ $rootPath = '/fila/';
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/jquery.validate.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
 
 <script>
     // Função para exibir alertas dinamicamente
@@ -209,6 +214,46 @@ $rootPath = '/fila/';
         var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl)
         })
+
+        // Aplicar máscara nos campos de código de acesso
+        $('#login_code, #cad_code').on('input', function() {
+            let value = $(this).val().toUpperCase().replace(/\s/g, '_');
+            $(this).val(value);
+        });
+
+        // Aplicar máscara de telefone no formato (99) 99999-9999
+        $('#cad_telefone').mask('(00) 00000-0000');
+
+        // Validação em tempo real do código de acesso no login
+        $('#login_code').on('blur', function() {
+            const codigo = $(this).val().trim();
+            const alertContainerId = 'alertContainerLogin';
+            
+            if (codigo) {
+                $.ajax({
+                    url: '<?php echo $rootPath; ?>api.php',
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: 'validar_codigo',
+                        codigo: codigo
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            setValid($('#login_code'));
+                            showAlert("Código válido!", 'success', alertContainerId);
+                        } else {
+                            setInvalid($('#login_code'), "O código de acesso é inválido ou expirou.");
+                            showAlert("O código de acesso é inválido ou expirou.", 'danger', alertContainerId);
+                        }
+                    },
+                    error: function() {
+                        setInvalid($('#login_code'), "Erro ao validar código.");
+                        showAlert("Erro ao validar código.", 'danger', alertContainerId);
+                    }
+                });
+            }
+        });
 
         // Lógica para mostrar/esconder senha
         $('#ver').on('change', function() {
@@ -263,11 +308,12 @@ $rootPath = '/fila/';
         $('#btn_logar').on('click', function(e) {
             e.preventDefault();
             const $btn = $(this);
+            const loginCode = $('#login_code').val().trim();
             const email = $('#email').val().trim();
             const password = $('#password').val().trim();
             const alertContainerId = 'alertContainerLogin';
 
-            if (!email || !password) {
+            if (!loginCode || !email || !password) {
                 showAlert("Por favor, preencha todos os campos.", "danger", alertContainerId);
                 return;
             }
@@ -280,6 +326,7 @@ $rootPath = '/fila/';
                 dataType: 'json',
                 data: {
                     action: 'logar',
+                    codigo: loginCode,
                     email: email,
                     senha: password
                 },
