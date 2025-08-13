@@ -199,10 +199,10 @@ switch ($action) {
         $term = '%' . $term . '%'; // Adiciona curingas para a busca LIKE
 
         try {
-            // ALTEARÇÃO AQUI: Adicione 'OR trecho LIKE ?' na sua cláusula WHERE
-            $stmt = $pdo->prepare("SELECT id AS id_musica, titulo, artista, codigo FROM musicas WHERE titulo LIKE ? OR artista LIKE ? OR codigo LIKE ? OR trecho LIKE ? ORDER BY titulo ASC LIMIT 20");
-            // Certifique-se de passar o $term uma vez a mais para o novo placeholder
-            $stmt->execute([$term, $term, $term, $term]); // Adicione $term para o campo 'trecho'
+            // Filtra as músicas por id_tenants para mostrar apenas o repertório do estabelecimento
+            $stmt = $pdo->prepare("SELECT id AS id_musica, titulo, artista, codigo FROM musicas WHERE (titulo LIKE ? OR artista LIKE ? OR codigo LIKE ? OR trecho LIKE ?) AND id_tenants = ? ORDER BY titulo ASC LIMIT 20");
+            // Adiciona o ID_TENANTS como último parâmetro
+            $stmt->execute([$term, $term, $term, $term, ID_TENANTS]);
             $musicas = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             $formatted_musicas = [];
