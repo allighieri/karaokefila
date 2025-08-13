@@ -196,13 +196,74 @@ switch ($action) {
         break;
     case 'search_musicas':
         $term = $_GET['term'] ?? '';
+        $originalTerm = $term;
         $term = '%' . $term . '%'; // Adiciona curingas para a busca LIKE
 
         try {
-            // Filtra as músicas por id_tenants para mostrar apenas o repertório do estabelecimento
-            $stmt = $pdo->prepare("SELECT id AS id_musica, titulo, artista, codigo FROM musicas WHERE (titulo LIKE ? OR artista LIKE ? OR codigo LIKE ? OR trecho LIKE ?) AND id_tenants = ? ORDER BY titulo ASC LIMIT 20");
-            // Adiciona o ID_TENANTS como último parâmetro
-            $stmt->execute([$term, $term, $term, $term, ID_TENANTS]);
+            // Otimização: Busca primeiro por código exato (mais rápido) se o termo for numérico
+            if (is_numeric($originalTerm)) {
+                $stmt = $pdo->prepare("SELECT id AS id_musica, titulo, artista, codigo FROM musicas WHERE codigo = ? AND id_tenants = ? ORDER BY titulo ASC");
+                $stmt->execute([$originalTerm, ID_TENANTS]);
+                $musicas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Se encontrou resultado exato por código, retorna imediatamente
+                if (!empty($musicas)) {
+                    $formatted_musicas = [];
+                    foreach ($musicas as $musica) {
+                        $formatted_musicas[] = [
+                            'id_musica' => $musica['id_musica'],
+                            'label' => $musica['titulo'] . ' (' . $musica['artista'] . ')',
+                            'value' => $musica['id_musica'],
+                            'titulo' => $musica['titulo'],
+                            'artista' => $musica['artista'],
+                            'codigo' => $musica['codigo'] ?? ''
+                        ];
+                    }
+                    echo json_encode($formatted_musicas);
+                    exit;
+                }
+            }
+            
+            // Busca flexível com múltiplas variações do termo para capturar nomes parciais
+            $termWords = explode(' ', trim($originalTerm));
+            $searchConditions = [];
+            $searchParams = [];
+            
+            // Para cada palavra do termo, cria condições de busca flexíveis
+            foreach ($termWords as $word) {
+                if (strlen($word) >= 2) { // Ignora palavras muito pequenas
+                    $wordTerm = '%' . $word . '%';
+                    $searchConditions[] = "(titulo LIKE ? OR artista LIKE ? OR codigo LIKE ? OR trecho LIKE ?)";
+                    $searchParams = array_merge($searchParams, [$wordTerm, $wordTerm, $wordTerm, $wordTerm]);
+                }
+            }
+            
+            // Se não há palavras válidas, usa o termo original
+            if (empty($searchConditions)) {
+                $searchConditions[] = "(titulo LIKE ? OR artista LIKE ? OR codigo LIKE ? OR trecho LIKE ?)";
+                $searchParams = [$term, $term, $term, $term];
+            }
+            
+            $whereClause = '(' . implode(' OR ', $searchConditions) . ')';
+            
+            // Busca otimizada com priorização e relevância por correspondência de palavras
+            $stmt = $pdo->prepare("
+                SELECT id AS id_musica, titulo, artista, codigo,
+                       CASE 
+                           WHEN titulo LIKE ? THEN 1
+                           WHEN artista LIKE ? THEN 2
+                           WHEN codigo LIKE ? THEN 3
+                           WHEN trecho LIKE ? THEN 4
+                           ELSE 5
+                       END as relevancia
+                FROM musicas 
+                WHERE $whereClause AND id_tenants = ? 
+                ORDER BY relevancia ASC, titulo ASC
+            ");
+            
+            // Parâmetros para relevância + parâmetros de busca + id_tenants
+            $allParams = array_merge([$term, $term, $term, $term], $searchParams, [ID_TENANTS]);
+            $stmt->execute($allParams);
             $musicas = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             $formatted_musicas = [];
