@@ -32,7 +32,7 @@ $rootPath = '/fila/';
                             <li><a class="dropdown-item <?php echo ($current_page == 'regras.php') ? 'active' : ''; ?>" href="<?php echo $rootPath; ?>regras.php">Regras</a></li>
                         <?php endif; ?>
 
-                        <?php if (check_access(NIVEL_ACESSO, ['mc'])): ?>
+                        <?php if (check_access(NIVEL_ACESSO, ['mc', 'admin']) && !check_access(NIVEL_ACESSO, ['super_admin'])): ?>
                             <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#editTenantCodeModalGlobal">Código</a></li>
                         <?php endif; ?>
 

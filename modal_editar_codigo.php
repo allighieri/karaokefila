@@ -1,6 +1,6 @@
 <?php
-// Verificar se o usuário tem acesso para editar código (apenas 'mc')
-if (check_access(NIVEL_ACESSO, ['mc'])): ?>
+// Verificar se o usuário tem acesso para editar código (mc e admin)
+if (check_access(NIVEL_ACESSO, ['mc', 'admin'])): ?>
 <div class="modal fade" id="editTenantCodeModalGlobal" tabindex="-1" aria-labelledby="editTenantCodeModalGlobalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
