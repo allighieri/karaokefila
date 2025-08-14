@@ -1,6 +1,6 @@
 <!-- Modal Editar Usuário -->
 <div class="modal fade" id="modalEditarUsuario" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title"><i class="bi bi-pencil-square"></i> Editar Usuário</h5>
@@ -9,65 +9,37 @@
             <form id="formEditarUsuario">
                 <div class="modal-body">
                     <input type="hidden" id="editar-usuario-id" name="id">
+
+
                     
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="editar-nome" class="form-label">Nome *</label>
+                        
+                        <div class="mb-3 row">
+                            <label for="editar-nome" class="col-sm-2 col-form-label">Nome</label>
+                            <div class="col-sm-10">
                                 <input type="text" class="form-control" id="editar-nome" name="nome" required>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="editar-telefone" class="form-label">Telefone</label>
-                                <input type="text" class="form-control" id="editar-telefone" name="telefone" placeholder="(00) 00000-0000">
+                      
+                        <div class="mb-3 row">
+                            <label for="editar-telefone" class="col-sm-2 col-form-label">Telefone</label>
+                            <div class="col-sm-10">
+                                <input type="text" class="form-control" id="editar-telefone" name="telefone" placeholder="">
                             </div>
                         </div>
-                    </div>
+
+                        <div class="row">
+                            <label for="editar-cidade" class="col-sm-2 col-form-label">Cidade</label>
+                            <div class="col">
+                                <input type="text" class="form-control" id="editar-cidade" name="cidade" required>
+                            </div>
+                            <label for="editar-uf" class="col-sm-1 col-form-label">UF</label>
+                            <div class="col col-md-2 col-sm-2">
+                                 <input type="text" class="form-control" id="editar-uf" name="uf" required maxlength="2">
+                            </div>
+                        </div>
+                   
                     
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div class="mb-3">
-                                <label for="editar-cidade" class="form-label">Cidade</label>
-                                <input type="text" class="form-control" id="editar-cidade" name="cidade">
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label for="editar-uf" class="form-label">UF</label>
-                                <select class="form-select" id="editar-uf" name="uf">
-                                    <option value="">Selecione...</option>
-                                    <option value="AC">AC</option>
-                                    <option value="AL">AL</option>
-                                    <option value="AP">AP</option>
-                                    <option value="AM">AM</option>
-                                    <option value="BA">BA</option>
-                                    <option value="CE">CE</option>
-                                    <option value="DF">DF</option>
-                                    <option value="ES">ES</option>
-                                    <option value="GO">GO</option>
-                                    <option value="MA">MA</option>
-                                    <option value="MT">MT</option>
-                                    <option value="MS">MS</option>
-                                    <option value="MG">MG</option>
-                                    <option value="PA">PA</option>
-                                    <option value="PB">PB</option>
-                                    <option value="PR">PR</option>
-                                    <option value="PE">PE</option>
-                                    <option value="PI">PI</option>
-                                    <option value="RJ">RJ</option>
-                                    <option value="RN">RN</option>
-                                    <option value="RS">RS</option>
-                                    <option value="RO">RO</option>
-                                    <option value="RR">RR</option>
-                                    <option value="SC">SC</option>
-                                    <option value="SP">SP</option>
-                                    <option value="SE">SE</option>
-                                    <option value="TO">TO</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                    
                     
                     <div class="row">
                         <div class="col-12">
