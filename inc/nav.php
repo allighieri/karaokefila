@@ -48,6 +48,10 @@ $rootPath = '/fila/';
                             <li><a class="dropdown-item <?php echo ($current_page == 'permissao.php') ? 'active' : ''; ?>" href="<?php echo $rootPath; ?>permissao.php">Permissão</a></li>
                         <?php endif; ?>
 
+                        <?php if (check_access(NIVEL_ACESSO, ['admin', 'super_admin'])): ?>
+                            <li><a class="dropdown-item <?php echo ($current_page == 'usuarios.php') ? 'active' : ''; ?>" href="<?php echo $rootPath; ?>usuarios.php">Usuários</a></li>
+                        <?php endif; ?>
+
 
                         <li><a class="dropdown-item" id="resetarSistema" href="#sectionResetarSistema">Resetar Todo o Sistema</a></li>
                         <li><hr class="dropdown-divider"></li>
