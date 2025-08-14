@@ -92,6 +92,7 @@ try {
             $dados = [
                 'nome' => trim($_POST['nome'] ?? ''),
                 'telefone' => trim($_POST['telefone'] ?? ''),
+                'email' => trim($_POST['email'] ?? ''),
                 'cidade' => trim($_POST['cidade'] ?? ''),
                 'uf' => trim($_POST['uf'] ?? ''),
             ];

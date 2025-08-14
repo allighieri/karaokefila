@@ -14,21 +14,28 @@
                     
                         
                         <div class="mb-3 row">
-                            <label for="editar-nome" class="col-sm-2 col-form-label">Nome</label>
-                            <div class="col-sm-10">
+                            <label for="editar-nome" class="col-sm-3 col-form-label">Nome</label>
+                            <div class="col-sm-9">
                                 <input type="text" class="form-control" id="editar-nome" name="nome" required>
                             </div>
                         </div>
                       
                         <div class="mb-3 row">
-                            <label for="editar-telefone" class="col-sm-2 col-form-label">Telefone</label>
-                            <div class="col-sm-10">
+                            <label for="editar-telefone" class="col-sm-3 col-form-label">Telefone</label>
+                            <div class="col-sm-9">
                                 <input type="text" class="form-control" id="editar-telefone" name="telefone" placeholder="">
+                            </div>
+                        </div>
+                      
+                        <div class="mb-3 row">
+                            <label for="editar-email" class="col-sm-3 col-form-label">Email</label>
+                            <div class="col-sm-9">
+                                <input type="email" class="form-control" id="editar-email" name="email" placeholder="">
                             </div>
                         </div>
 
                         <div class="row">
-                            <label for="editar-cidade" class="col-sm-2 col-form-label">Cidade</label>
+                            <label for="editar-cidade" class="col-sm-3 col-form-label">Cidade</label>
                             <div class="col">
                                 <input type="text" class="form-control" id="editar-cidade" name="cidade" required>
                             </div>
@@ -41,13 +48,11 @@
                     
                     
                     
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="mb-3">
-                                <label for="editar-password" class="form-label">Nova Senha</label>
-                                <input type="password" class="form-control" id="editar-password" name="password" placeholder="Deixe em branco para manter a senha atual">
-                                <div class="form-text">Deixe em branco se não quiser alterar a senha</div>
-                            </div>
+                    <div class="mb-3 row mt-3">
+                        <label for="editar-password" class="col-sm-3 col-form-label">Nova Senha</label>
+                        <div class="col-sm-9">
+                            <input type="password" class="form-control" id="editar-password" name="password">
+                            <div class="form-text text-danger">Deixe em branco se não quiser alterar a senha</div>
                         </div>
                     </div>
                     
@@ -56,11 +61,11 @@
                             <div class="mb-3">
                                 <label class="form-label">Informações do Sistema</label>
                                 <div class="row">
-                                    <div class="col-md-6">
+                                    <div class="col-md-8">
                                         <p class="mb-1"><strong>Estabelecimento:</strong> <span id="editar-tenant-nome"></span></p>
                                     </div>
-                                    <div class="col-md-6">
-                                        <p class="mb-1"><strong>Nível Atual:</strong> <span id="editar-nivel-atual"></span></p>
+                                    <div class="col-md-4">
+                                        <p class="mb-1 text-end"><strong>Nível:</strong> <span id="editar-nivel-atual"></span></p>
                                     </div>
                                 </div>
                             </div>
@@ -77,37 +82,3 @@
         </div>
     </div>
 </div>
-
-<style>
-/* Estilos específicos para a modal de edição */
-#modalEditarUsuario .form-label {
-    font-weight: 600;
-    color: #495057;
-}
-
-#modalEditarUsuario .form-control:focus,
-#modalEditarUsuario .form-select:focus {
-    border-color: #0d6efd;
-    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
-}
-
-#modalEditarUsuario .modal-header {
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #dee2e6;
-}
-
-#modalEditarUsuario .modal-footer {
-    background-color: #f8f9fa;
-    border-top: 1px solid #dee2e6;
-}
-
-#modalEditarUsuario .btn-primary {
-    background-color: #0d6efd;
-    border-color: #0d6efd;
-}
-
-#modalEditarUsuario .btn-primary:hover {
-    background-color: #0b5ed7;
-    border-color: #0a58ca;
-}
-</style>

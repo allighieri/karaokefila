@@ -163,6 +163,11 @@ function atualizarUsuario(PDO $pdo, int $id_usuario, array $dados, $id_tenants =
             $valores[] = $dados['telefone'];
         }
         
+        if (isset($dados['email'])) {
+            $campos[] = 'email = ?';
+            $valores[] = $dados['email'];
+        }
+        
         if (isset($dados['cidade'])) {
             $campos[] = 'cidade = ?';
             $valores[] = $dados['cidade'];

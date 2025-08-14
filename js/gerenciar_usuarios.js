@@ -189,6 +189,7 @@ function editarUsuario(id) {
                 document.getElementById('editar-usuario-id').value = usuario.id;
                 document.getElementById('editar-nome').value = usuario.nome;
                 document.getElementById('editar-telefone').value = usuario.telefone || '';
+                document.getElementById('editar-email').value = usuario.email || '';
                 document.getElementById('editar-cidade').value = usuario.cidade || '';
                 document.getElementById('editar-uf').value = usuario.uf || '';
                 document.getElementById('editar-password').value = '';
@@ -295,8 +296,8 @@ function getNivelTexto(nivel) {
     const niveis = {
         'mc': 'MC',
         'user': 'Usuário',
-        'admin': 'Administrador',
-        'super_admin': 'Super Administrador'
+        'admin': 'Admin',
+        'super_admin': 'Super Admin'
     };
     return niveis[nivel] || 'Desconhecido';
 }
