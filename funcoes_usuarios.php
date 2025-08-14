@@ -7,28 +7,51 @@ require_once 'conn.php';
  * @param int $id_tenants ID do tenant (null para super_admin ver todos)
  * @return array Lista de usuários
  */
-function obterUsuariosAtivos(PDO $pdo, $id_tenants = null): array {
+function obterUsuariosAtivos(PDO $pdo, $id_tenants = null, $nivel_usuario_logado = null): array {
     try {
         if ($id_tenants === null) {
             // Super admin vê todos os usuários
-            $stmt = $pdo->prepare("
-                SELECT u.*, t.nome as tenant_nome 
-                FROM usuarios u 
-                LEFT JOIN tenants t ON u.id_tenants = t.id 
-                WHERE u.status = 1 
-                ORDER BY u.nome
-            ");
-            $stmt->execute();
+            if ($nivel_usuario_logado === 'super_admin') {
+                $stmt = $pdo->prepare("
+                    SELECT u.*, t.nome as tenant_nome 
+                    FROM usuarios u 
+                    LEFT JOIN tenants t ON u.id_tenants = t.id 
+                    WHERE u.status = 1 
+                    ORDER BY u.nome
+                ");
+                $stmt->execute();
+            } else {
+                // Usuários não super_admin não veem outros super_admin
+                $stmt = $pdo->prepare("
+                    SELECT u.*, t.nome as tenant_nome 
+                    FROM usuarios u 
+                    LEFT JOIN tenants t ON u.id_tenants = t.id 
+                    WHERE u.status = 1 AND u.nivel != 'super_admin'
+                    ORDER BY u.nome
+                ");
+                $stmt->execute();
+            }
         } else {
-            // Admin vê apenas usuários do seu tenant
-            $stmt = $pdo->prepare("
-                SELECT u.*, t.nome as tenant_nome 
-                FROM usuarios u 
-                LEFT JOIN tenants t ON u.id_tenants = t.id 
-                WHERE u.status = 1 AND u.id_tenants = ? 
-                ORDER BY u.nome
-            ");
-            $stmt->execute([$id_tenants]);
+            // Admin vê apenas usuários do seu tenant (exceto super_admin se não for super_admin)
+            if ($nivel_usuario_logado === 'super_admin') {
+                $stmt = $pdo->prepare("
+                    SELECT u.*, t.nome as tenant_nome 
+                    FROM usuarios u 
+                    LEFT JOIN tenants t ON u.id_tenants = t.id 
+                    WHERE u.status = 1 AND u.id_tenants = ? 
+                    ORDER BY u.nome
+                ");
+                $stmt->execute([$id_tenants]);
+            } else {
+                $stmt = $pdo->prepare("
+                    SELECT u.*, t.nome as tenant_nome 
+                    FROM usuarios u 
+                    LEFT JOIN tenants t ON u.id_tenants = t.id 
+                    WHERE u.status = 1 AND u.id_tenants = ? AND u.nivel != 'super_admin'
+                    ORDER BY u.nome
+                ");
+                $stmt->execute([$id_tenants]);
+            }
         }
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -44,28 +67,51 @@ function obterUsuariosAtivos(PDO $pdo, $id_tenants = null): array {
  * @param int $id_tenants ID do tenant (null para super_admin ver todos)
  * @return array Lista de usuários inativos
  */
-function obterUsuariosInativos(PDO $pdo, $id_tenants = null): array {
+function obterUsuariosInativos(PDO $pdo, $id_tenants = null, $nivel_usuario_logado = null): array {
     try {
         if ($id_tenants === null) {
             // Super admin vê todos os usuários inativos
-            $stmt = $pdo->prepare("
-                SELECT u.*, t.nome as tenant_nome 
-                FROM usuarios u 
-                LEFT JOIN tenants t ON u.id_tenants = t.id 
-                WHERE u.status = 0 
-                ORDER BY u.nome
-            ");
-            $stmt->execute();
+            if ($nivel_usuario_logado === 'super_admin') {
+                $stmt = $pdo->prepare("
+                    SELECT u.*, t.nome as tenant_nome 
+                    FROM usuarios u 
+                    LEFT JOIN tenants t ON u.id_tenants = t.id 
+                    WHERE u.status = 0 
+                    ORDER BY u.nome
+                ");
+                $stmt->execute();
+            } else {
+                // Usuários não super_admin não veem outros super_admin inativos
+                $stmt = $pdo->prepare("
+                    SELECT u.*, t.nome as tenant_nome 
+                    FROM usuarios u 
+                    LEFT JOIN tenants t ON u.id_tenants = t.id 
+                    WHERE u.status = 0 AND u.nivel != 'super_admin'
+                    ORDER BY u.nome
+                ");
+                $stmt->execute();
+            }
         } else {
-            // Admin vê apenas usuários inativos do seu tenant
-            $stmt = $pdo->prepare("
-                SELECT u.*, t.nome as tenant_nome 
-                FROM usuarios u 
-                LEFT JOIN tenants t ON u.id_tenants = t.id 
-                WHERE u.status = 0 AND u.id_tenants = ? 
-                ORDER BY u.nome
-            ");
-            $stmt->execute([$id_tenants]);
+            // Admin vê apenas usuários inativos do seu tenant (exceto super_admin se não for super_admin)
+            if ($nivel_usuario_logado === 'super_admin') {
+                $stmt = $pdo->prepare("
+                    SELECT u.*, t.nome as tenant_nome 
+                    FROM usuarios u 
+                    LEFT JOIN tenants t ON u.id_tenants = t.id 
+                    WHERE u.status = 0 AND u.id_tenants = ? 
+                    ORDER BY u.nome
+                ");
+                $stmt->execute([$id_tenants]);
+            } else {
+                $stmt = $pdo->prepare("
+                    SELECT u.*, t.nome as tenant_nome 
+                    FROM usuarios u 
+                    LEFT JOIN tenants t ON u.id_tenants = t.id 
+                    WHERE u.status = 0 AND u.id_tenants = ? AND u.nivel != 'super_admin'
+                    ORDER BY u.nome
+                ");
+                $stmt->execute([$id_tenants]);
+            }
         }
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

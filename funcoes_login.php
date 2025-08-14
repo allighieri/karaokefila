@@ -116,12 +116,13 @@ function logar_usuario($codigo, $email, $senha) {
 
         // Verifica se o status do usuário está ativo
         if ($resultado['status'] != 1) {
-            return 'Usuário inativo. Entre em contato com o suporte.';
+            return 'Cadastro desativado. Entre em contato com o estabelecimento.';
+
         }
 
         // Verifica se o status do tenant está ativo
         if ($resultado['tenant_status'] != 1) {
-            return $resultado['tenant_nome'].' inativo. Entre em contato com o suporte.';
+            return 'O estabelecimento '.$resultado['tenant_nome'].' está inativo. Entre em contato com o suporte.';
         }
 
         // Separa os dados do usuário e do tenant no objeto de sessão

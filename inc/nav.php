@@ -28,6 +28,8 @@ $rootPath = '/fila/';
                         Configuração
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                        <li><a class="dropdown-item" href="#"><?php echo NOME_USUARIO; ?></a></li>
+
                         <?php if (check_access(NIVEL_ACESSO, ['admin', 'mc'])): ?>
                             <li><a class="dropdown-item <?php echo ($current_page == 'regras.php') ? 'active' : ''; ?>" href="<?php echo $rootPath; ?>regras.php">Regras</a></li>
                         <?php endif; ?>
@@ -36,16 +38,12 @@ $rootPath = '/fila/';
                             <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#editTenantCodeModalGlobal">Código</a></li>
                         <?php endif; ?>
 
-                        <?php if (check_access(NIVEL_ACESSO, ['mc', 'admin'])): ?>
+                        <?php if (check_access(NIVEL_ACESSO, ['admin'])): ?>
                             <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#addRepertorioModal">Add Repertório</a></li>
                         <?php endif; ?>
 
                         <?php if (check_access(NIVEL_ACESSO, ['super_admin'])): ?>
                             <li><a class="dropdown-item <?php echo ($current_page == 'tenants.php') ? 'active' : ''; ?>" href="<?php echo $rootPath; ?>tenants.php">Clientes</a></li>
-                        <?php endif; ?>
-
-                        <?php if (check_access(NIVEL_ACESSO, ['super_admin'])): ?>
-                            <li><a class="dropdown-item <?php echo ($current_page == 'permissao.php') ? 'active' : ''; ?>" href="<?php echo $rootPath; ?>permissao.php">Permissão</a></li>
                         <?php endif; ?>
 
                         <?php if (check_access(NIVEL_ACESSO, ['admin', 'super_admin'])): ?>

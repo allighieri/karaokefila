@@ -33,7 +33,7 @@ try {
                 $tenant_filtro = ID_TENANTS;
             }
             
-            $usuarios = obterUsuariosAtivos($pdo, $tenant_filtro);
+            $usuarios = obterUsuariosAtivos($pdo, $tenant_filtro, NIVEL_ACESSO);
             echo json_encode(['success' => true, 'usuarios' => $usuarios]);
             break;
             
@@ -48,7 +48,7 @@ try {
                 $tenant_filtro = ID_TENANTS;
             }
             
-            $usuarios = obterUsuariosInativos($pdo, $tenant_filtro);
+            $usuarios = obterUsuariosInativos($pdo, $tenant_filtro, NIVEL_ACESSO);
             echo json_encode(['success' => true, 'usuarios' => $usuarios]);
             break;
             
