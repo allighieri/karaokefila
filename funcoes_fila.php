@@ -71,7 +71,7 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
             FROM (
                 SELECT
                     c.id AS id_cantor,
-                    c.nome_cantor,
+                    u.nome AS nome_cantor,
                     m.id AS id_mesa,
                     m.nome_mesa,
                     m.tamanho_mesa,
@@ -81,6 +81,7 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
                     -- CORRIGIDO: Subquery agora filtra por id_eventos
                     (SELECT COUNT(*) FROM musicas_cantor mc WHERE mc.id_cantor = c.id AND mc.status IN ('aguardando', 'pulou') AND mc.ordem_na_lista >= c.proximo_ordem_musica AND mc.id_eventos = :id_eventos_sub) AS musicas_elegiveis_cantor
                 FROM cantores c
+                JOIN usuarios u ON c.id_usuario = u.id
                 JOIN mesas m ON c.id_mesa = m.id
                 WHERE c.id_tenants = :id_tenants_c AND m.id_tenants = :id_tenants_m
             ) AS t
@@ -465,11 +466,12 @@ function reordenarFilaParaIntercalarMesas(PDO $pdo, int $rodada): bool {
                 fr.id_mesa,
                 fr.timestamp_adicao,
                 m.nome_mesa,
-                c.nome_cantor,
+                u.nome AS nome_cantor,
                 mu.titulo AS nome_musica,
                 mu.artista AS nome_artista
             FROM fila_rodadas fr
             JOIN cantores c ON fr.id_cantor = c.id
+            JOIN usuarios u ON c.id_usuario = u.id
             JOIN mesas m ON fr.id_mesa = m.id
             JOIN musicas mu ON fr.id_musica = mu.id
             WHERE fr.rodada = :rodada
@@ -1053,41 +1055,7 @@ function getAllRegrasMesa(PDO $pdo): array
 
 // FIM CONFIG REGRAS MESAS
 
-/**
- * Retorna todos os cantores cadastrados, incluindo o nome da mesa associada.
- *
- * @param PDO $pdo Objeto PDO de conexão com o banco de dados.
- * @return array Um array de arrays associativos contendo os dados dos cantores,
- * ou um array vazio em caso de nenhum cantor ou erro.
- */
-function getAllCantores(PDO $pdo): array
-{
-    // Removido: Não é mais necessário usar 'global' para a constante ID_TENANTS
-    try {
-        $stmt = $pdo->prepare("
-            SELECT
-                c.id,
-                c.nome_cantor,
-                c.id_mesa,
-                m.nome_mesa AS nome_da_mesa_associada,
-                c.proximo_ordem_musica
-            FROM
-                cantores c
-            LEFT JOIN
-                mesas m ON c.id_mesa = m.id
-            WHERE
-                c.id_tenants = :id_tenants
-            ORDER BY
-                c.nome_cantor ASC
-        ");
-        // Alterado: Usa a constante ID_TENANTS
-        $stmt->execute([':id_tenants' => ID_TENANTS]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (\PDOException $e) {
-        error_log("Erro ao buscar todos os cantores com nome da mesa: " . $e->getMessage());
-        return [];
-    }
-}
+// Função getAllCantores removida - usar getAllCantoresComUsuario() do funcoes_cantores_novo.php
 
 function getTodasMesas(PDO $pdo) {
     // Removido: Não é mais necessário usar 'global' para a constante ID_TENANTS
@@ -1200,140 +1168,9 @@ function adicionarMesa(PDO $pdo, $nomeMesa) {
     }
 }
 
-/**
- * Adiciona um novo cantor e o associa a uma mesa.
- * @param PDO $pdo Objeto de conexão PDO.
- * @param string $nomeCantor Nome do cantor.
- * @param int $idMesa ID da mesa à qual o cantor pertence.
- * @return bool True em caso de sucesso, false caso contrário.
- */
-function adicionarCantor(PDO $pdo, $nomeCantor, $idMesa) {
-    // Removido: Não é mais necessário usar 'global' para a constante ID_TENANTS
-    try {
-        $pdo->beginTransaction();
+// Função adicionarCantor removida - usar adicionarCantorPorUsuario() do funcoes_cantores_novo.php
 
-        $stmtGetMesa = $pdo->prepare("SELECT nome_mesa FROM mesas WHERE id = ? AND id_tenants = ?");
-        // Alterado: Usa a constante ID_TENANTS
-        $stmtGetMesa->execute([$idMesa, ID_TENANTS]);
-        $mesaInfo = $stmtGetMesa->fetch(PDO::FETCH_ASSOC);
-
-        if (!$mesaInfo) {
-            $pdo->rollBack();
-            error_log("Erro: Mesa com ID {$idMesa} não encontrada para o tenant " . ID_TENANTS . ".");
-            return ['success' => false, 'message' => "Erro: Mesa não encontrada ou não pertence ao seu tenant."];
-        }
-        $nomeMesa = $mesaInfo['nome_mesa'];
-
-        // Insere o novo cantor
-        $stmt = $pdo->prepare("INSERT INTO cantores (id_tenants, nome_cantor, id_mesa) VALUES (?, ?, ?)");
-        // Alterado: Usa a constante ID_TENANTS
-        $success = $stmt->execute([ID_TENANTS, $nomeCantor, $idMesa]);
-
-        if ($success) {
-            // 2. Incrementa o 'tamanho_mesa' da mesa associada
-            $stmtUpdateMesa = $pdo->prepare("UPDATE mesas SET tamanho_mesa = tamanho_mesa + 1 WHERE id = ? AND id_tenants = ?");
-            // Alterado: Usa a constante ID_TENANTS
-            $updateSuccess = $stmtUpdateMesa->execute([$idMesa, ID_TENANTS]);
-
-            if ($updateSuccess) {
-                $pdo->commit();
-                return ['success' => true, 'message' => "<strong>{$nomeCantor}(a)</strong> adicionado(a) à mesa <strong>{$nomeMesa}</strong> com sucesso!"];
-            } else {
-                $pdo->rollBack();
-                error_log("Erro ao incrementar tamanho_mesa para a mesa ID: " . $idMesa . " do tenant " . ID_TENANTS);
-                return ['success' => false, 'message' => "Erro ao atualizar o tamanho da mesa."];
-            }
-        } else {
-            $pdo->rollBack();
-            error_log("Erro ao inserir o cantor: " . $nomeCantor);
-            return ['success' => false, 'message' => "Erro ao adicionar o cantor."];
-        }
-    } catch (\PDOException $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        error_log("Erro ao adicionar cantor (PDOException): " . $e->getMessage());
-        return ['success' => false, 'message' => "Erro interno do servidor ao adicionar cantor."];
-    }
-}
-
-/**
- * Remove um cantor e decrementa o tamanho_mesa da mesa associada,
- * impedindo a remoção se o cantor tiver uma música em execução ou selecionada na fila.
- * @param PDO $pdo Objeto de conexão PDO.
- * @param int $idCantor ID do cantor a ser removido.
- * @return array Um array associativo com 'success' (bool) e 'message' (string).
- */
-function removerCantor(PDO $pdo, $idCantor): array
-{
-    // Removido: Não é mais necessário usar 'global' para a constante ID_TENANTS
-    try {
-        $pdo->beginTransaction();
-
-        // 1. Obter o id_mesa e o nome do cantor antes de excluí-lo
-        $stmtGetCantorInfo = $pdo->prepare("SELECT id_mesa, nome_cantor FROM cantores WHERE id = ? AND id_tenants = ?");
-        // Alterado: Usa a constante ID_TENANTS
-        $stmtGetCantorInfo->execute([$idCantor, ID_TENANTS]);
-        $cantorInfo = $stmtGetCantorInfo->fetch(PDO::FETCH_ASSOC);
-
-        if (!$cantorInfo) {
-            $pdo->rollBack();
-            error_log("Erro: Cantor ID " . $idCantor . " não encontrado para remoção no tenant " . ID_TENANTS . ".");
-            return ['success' => false, 'message' => 'Cantor não encontrado ou não pertence ao seu tenant.'];
-        }
-
-        $idMesa = $cantorInfo['id_mesa'];
-        $nomeCantor = $cantorInfo['nome_cantor'];
-
-        // NOVO PASSO: 2. Verificar se o cantor tem alguma música em 'em_execucao' na fila_rodadas
-        $stmtCheckFila = $pdo->prepare(
-            "SELECT COUNT(*) FROM fila_rodadas
-             WHERE id_cantor = ?
-               AND status = 'em_execucao'
-               AND id_tenants = ?"
-        );
-        // Alterado: Usa a constante ID_TENANTS
-        $stmtCheckFila->execute([$idCantor, ID_TENANTS]);
-        $isInFilaAtiva = $stmtCheckFila->fetchColumn();
-
-        if ($isInFilaAtiva > 0) {
-            $pdo->rollBack();
-            error_log("Alerta: Tentativa de excluir cantor (ID: " . $idCantor . ", Nome: " . $nomeCantor . ") que possui música(s) em execução na fila. Exclusão não permitida.");
-            return ['success' => false, 'message' => "Não é possível remover o cantor '{$nomeCantor}'. Ele(a) tem música(s) atualmente em execução."];
-        }
-
-        // 3. Remover o cantor (apenas se não estiver na fila ativa)
-        $stmtDeleteCantor = $pdo->prepare("DELETE FROM cantores WHERE id = ? AND id_tenants = ?");
-        // Alterado: Usa a constante ID_TENANTS
-        $successDelete = $stmtDeleteCantor->execute([$idCantor, ID_TENANTS]);
-
-        if ($successDelete) {
-            // 4. Decrementar o 'tamanho_mesa' da mesa associada (se for maior que zero)
-            $stmtUpdateMesa = $pdo->prepare("UPDATE mesas SET tamanho_mesa = GREATEST(0, tamanho_mesa - 1) WHERE id = ? AND id_tenants = ?");
-            // Alterado: Usa a constante ID_TENANTS
-            $updateSuccess = $stmtUpdateMesa->execute([$idMesa, ID_TENANTS]);
-
-            if ($updateSuccess) {
-                $pdo->commit();
-                return ['success' => true, 'message' => "Cantor(a) '{$nomeCantor}' removido(a) com sucesso."];
-            } else {
-                $pdo->rollBack();
-                error_log("Erro ao decrementar tamanho_mesa para a mesa ID: " . $idMesa . " do tenant " . ID_TENANTS . " após remover cantor ID: " . $idCantor);
-                return ['success' => false, 'message' => "Erro ao atualizar o tamanho da mesa após remover cantor."];
-            }
-        } else {
-            $pdo->rollBack();
-            error_log("Erro ao remover o cantor ID: " . $idCantor . ". PDO Error: " . implode(" ", $stmtDeleteCantor->errorInfo()));
-            return ['success' => false, 'message' => "Erro ao remover o cantor."];
-        }
-    } catch (\PDOException $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        error_log("Erro ao remover cantor (PDOException): " . $e->getMessage());
-        return ['success' => false, 'message' => "Erro interno do servidor ao remover cantor."];
-    }
-}
+// Função removerCantor removida - usar removerCantorPorId() do funcoes_cantores_novo.php
 
 /**
  * Obtém o número da rodada atual.
@@ -1409,7 +1246,7 @@ function getProximaMusicaFila(PDO $pdo) {
             SELECT
                 fr.id AS fila_id,
                 fr.musica_cantor_id,
-                c.nome_cantor,
+                u.nome AS nome_cantor,
                 m.titulo AS titulo_musica,
                 m.artista AS artista_musica,
                 me.nome_mesa,
@@ -1418,6 +1255,7 @@ function getProximaMusicaFila(PDO $pdo) {
                 fr.ordem_na_rodada
             FROM fila_rodadas fr
             JOIN cantores c ON fr.id_cantor = c.id
+            JOIN usuarios u ON c.id_usuario = u.id
             JOIN musicas m ON fr.id_musica = m.id
             JOIN mesas me ON c.id_mesa = me.id
             WHERE fr.rodada = ? AND fr.status = 'aguardando' AND fr.id_tenants = ?
@@ -1450,7 +1288,7 @@ function getMusicaEmExecucao(PDO $pdo) {
                 fr.id_cantor,
                 fr.id_musica,
                 fr.musica_cantor_id,
-                c.nome_cantor,
+                u.nome AS nome_cantor,
                 m.titulo AS titulo_musica,
                 m.artista AS artista_musica,
                 m.codigo AS codigo_musica,
@@ -1460,6 +1298,7 @@ function getMusicaEmExecucao(PDO $pdo) {
                 fr.ordem_na_rodada
             FROM fila_rodadas fr
             JOIN cantores c ON fr.id_cantor = c.id
+            JOIN usuarios u ON c.id_usuario = u.id
             JOIN musicas m ON fr.id_musica = m.id
             JOIN mesas me ON c.id_mesa = me.id
             WHERE fr.rodada = ? AND fr.status = 'em_execucao' AND fr.id_tenants = ?
@@ -1737,7 +1576,7 @@ function getFilaCompleta(PDO $pdo) {
     try {
         $sql = "SELECT
                     fr.id AS fila_id,
-                    c.nome_cantor,
+                    u.nome AS nome_cantor,
                     m.titulo AS titulo_musica,
                     m.artista AS artista_musica,
                     m.codigo as codigo_musica,
@@ -1747,6 +1586,7 @@ function getFilaCompleta(PDO $pdo) {
                     fr.ordem_na_rodada
                 FROM fila_rodadas fr
                 JOIN cantores c ON fr.id_cantor = c.id
+                JOIN usuarios u ON c.id_usuario = u.id
                 JOIN musicas m ON fr.id_musica = m.id
                 JOIN mesas me ON c.id_mesa = me.id
                 WHERE fr.rodada = ? AND fr.id_tenants = ?

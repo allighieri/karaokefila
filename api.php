@@ -5,6 +5,7 @@ error_reporting(E_ALL);
 
 require_once 'init.php';
 require_once 'funcoes_fila.php'; // Inclui as funções e a conexão PDO
+require_once 'funcoes_cantores_novo.php'; // Inclui as novas funções de cantores
 require_once 'funcoes_login.php'; // Inclui as funções e a conexão PDO
 
 header('Content-Type: application/json; charset=utf-8'); // Garante que a resposta seja JSON UTF-8
@@ -35,21 +36,8 @@ switch ($action) {
             $response['message'] = $resultado;
         }
         break;
-    case 'add_cantor':
-        $nomeCantor = $_POST['nomeCantor'] ?? '';
-        $idMesa = $_POST['idMesa'] ?? '';
-
-        $resultadoAdicao = adicionarCantor($pdo, $nomeCantor, $idMesa);
-
-        $response['success'] = $resultadoAdicao['success'];
-        $response['message'] = $resultadoAdicao['message'];
-        break;
-    case 'get_all_cantores':
-        // Supondo que 'getTodosCantoresComNomeMesa' está definida em 'funcoes_fila.php'
-        $cantores = getAllCantores($pdo);
-        $response['success'] = true;
-        $response['cantores'] = $cantores; // Retorna o array de cantores
-        break;
+    // case 'add_cantor' removido - usar api_cantores.php
+    // case 'get_all_cantores' removido - usar 'get_cantores' em api_cantores.php
     case 'add_mesa':
         $nomeMesa = $_POST['nomeMesa'] ?? ''; // Adicione ?? '' para evitar erro se 'nomeMesa' não vier
 
@@ -108,26 +96,15 @@ switch ($action) {
             $response['message'] = 'ID da mesa inválido para exclusão.';
         }
         break;
-    case 'excluir_cantor':
-        $cantorId = (int)($_POST['cantorId'] ?? 0);
-
-        if ($cantorId <= 0) {
-            $response['message'] = 'ID do cantor inválido.';
-        } else {
-            // Chama a função atualizada removerCantor e usa seu retorno
-            $resultadoRemocao = removerCantor($pdo, $cantorId);
-            $response['success'] = $resultadoRemocao['success'];
-            $response['message'] = $resultadoRemocao['message'];
-        }
-        break;
+    // case 'excluir_cantor' removido - usar 'remove_cantor' em api_cantores.php
     case 'edit_cantor':
-        if (isset($_POST['cantor_id'], $_POST['novo_nome_cantor'], $_POST['nova_mesa_id'])) {
+        if (isset($_POST['cantor_id'], $_POST['novo_id_usuario'], $_POST['nova_mesa_id'])) {
             $cantorId = (int)$_POST['cantor_id'];
-            $novoNomeCantor = trim($_POST['novo_nome_cantor']);
+            $novoIdUsuario = (int)$_POST['novo_id_usuario'];
             $novaMesaId = (int)$_POST['nova_mesa_id'];
 
-            if (empty($novoNomeCantor)) {
-                $response['message'] = 'O nome do cantor não pode ser vazio.';
+            if (empty($novoIdUsuario)) {
+                $response['message'] = 'Por favor, selecione um usuário.';
                 break;
             }
 
@@ -145,8 +122,8 @@ switch ($action) {
                 $oldMesaId = $stmtOldMesa->fetchColumn(); // Pega apenas a coluna id_mesa
 
                 // 2. Atualizar os dados do cantor
-                $stmtUpdateCantor = $pdo->prepare("UPDATE cantores SET nome_cantor = :nome_cantor, id_mesa = :id_mesa WHERE id = :id");
-                $stmtUpdateCantor->bindParam(':nome_cantor', $novoNomeCantor, PDO::PARAM_STR);
+                $stmtUpdateCantor = $pdo->prepare("UPDATE cantores SET id_usuario = :id_usuario, id_mesa = :id_mesa WHERE id = :id");
+                $stmtUpdateCantor->bindParam(':id_usuario', $novoIdUsuario, PDO::PARAM_INT);
                 $stmtUpdateCantor->bindParam(':id_mesa', $novaMesaId, PDO::PARAM_INT);
                 $stmtUpdateCantor->bindParam(':id', $cantorId, PDO::PARAM_INT);
                 $stmtUpdateCantor->execute();

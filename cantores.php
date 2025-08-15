@@ -1,27 +1,27 @@
 <?php
 require_once 'init.php';
 require_once 'funcoes_fila.php';
-
+require_once 'funcoes_cantores_novo.php';
 
 if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
     header("Location: " . $rootPath . "login");
     exit();
 }
+
 // A conexão $pdo deve vir de funcoes_fila.php
 $todas_mesas = []; // Inicializa como array vazio
 if (!empty($pdo)) {
     $todas_mesas = getTodasMesas($pdo); // Continua buscando as mesas na carga inicial da página
-
-    $todos_cantores = getAllCantores($pdo);
-}else {
+    $todos_cantores = getAllCantoresComUsuario($pdo); // Usar nova função
+    $usuarios_disponiveis = obterUsuariosDisponiveis($pdo); // Obter usuários disponíveis
+} else {
     $todos_cantores = []; // Garante que seja um array vazio se o PDO não estiver conectado
+    $usuarios_disponiveis = [];
 }
 
 $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 
 // Obter lista de mesas para formulário de adicionar cantor
-
-
 $stmtMesas = $pdo->prepare("SELECT id, nome_mesa, tamanho_mesa FROM mesas WHERE id_tenants = ? ORDER BY nome_mesa ASC");
 $stmtMesas->execute([ID_TENANTS]);
 $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
@@ -65,7 +65,9 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
             <input type="hidden" name="action" value="add_cantor">
             <div class="row mb-3">
                 <div class="col-md-6">
-                    <select id="id_mesa_cantor" name="id_mesa_cantor" class="form-select" required> <option value="">Selecione uma mesa</option>
+                    <label for="id_mesa_cantor" class="form-label">Mesa:</label>
+                    <select id="id_mesa_cantor" name="id_mesa_cantor" class="form-select" required>
+                        <option value="">Selecione uma mesa</option>
                         <?php
                         if (isset($mesas_disponiveis)) {
                             foreach ($mesas_disponiveis as $mesa): ?>
@@ -75,16 +77,30 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
                         ?>
                     </select>
                 </div>
-            </div>
-            <div class="row">
-                <div class="col-12 col-lg-6">
-                    <div class="input-group mb-3">
-                        <input type="text" id="nome_cantor" name="nome_cantor" class="form-control" placeholder="Nome do cantor" aria-label="Nome do cantor" aria-describedby="button-addon2" required>
-                        <button class="btn btn-success" type="submit" id="button-addon2">Adicionar</button>
-                    </div>
+                <div class="col-md-6">
+                    <label for="id_usuario_cantor" class="form-label">Usuário:</label>
+                    <select id="id_usuario_cantor" name="id_usuario_cantor" class="form-select" required>
+                        <option value="">Selecione um usuário</option>
+                        <?php
+                        if (isset($usuarios_disponiveis)) {
+                            foreach ($usuarios_disponiveis as $usuario): ?>
+                                <option value="<?php echo htmlspecialchars($usuario['id']); ?>">
+                                    <?php echo htmlspecialchars($usuario['nome']); ?>
+                                    <?php if ($usuario['nivel'] !== 'user'): ?>
+                                        (<?php echo htmlspecialchars($usuario['nivel']); ?>)
+                                    <?php endif; ?>
+                                </option>
+                            <?php endforeach;
+                        }
+                        ?>
+                    </select>
                 </div>
             </div>
-
+            <div class="row">
+                <div class="col-12">
+                    <button class="btn btn-success" type="submit">Adicionar Cantor</button>
+                </div>
+            </div>
         </form>
 
     <hr class="my-4">
@@ -109,6 +125,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
                             <div class="d-flex flex-nowrap gap-1">
                                 <button class="btn btn-sm btn-warning edit-cantor-btn"
                                         data-id="<?php echo htmlspecialchars($cantor['id']); ?>"
+                                        data-usuario-id="<?php echo htmlspecialchars($cantor['id_usuario']); ?>"
                                         data-nome="<?php echo htmlspecialchars($cantor['nome_cantor'], ENT_QUOTES, 'UTF-8'); ?>"
                                         data-mesa-id="<?php echo htmlspecialchars($cantor['id_mesa']); ?>"
                                         data-prioridade="<?php echo htmlspecialchars($cantor['proximo_ordem_musica']); ?>"
@@ -161,8 +178,27 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
                 <form id="formEditCantor">
                     <input type="hidden" id="editCantorId" name="cantor_id">
                     <div class="mb-3">
-                        <label for="editCantorNome" class="form-label">Nome do Cantor:</label>
-                        <input type="text" class="form-control" id="editCantorNome" name="novo_nome_cantor" required>
+                        <label for="editCantorUsuario" class="form-label">Usuário:</label>
+                        <select id="editCantorUsuario" name="novo_id_usuario" class="form-select" required>
+                            <option value="">Selecione um usuário</option>
+                            <?php
+                            // Carrega todos os usuários disponíveis para edição
+                            $stmtTodosUsuarios = $pdo->prepare("SELECT id, nome, nivel FROM usuarios WHERE id_tenants = ? ORDER BY nome ASC");
+                            $stmtTodosUsuarios->execute([ID_TENANTS]);
+                            $todos_usuarios = $stmtTodosUsuarios->fetchAll(PDO::FETCH_ASSOC);
+                            
+                            if (isset($todos_usuarios)) {
+                                foreach ($todos_usuarios as $usuario): ?>
+                                    <option value="<?php echo htmlspecialchars($usuario['id']); ?>">
+                                        <?php echo htmlspecialchars($usuario['nome']); ?>
+                                        <?php if ($usuario['nivel'] !== 'user'): ?>
+                                            (<?php echo htmlspecialchars($usuario['nivel']); ?>)
+                                        <?php endif; ?>
+                                    </option>
+                                <?php endforeach;
+                            }
+                            ?>
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label for="editCantorMesa" class="form-label">Mesa Associada:</label>
@@ -191,9 +227,10 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
 <?php include_once 'modal_resetar_sistema.php'?>
 <?php include_once 'modal_editar_codigo.php'?>
 <?php include_once 'modal_add_repertorio.php'?>
+<?php include_once 'modal_eventos.php'?>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui-touch-punch/0.2.3/jquery.ui.touch-punch.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -208,6 +245,39 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
 
 
     $(document).ready(function() {
+        // Definir função refreshUsuariosDisponiveis antes de usá-la
+        window.refreshUsuariosDisponiveis = function() {
+            $.ajax({
+                url: 'api_cantores.php',
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'get_usuarios_disponiveis'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        var select = $('#id_usuario_cantor');
+                        select.empty();
+                        select.append('<option value="">Selecione um usuário</option>');
+                        
+                        if (response.usuarios && response.usuarios.length > 0) {
+                            response.usuarios.forEach(function(usuario) {
+                                var nivelText = usuario.nivel !== 'user' ? ' (' + usuario.nivel + ')' : '';
+                                select.append('<option value="' + usuario.id + '">' + usuario.nome + nivelText + '</option>');
+                            });
+                        }
+                    } else {
+                        console.error('Erro ao carregar usuários:', response.message);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Erro na requisição AJAX para usuários:", status, error);
+                }
+            });
+        };
+        
+        refreshUsuariosDisponiveis();
+        
         window.showAlert = function(message, type) {
             var alertHtml = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' +
                 '<span>' + message + '</span>' +
@@ -223,10 +293,10 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
 
         window.refreshCantoresList = function() {
             $.ajax({
-                url: 'api.php',
-                type: 'GET',
+                url: 'api_cantores.php',
+                type: 'POST',
                 dataType: 'json',
-                data: { action: 'get_all_cantores' },
+                data: { action: 'get_cantores' },
                 success: function(response) {
                     if (response.success) {
                         var tableHtml = '';
@@ -237,7 +307,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
                                 '<th scope="col">Cantor</th>' +
                                 '<th scope="col">Mesa</th>' +
                                 '<th scope="col">Prior</th>' +
-                                '<th scope="col">Ações</th>' +
+                                '<th scope="col" style="width: 1%;">Ações</th>' +
                                 '</tr>' +
                                 '</thead>' +
                                 '<tbody>';
@@ -252,6 +322,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
                                     // Apenas não será usado para preencher o modal de edição.
                                     '<button class="btn btn-sm btn-warning edit-cantor-btn" ' +
                                     'data-id="' + htmlspecialchars(cantor.id) + '" ' +
+                                    'data-usuario-id="' + htmlspecialchars(cantor.id_usuario) + '" ' +
                                     'data-nome="' + htmlspecialchars(cantor.nome_cantor) + '" ' +
                                     'data-mesa-id="' + htmlspecialchars(cantor.id_mesa) + '" ' +
                                     'data-prioridade="' + htmlspecialchars(cantor.proximo_ordem_musica) + '" ' + // MANTIDO AQUI
@@ -282,32 +353,43 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
         }
 
 
+
+
         $('#addCantores').on('submit', function(e) {
             e.preventDefault();
 
-            var nomeCantor = $('#nome_cantor').val();
+            var idUsuario = $('#id_usuario_cantor').val();
             var idMesa = $('#id_mesa_cantor').val();
 
+            if (!idUsuario || !idMesa) {
+                showAlert('Por favor, selecione um usuário e uma mesa.', 'warning');
+                return;
+            }
+
             $.ajax({
-                url: 'api.php',
+                url: 'api_cantores.php',
                 type: 'POST',
                 dataType: 'json',
                 data: {
                     action: 'add_cantor',
-                    nomeCantor: nomeCantor,
-                    idMesa: idMesa
+                    id_usuario_cantor: idUsuario,
+                    id_mesa_cantor: idMesa
                 },
                 success: function(response) {
                     if (response.success) {
-                        $('#nome_cantor').val("");
+                        $('#id_usuario_cantor').val("");
+                        $('#id_mesa_cantor').val("");
+                        showAlert(response.message, 'success');
                         refreshCantoresList();
+                        // Atualizar lista de usuários disponíveis
+                        refreshUsuariosDisponiveis();
                     } else {
                         showAlert('Erro: ' + response.message, 'danger');
                     }
                 },
                 error: function(xhr, status, error) {
                     console.error("Erro na requisição AJAX:", status, error);
-                    showAlert('Erro na comunicação com o servidor ao adicionar mesa.', 'danger');
+                    showAlert('Erro na comunicação com o servidor ao adicionar cantor.', 'danger');
                 }
             });
         });
@@ -326,28 +408,27 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
             var cantorId = $(this).data('cantor-id'); // Pega o ID do cantor
             var confirmModal = bootstrap.Modal.getInstance(document.getElementById('confirmDeleteModal'));
             $.ajax({
-                url: 'api.php',
+                url: 'api_cantores.php',
                 type: 'POST',
                 dataType: 'json',
                 data: {
-                    action: 'excluir_cantor', // Ação correta para API
-                    cantorId: cantorId // Parâmetro correto para API
+                    action: 'remove_cantor',
+                    id_cantor: cantorId
                 },
                 success: function(response) {
                     if (response.success) {
                         showAlert(response.message, 'success');
-
                         confirmModal.hide();
-                        refreshCantoresList(); // NOVO: Atualiza a lista de cantores após a exclusão
+                        refreshCantoresList();
+                        // Atualizar lista de usuários disponíveis
+                        refreshUsuariosDisponiveis();
                     } else {
-                        // CORRIGIDO: Mensagem de erro para cantor
                         showAlert('Erro ao excluir cantor: ' + response.message, 'danger');
                         confirmModal.hide();
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error("Erro na requisição AJAX para excluir cantor:", status, error); // CORRIGIDO
-                    // CORRIGIDO: Mensagem de erro para cantor
+                    console.error("Erro na requisição AJAX para excluir cantor:", status, error);
                     showAlert('Erro na comunicação com o servidor ao excluir cantor.', 'danger');
                 }
             });
@@ -355,15 +436,13 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
 
         $('#cantoresListContainer').on('click', '.edit-cantor-btn', function() {
             var cantorId = $(this).data('id');
-            var cantorNome = $(this).data('nome');
+            var cantorUsuarioId = $(this).data('usuario-id');
             var cantorMesaId = $(this).data('mesa-id');
-            // REMOVIDO: var cantorPrioridade = $(this).data('prioridade');
 
             // Preenche o modal com os dados do cantor
             $('#editCantorId').val(cantorId);
-            $('#editCantorNome').val(cantorNome);
+            $('#editCantorUsuario').val(cantorUsuarioId);
             $('#editCantorMesa').val(cantorMesaId);
-            // REMOVIDO: $('#editCantorPrior').prop('checked', cantorPrioridade == 1);
 
             // Exibe o modal
             var editCantorModal = new bootstrap.Modal(document.getElementById('editCantorModal'));
@@ -373,14 +452,13 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
         // Evento de clique no botão "Salvar Alterações" dentro do modal de edição de cantor
         $('#btnSalvarEditCantor').on('click', function() {
             var cantorId = $('#editCantorId').val();
-            var novoNomeCantor = $('#editCantorNome').val();
+            var novoIdUsuario = $('#editCantorUsuario').val();
             var novaMesaId = $('#editCantorMesa').val();
-            // REMOVIDO: var proximoOrdemMusica = $('#editCantorPrior').is(':checked') ? 1 : 0;
 
             var editCantorModalInstance = bootstrap.Modal.getInstance(document.getElementById('editCantorModal'));
 
-            if (novoNomeCantor.trim() === '') {
-                showAlert('O nome do cantor não pode ser vazio!', 'warning');
+            if (novoIdUsuario === '' || novoIdUsuario === null) {
+                showAlert('Por favor, selecione um usuário para o cantor!', 'warning');
                 return;
             }
             if (novaMesaId === '' || novaMesaId === null) {
@@ -389,15 +467,14 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
             }
 
             $.ajax({
-                url: 'api.php',
+                url: 'api_cantores.php',
                 type: 'POST',
                 dataType: 'json',
                 data: {
                     action: 'edit_cantor',
                     cantor_id: cantorId,
-                    novo_nome_cantor: novoNomeCantor,
+                    novo_id_usuario: novoIdUsuario,
                     nova_mesa_id: novaMesaId
-                    // REMOVIDO: proximo_ordem_musica: proximoOrdemMusica
                 },
                 success: function(response) {
                     if (response.success) {

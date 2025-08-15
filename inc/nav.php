@@ -28,10 +28,16 @@ $rootPath = '/fila/';
                         Configuração
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                        <li><a class="dropdown-item" href="#"><?php echo NOME_USUARIO; ?></a></li>
+                        <li class="dropdown-item"><?php echo NOME_USUARIO; ?></li>
+
+                        <li><hr class="dropdown-divider"></li>
 
                         <?php if (check_access(NIVEL_ACESSO, ['admin', 'mc'])): ?>
                             <li><a class="dropdown-item <?php echo ($current_page == 'regras.php') ? 'active' : ''; ?>" href="<?php echo $rootPath; ?>regras.php">Regras</a></li>
+                        <?php endif; ?>
+
+                        <?php if (check_access(NIVEL_ACESSO, ['admin', 'mc', 'super_admin'])): ?>
+                            <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#modalEventos">Eventos</a></li>
                         <?php endif; ?>
 
                         <?php if (check_access(NIVEL_ACESSO, ['mc', 'admin']) && !check_access(NIVEL_ACESSO, ['super_admin'])): ?>

@@ -1,6 +1,8 @@
 <?php
 require_once 'init.php';
-require_once 'funcoes_tenants.php'; // Incluímos o novo arquivo de funções
+require_once 'funcoes_tenants.php'; 
+include_once 'modal_eventos.php';
+
 
 // Apenas usuários 'admin' e 'mc' podem acessar esta página
 if (!check_access(NIVEL_ACESSO, ['super_admin'])) {

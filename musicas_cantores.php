@@ -79,25 +79,38 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
     <?php endif; ?>
 
 
-    <form method="GET" action="musicas_cantores.php">
+    <form method="GET" action="musicas_cantores.php" id="form-selecao">
         <input type="hidden" name="action" value="add_cantor">
         <div class="row mb-3">
             <div class="col-md-6">
-                <select id="cantor_id" name="cantor_id" class="form-select" onchange="this.form.submit()" required>
-                    <option value="">Selecione um(a) cantor(a)</option>
-
-                    <?php foreach ($cantores_disponiveis as $cantor): ?>
-                        <option value="<?php echo htmlspecialchars($cantor['id']); ?>"
-                            <?php echo ($cantor_selecionado_id == $cantor['id']) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($cantor['nome_cantor']); ?>
+                <label for="evento_id" class="form-label">Evento:</label>
+                <select id="evento_id" name="evento_id" class="form-select" onchange="this.form.submit()" required>
+                    <option value="">Selecione um evento</option>
+                    <?php foreach ($eventos_ativos as $evento): ?>
+                        <option value="<?php echo htmlspecialchars($evento['id']); ?>"
+                            <?php echo ($evento_selecionado_id == $evento['id']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($evento['nome'] . ' - MC: ' . $evento['nome_mc']); ?>
                         </option>
                     <?php endforeach; ?>
-
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label for="cantor_id" class="form-label">Cantor(a):</label>
+                <select id="cantor_id" name="cantor_id" class="form-select" onchange="this.form.submit()" <?php echo !$evento_selecionado_id ? 'disabled' : ''; ?>>
+                    <option value="">Selecione um(a) cantor(a)</option>
+                    <?php if ($evento_selecionado_id): ?>
+                        <?php foreach ($cantores_disponiveis as $cantor): ?>
+                            <option value="<?php echo htmlspecialchars($cantor['id']); ?>"
+                                <?php echo ($cantor_selecionado_id == $cantor['id']) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($cantor['nome_cantor']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </select>
             </div>
         </div>
     </form>
-    <p>Selecione um(a) cantor(a) para exibir ou adicionar músicas para ele(a)</p>
+    <p>Primeiro selecione um evento, depois um(a) cantor(a) para exibir ou adicionar músicas para ele(a)</p>
 
     <?php if ($cantor_selecionado_id && !empty($cantores_disponiveis)): ?>
         <?php
@@ -117,6 +130,7 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
         <form method="POST" id="form-add-musica" style="display: none;">
             <input type="hidden" name="action" value="add_musica_cantor">
             <input type="hidden" name="id_cantor" value="<?php echo htmlspecialchars($cantor_selecionado_id); ?>">
+            <input type="hidden" name="id_evento" value="<?php echo htmlspecialchars($evento_selecionado_id); ?>">
             <input type="hidden" id="id_musica" name="id_musica">
         </form>
 
@@ -170,6 +184,7 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                                 <input type="hidden" name="action" value="remove_musica_cantor">
                                 <input type="hidden" name="musica_cantor_id" value="<?php echo htmlspecialchars($musica['musica_cantor_id']); ?>">
                                 <input type="hidden" name="cantor_id" value="<?php echo htmlspecialchars($cantor_selecionado_id); ?>">
+                                <input type="hidden" name="evento_id" value="<?php echo htmlspecialchars($evento_selecionado_id); ?>">
                                 <button class="btn btn-sm btn-danger" type="submit"><i class="bi bi-trash-fill"></i></button>
                             </form>
                         </li>
@@ -185,9 +200,10 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
     <?php include_once 'modal_resetar_sistema.php'?>
 <?php include_once 'modal_editar_codigo.php'?>
 <?php include_once 'modal_add_repertorio.php'?>
+<?php include_once 'modal_eventos.php'?>
 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui-touch-punch/0.2.3/jquery.ui.touch-punch.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>

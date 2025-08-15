@@ -22,16 +22,24 @@ if (isset($_SESSION['mensagem_erro'])) {
 // Obter o ID do cantor da URL para uso nos redirecionamentos
 $cantor_selecionado_id = filter_input(INPUT_GET, 'cantor_id', FILTER_VALIDATE_INT);
 
+// Obter o ID do evento selecionado da URL
+$evento_selecionado_id = filter_input(INPUT_GET, 'evento_id', FILTER_VALIDATE_INT);
+
+// Obter eventos ativos do tenant
+$eventos_ativos = obterEventosAtivosPorTenant(ID_TENANTS);
+
 // Adicionar música ao cantor
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_musica_cantor') {
     $id_cantor = filter_input(INPUT_POST, 'id_cantor', FILTER_VALIDATE_INT);
     $id_musica = filter_input(INPUT_POST, 'id_musica', FILTER_VALIDATE_INT);
+    $id_evento = filter_input(INPUT_POST, 'id_evento', FILTER_VALIDATE_INT);
 
     $redirect_cantor_id = $id_cantor ?: $cantor_selecionado_id;
+    $redirect_evento_id = $id_evento ?: $evento_selecionado_id;
 
     // Removido: global $id_evento_ativo;
 
-    if ($id_cantor && $id_musica) {
+    if ($id_cantor && $id_musica && $id_evento) {
         try {
             // Buscar a menor ordem entre as músicas com status 'cantou' para inserir antes delas
             $stmtMinCantou = $pdo->prepare(
@@ -39,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                  FROM musicas_cantor 
                  WHERE id_cantor = ? AND id_eventos = ? AND status = 'cantou'"
             );
-            $stmtMinCantou->execute([$id_cantor, ID_EVENTO_ATIVO]);
+            $stmtMinCantou->execute([$id_cantor, $id_evento]);
             $minOrdemCantou = $stmtMinCantou->fetchColumn();
             
             if ($minOrdemCantou !== false && $minOrdemCantou !== null) {
@@ -52,25 +60,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                      SET ordem_na_lista = ordem_na_lista + 1 
                      WHERE id_cantor = ? AND id_eventos = ? AND ordem_na_lista >= ?"
                 );
-                $stmtIncrementOrder->execute([$id_cantor, ID_EVENTO_ATIVO, $proximaOrdem]);
+                $stmtIncrementOrder->execute([$id_cantor, $id_evento, $proximaOrdem]);
                 error_log("DEBUG: Ordens incrementadas para inserir nova música na posição " . $proximaOrdem . " do cantor " . $id_cantor);
             } else {
                 // Não há músicas cantadas - usar a lógica original (final da lista)
                 $stmtLastOrder = $pdo->prepare("SELECT MAX(ordem_na_lista) AS max_order FROM musicas_cantor WHERE id_cantor = ? AND id_eventos = ?");
-                $stmtLastOrder->execute([$id_cantor, ID_EVENTO_ATIVO]);
+                $stmtLastOrder->execute([$id_cantor, $id_evento]);
                 $lastOrder = $stmtLastOrder->fetchColumn();
                 $proximaOrdem = ($lastOrder !== null) ? $lastOrder + 1 : 1;
             }
 
             $stmt = $pdo->prepare("INSERT INTO musicas_cantor (id_eventos, id_cantor, id_musica, ordem_na_lista) VALUES (?, ?, ?, ?)");
-            // Alterado: Usa a constante ID_EVENTO_ATIVO
-            if ($stmt->execute([ID_EVENTO_ATIVO, $id_cantor, $id_musica, $proximaOrdem])) {
+            if ($stmt->execute([$id_evento, $id_cantor, $id_musica, $proximaOrdem])) {
                 $_SESSION['mensagem_sucesso'] = "Música adicionada à lista do cantor com sucesso!";
-                header("Location: musicas_cantores.php?cantor_id=" . $redirect_cantor_id);
+                $redirect_url = "musicas_cantores.php?cantor_id=" . $redirect_cantor_id;
+                if ($redirect_evento_id) {
+                    $redirect_url .= "&evento_id=" . $redirect_evento_id;
+                }
+                header("Location: " . $redirect_url);
                 exit;
             } else {
                 $_SESSION['mensagem_erro'] = "Erro ao adicionar música à lista do cantor.";
-                header("Location: musicas_cantores.php?cantor_id=" . $redirect_cantor_id);
+                $redirect_url = "musicas_cantores.php?cantor_id=" . $redirect_cantor_id;
+                if ($redirect_evento_id) {
+                    $redirect_url .= "&evento_id=" . $redirect_evento_id;
+                }
+                header("Location: " . $redirect_url);
                 exit;
             }
         } catch (PDOException $e) {
@@ -92,7 +107,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Removido: global $id_tenants_logado;
 // Obter cantores para o select, filtrando pelo id_tenants
-$stmtCantores = $pdo->prepare("SELECT id, nome_cantor FROM cantores WHERE id_tenants = ? ORDER BY nome_cantor ASC");
+$stmtCantores = $pdo->prepare("
+    SELECT c.id, u.nome as nome_cantor 
+    FROM cantores c 
+    JOIN usuarios u ON c.id_usuario = u.id 
+    WHERE c.id_tenants = ? 
+    ORDER BY u.nome ASC
+");
 // Alterado: Usa a constante ID_TENANTS
 $stmtCantores->execute([ID_TENANTS]);
 $cantores_disponiveis = $stmtCantores->fetchAll(PDO::FETCH_ASSOC);
@@ -100,7 +121,7 @@ $cantores_disponiveis = $stmtCantores->fetchAll(PDO::FETCH_ASSOC);
 
 // Obter músicas do cantor selecionado (para exibição inicial)
 $musicas_do_cantor = [];
-if ($cantor_selecionado_id) {
+if ($cantor_selecionado_id && $evento_selecionado_id) {
     $stmtMusicasCantor = $pdo->prepare("
         SELECT
             mc.id AS musica_cantor_id,
@@ -113,10 +134,10 @@ if ($cantor_selecionado_id) {
             mc.timestamp_ultima_execucao
         FROM musicas_cantor mc
         JOIN musicas m ON mc.id_musica = m.id
-        WHERE mc.id_cantor = ?
+        WHERE mc.id_cantor = ? AND mc.id_eventos = ?
         ORDER BY mc.ordem_na_lista ASC
     ");
-    $stmtMusicasCantor->execute([$cantor_selecionado_id]);
+    $stmtMusicasCantor->execute([$cantor_selecionado_id, $evento_selecionado_id]);
     $musicas_do_cantor = $stmtMusicasCantor->fetchAll(PDO::FETCH_ASSOC);
 
 }
@@ -280,4 +301,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
     header("Location: musicas_cantores.php?cantor_id=" . $redirect_cantor_id);
     exit;
+}
+
+// Função para buscar eventos ativos por tenant
+function obterEventosAtivosPorTenant($id_tenants) {
+    global $pdo;
+    
+    $stmt = $pdo->prepare("
+        SELECT e.id, e.nome, u.nome as nome_mc
+        FROM eventos e
+        JOIN usuarios u ON e.id_usuario_mc = u.id
+        WHERE e.id_tenants = ? AND e.status = 'ativo'
+        ORDER BY e.nome ASC
+    ");
+    $stmt->execute([$id_tenants]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }

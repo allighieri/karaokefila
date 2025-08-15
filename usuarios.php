@@ -1,6 +1,8 @@
 <?php
 require_once 'init.php';
 require_once 'funcoes_usuarios.php';
+include_once 'modal_eventos.php';
+
 
 // Verificar se o usuário está logado
 if (!isset($_SESSION['usuario_logado'])) {
