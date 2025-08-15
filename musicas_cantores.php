@@ -214,6 +214,9 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
 
     <script>
         $(document).ready(function() {
+            // Definir variáveis globais JavaScript
+            var idCantorAtual = <?php echo json_encode($cantor_selecionado_id); ?>;
+            var idEventoAtual = <?php echo json_encode($evento_selecionado_id); ?>;
 
             window.showAlert = function(message, type) {
                 var alertHtml = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' +
@@ -436,7 +439,6 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
             const $sortableList = $("#sortable-musicas-cantor");
 
             const urlParams = new URLSearchParams(window.location.search);
-            const idCantorAtual = urlParams.get('cantor_id');
             let refreshIntervalId; // Variável para armazenar o ID do intervalo
 
             // Função que encapsula a lógica de renderização e reinicialização do Sortable
@@ -472,7 +474,7 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                     update: function(event, ui) {
                         if (this === ui.item.parent()[0]) {
                             var novaOrdem = {};
-                            var idCantor = <?php echo json_encode($cantor_selecionado_id); ?>;
+                            var idCantor = idCantorAtual;
 
                             $sortableList.children('.queue-item').each(function(index) {
                                 var musicaCantorId = $(this).data('musica-cantor-id');
@@ -523,12 +525,19 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                         return;
                     }
 
+                    // Verificar se temos cantor e evento selecionados
+                    if (!idCantorAtual || !idEventoAtual) {
+                        console.log("Cantor ou evento não selecionado, pulando atualização da lista.");
+                        return;
+                    }
+
                     $.ajax({
                         url: 'api.php',
                         method: 'GET',
                         data: {
                             action: 'get_musicas_cantor_atualizadas',
-                            id_cantor: idCantorAtual
+                            id_cantor: idCantorAtual,
+                            id_evento: idEventoAtual
                         },
                         dataType: 'json',
                         timeout: 10000, // Timeout de 10 segundos

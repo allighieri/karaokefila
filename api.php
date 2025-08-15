@@ -370,8 +370,9 @@ switch ($action) {
     header('Content-Type: application/json');
 
     $idCantor = filter_var($_GET['id_cantor'] ?? $_POST['id_cantor'], FILTER_VALIDATE_INT);
+    $idEvento = filter_var($_GET['id_evento'] ?? $_POST['id_evento'], FILTER_VALIDATE_INT);
 
-    if ($idCantor !== false) {
+    if ($idCantor !== false && $idEvento !== false) {
         try {
             // Código corrigido
             global $id_tenants_logado; // Se a variável for global
@@ -397,18 +398,21 @@ switch ($action) {
                          FROM fila_rodadas fr
                          WHERE fr.musica_cantor_id = mc.id
                            AND fr.rodada >= :current_rodada
+                           AND fr.id_eventos = :id_evento_fr
                          ORDER BY fr.rodada DESC, fr.timestamp_adicao DESC LIMIT 1
                         ),
                         'N/A'
                     ) AS status_fila_rodadas_recente
                 FROM musicas_cantor mc
                 JOIN musicas m ON mc.id_musica = m.id
-                WHERE mc.id_cantor = :id_cantor
+                WHERE mc.id_cantor = :id_cantor AND mc.id_eventos = :id_evento
                 ORDER BY mc.ordem_na_lista ASC
             ");
             
             $stmt->execute([
                 ':id_cantor' => $idCantor,
+                ':id_evento' => $idEvento,
+                ':id_evento_fr' => $idEvento,
                 ':current_rodada' => $rodadaAtual
             ]);
             $musicasCantor = $stmt->fetchAll(PDO::FETCH_ASSOC);

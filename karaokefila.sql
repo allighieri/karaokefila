@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Tempo de geração: 15/08/2025 às 02:54
+-- Tempo de geração: 15/08/2025 às 03:07
 -- Versão do servidor: 10.4.32-MariaDB
 -- Versão do PHP: 8.2.12
 
@@ -99,7 +99,7 @@ CREATE TABLE `controle_rodada` (
 --
 
 INSERT INTO `controle_rodada` (`id`, `id_tenants`, `rodada_atual`, `ultima_atualizacao`) VALUES
-(1, 1, 1, '2025-08-14 21:23:26'),
+(1, 1, 1, '2025-08-14 22:06:08'),
 (1, 4, 1, '2025-08-14 21:53:10');
 
 -- --------------------------------------------------------
@@ -137,6 +137,7 @@ INSERT INTO `eventos` (`id`, `id_tenants`, `id_usuario_mc`, `nome`, `status`, `c
 CREATE TABLE `fila_rodadas` (
   `id` int(11) NOT NULL,
   `id_tenants` int(11) NOT NULL,
+  `id_eventos` int(11) NOT NULL,
   `id_cantor` int(11) NOT NULL,
   `id_musica` int(11) NOT NULL,
   `ordem_na_rodada` int(11) NOT NULL,
@@ -153,9 +154,9 @@ CREATE TABLE `fila_rodadas` (
 -- Despejando dados para a tabela `fila_rodadas`
 --
 
-INSERT INTO `fila_rodadas` (`id`, `id_tenants`, `id_cantor`, `id_musica`, `ordem_na_rodada`, `rodada`, `status`, `timestamp_adicao`, `timestamp_inicio_canto`, `timestamp_fim_canto`, `musica_cantor_id`, `id_mesa`) VALUES
-(729, 4, 97, 12761, 1, 1, 'em_execucao', '2025-08-14 21:53:11', '2025-08-14 21:53:11', NULL, 179, 75),
-(730, 4, 98, 23285, 2, 1, 'aguardando', '2025-08-14 21:53:11', NULL, NULL, 182, 76);
+INSERT INTO `fila_rodadas` (`id`, `id_tenants`, `id_eventos`, `id_cantor`, `id_musica`, `ordem_na_rodada`, `rodada`, `status`, `timestamp_adicao`, `timestamp_inicio_canto`, `timestamp_fim_canto`, `musica_cantor_id`, `id_mesa`) VALUES
+(729, 4, 9, 97, 12761, 1, 1, 'em_execucao', '2025-08-14 21:53:11', '2025-08-14 21:53:11', NULL, 179, 75),
+(730, 4, 9, 98, 23285, 3, 1, 'aguardando', '2025-08-14 21:53:11', NULL, NULL, 182, 76);
 
 -- --------------------------------------------------------
 
@@ -25637,8 +25638,8 @@ CREATE TABLE `musicas_cantor` (
 INSERT INTO `musicas_cantor` (`id`, `id_eventos`, `id_cantor`, `id_musica`, `ordem_na_lista`, `status`, `timestamp_ultima_execucao`) VALUES
 (170, 4, 87, 305, 1, 'aguardando', NULL),
 (171, 4, 87, 3275, 2, 'aguardando', NULL),
-(172, 4, 84, 5986, 1, 'aguardando', NULL),
-(173, 4, 84, 6638, 2, 'aguardando', NULL),
+(172, 4, 84, 5986, 2, 'aguardando', NULL),
+(173, 4, 84, 6638, 1, 'aguardando', NULL),
 (174, 4, 85, 8281, 1, 'aguardando', NULL),
 (175, 4, 94, 6697, 1, 'aguardando', NULL),
 (176, 4, 86, 7403, 1, 'aguardando', NULL),
@@ -25790,7 +25791,8 @@ ALTER TABLE `fila_rodadas`
   ADD KEY `fk_fila_musica` (`id_musica`),
   ADD KEY `fk_fila_mesa` (`id_mesa`),
   ADD KEY `id_tenants` (`id_tenants`),
-  ADD KEY `musica_cantor_id` (`musica_cantor_id`);
+  ADD KEY `musica_cantor_id` (`musica_cantor_id`),
+  ADD KEY `idx_fila_rodadas_id_eventos` (`id_eventos`);
 
 --
 -- Índices de tabela `mesas`
@@ -25866,7 +25868,7 @@ ALTER TABLE `eventos`
 -- AUTO_INCREMENT de tabela `fila_rodadas`
 --
 ALTER TABLE `fila_rodadas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=731;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=740;
 
 --
 -- AUTO_INCREMENT de tabela `mesas`
@@ -25943,7 +25945,8 @@ ALTER TABLE `fila_rodadas`
   ADD CONSTRAINT `fila_rodadas_ibfk_2` FOREIGN KEY (`musica_cantor_id`) REFERENCES `musicas_cantor` (`id`),
   ADD CONSTRAINT `fk_fila_cantor` FOREIGN KEY (`id_cantor`) REFERENCES `cantores` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_fila_mesa` FOREIGN KEY (`id_mesa`) REFERENCES `mesas` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `fk_fila_musica` FOREIGN KEY (`id_musica`) REFERENCES `musicas` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `fk_fila_musica` FOREIGN KEY (`id_musica`) REFERENCES `musicas` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_fila_rodadas_eventos` FOREIGN KEY (`id_eventos`) REFERENCES `eventos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Restrições para tabelas `mesas`
