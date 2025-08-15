@@ -33,11 +33,18 @@ if (isset($_SESSION['usuario_logado'])) {
 // Definimos constantes para fácil acesso (recomendado)
 // Isso é mais seguro e evita reatribuições
     define('ID_TENANTS', $dados_sessao['usuario']['id_tenants']);
+    define('ID_USUARIO', $dados_sessao['usuario']['id']);
     define('NIVEL_ACESSO', $dados_sessao['usuario']['nivel']);
     define('NOME_USUARIO', $dados_sessao['usuario']['nome']);
     define('NOME_TENANT', $dados_sessao['tenant']['nome']);
 
-    $idEventoAtivo = get_id_evento_ativo($pdo, ID_TENANTS);
+    // Para MCs, buscar evento ativo específico do MC
+    // Para outros níveis, buscar por tenant (compatibilidade)
+    if (NIVEL_ACESSO === 'mc') {
+        $idEventoAtivo = get_id_evento_ativo_mc($pdo, ID_USUARIO);
+    } else {
+        $idEventoAtivo = get_id_evento_ativo($pdo, ID_TENANTS);
+    }
 
     if ($idEventoAtivo !== null) {
         define('ID_EVENTO_ATIVO', $idEventoAtivo);
@@ -58,7 +65,7 @@ if (isset($_SESSION['usuario_logado'])) {
  */
 function get_id_evento_ativo(PDO $pdo, int $id_tenants): ?int {
     try {
-        $stmt = $pdo->prepare("SELECT id FROM eventos WHERE id_tenants = ? AND status = 1 LIMIT 1");
+        $stmt = $pdo->prepare("SELECT id FROM eventos WHERE id_tenants = ? AND status = 'ativo' LIMIT 1");
         $stmt->execute([$id_tenants]);
         $evento = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -72,6 +79,33 @@ function get_id_evento_ativo(PDO $pdo, int $id_tenants): ?int {
     } catch (PDOException $e) {
         // Trata erros de conexão ou consulta
         error_log("ERRO: Falha ao buscar evento ativo: " . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Busca o ID do evento ativo para um MC específico.
+ *
+ * @param PDO $pdo Objeto de conexão com o banco de dados.
+ * @param int $id_usuario_mc O ID do usuário MC.
+ * @return int|null O ID do evento ativo ou null se não for encontrado.
+ */
+function get_id_evento_ativo_mc(PDO $pdo, int $id_usuario_mc): ?int {
+    try {
+        $stmt = $pdo->prepare("SELECT id FROM eventos WHERE id_usuario_mc = ? AND status = 'ativo' LIMIT 1");
+        $stmt->execute([$id_usuario_mc]);
+        $evento = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($evento) {
+            return (int) $evento['id'];
+        } else {
+            // Se nenhum evento ativo for encontrado, retorne null
+            error_log("ERRO: Nenhum evento ativo encontrado para o MC " . $id_usuario_mc);
+            return null;
+        }
+    } catch (PDOException $e) {
+        // Trata erros de conexão ou consulta
+        error_log("ERRO: Falha ao buscar evento ativo do MC: " . $e->getMessage());
         return null;
     }
 }

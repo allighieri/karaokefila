@@ -400,20 +400,17 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
         }
         error_log("DEBUG: reordenarFilaParaIntercalarMesas concluída.");
 
-        // Atualiza o controle de rodada
-        $stmtCheckControl = $pdo->prepare("SELECT COUNT(*) FROM controle_rodada WHERE id = 1 AND id_tenants = ?");
-        // Alterado: Usa a constante ID_TENANTS
-        $stmtCheckControl->execute([ID_TENANTS]);
+        // Atualiza o controle de rodada por MC específico
+        $stmtCheckControl = $pdo->prepare("SELECT COUNT(*) FROM controle_rodada WHERE id_tenants = ? AND id_mc = ?");
+        $stmtCheckControl->execute([ID_TENANTS, ID_USUARIO]);
         if ($stmtCheckControl->fetchColumn() == 0) {
-            $stmtInsertControl = $pdo->prepare("INSERT INTO controle_rodada (id, id_tenants, rodada_atual) VALUES (1, ?, ?)");
-            // Alterado: Usa a constante ID_TENANTS
-            $stmtInsertControl->execute([ID_TENANTS, $proximaRodada]);
-            error_log("DEBUG: controle_rodada inserido com a rodada " . $proximaRodada . " para o tenant " . ID_TENANTS);
+            $stmtInsertControl = $pdo->prepare("INSERT INTO controle_rodada (id_tenants, id_mc, rodada_atual) VALUES (?, ?, ?)");
+            $stmtInsertControl->execute([ID_TENANTS, ID_USUARIO, $proximaRodada]);
+            error_log("DEBUG: controle_rodada inserido com a rodada " . $proximaRodada . " para o tenant " . ID_TENANTS . " e MC " . ID_USUARIO);
         } else {
-            $stmtUpdateRodada = $pdo->prepare("UPDATE controle_rodada SET rodada_atual = ? WHERE id = 1 AND id_tenants = ?");
-            // Alterado: Usa a constante ID_TENANTS
-            $stmtUpdateRodada->execute([$proximaRodada, ID_TENANTS]);
-            error_log("DEBUG: controle_rodada atualizado para a rodada " . $proximaRodada . " para o tenant " . ID_TENANTS);
+            $stmtUpdateRodada = $pdo->prepare("UPDATE controle_rodada SET rodada_atual = ? WHERE id_tenants = ? AND id_mc = ?");
+            $stmtUpdateRodada->execute([$proximaRodada, ID_TENANTS, ID_USUARIO]);
+            error_log("DEBUG: controle_rodada atualizado para a rodada " . $proximaRodada . " para o tenant " . ID_TENANTS . " e MC " . ID_USUARIO);
         }
 
         $pdo->commit();
@@ -712,15 +709,15 @@ function atualizarStatusMusicaFila(PDO $pdo, $filaId, $status) {
             $rodadaAtual = getRodadaAtual($pdo, ID_TENANTS);
 
             // 1. Resetar QUALQUER música que ESTAVA 'em_execucao' na fila_rodadas da rodada atual
-            $stmtResetPreviousExecution = $pdo->prepare("UPDATE fila_rodadas SET status = 'aguardando', timestamp_inicio_canto = NULL, timestamp_fim_canto = NULL WHERE rodada = ? AND status = 'em_execucao' AND id_tenants = ?");
-            // Alterado: Usa a constante ID_TENANTS
-            $stmtResetPreviousExecution->execute([$rodadaAtual, ID_TENANTS]);
-            error_log("DEBUG: Músicas anteriormente 'em_execucao' na fila_rodadas resetadas para 'aguardando' na rodada " . $rodadaAtual . " para o tenant " . ID_TENANTS . ".");
+            $stmtResetPreviousExecution = $pdo->prepare("UPDATE fila_rodadas SET status = 'aguardando', timestamp_inicio_canto = NULL, timestamp_fim_canto = NULL WHERE rodada = ? AND status = 'em_execucao' AND id_tenants = ? AND id_eventos = ?");
+            // Alterado: Usa as constantes ID_TENANTS e ID_EVENTO_ATIVO
+            $stmtResetPreviousExecution->execute([$rodadaAtual, ID_TENANTS, ID_EVENTO_ATIVO]);
+            error_log("DEBUG: Músicas anteriormente 'em_execucao' na fila_rodadas resetadas para 'aguardando' na rodada " . $rodadaAtual . " para o tenant " . ID_TENANTS . " e evento " . ID_EVENTO_ATIVO . ".");
 
             // 2. Definir a nova música como 'em_execucao' na fila_rodadas.
-            $stmt = $pdo->prepare("UPDATE fila_rodadas SET status = ?, timestamp_inicio_canto = NOW(), timestamp_fim_canto = NULL WHERE id = ? AND id_tenants = ?");
-            // Alterado: Usa a constante ID_TENANTS
-            $successFilaUpdate = $stmt->execute([$status, $filaId, ID_TENANTS]);
+            $stmt = $pdo->prepare("UPDATE fila_rodadas SET status = ?, timestamp_inicio_canto = NOW(), timestamp_fim_canto = NULL WHERE id = ? AND id_tenants = ? AND id_eventos = ?");
+            // Alterado: Usa as constantes ID_TENANTS e ID_EVENTO_ATIVO
+            $successFilaUpdate = $stmt->execute([$status, $filaId, ID_TENANTS, ID_EVENTO_ATIVO]);
             error_log("DEBUG: Resultado do UPDATE fila_rodadas (em_execucao): " . ($successFilaUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmt->rowCount());
 
             // 3. Atualizar o status NA TABELA musicas_cantor. Lembre-se que musicas_cantor usa id_eventos
@@ -730,9 +727,9 @@ function atualizarStatusMusicaFila(PDO $pdo, $filaId, $status) {
             error_log("DEBUG: Resultado do UPDATE musicas_cantor (em_execucao): " . ($successMusicasCantorUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmtUpdateMusicasCantor->rowCount());
 
         } elseif ($status === 'cantou') {
-            $stmt = $pdo->prepare("UPDATE fila_rodadas SET status = ?, timestamp_fim_canto = NOW() WHERE id = ? AND id_tenants = ?");
-            // Alterado: Usa a constante ID_TENANTS
-            $successFilaUpdate = $stmt->execute([$status, $filaId, ID_TENANTS]);
+            $stmt = $pdo->prepare("UPDATE fila_rodadas SET status = ?, timestamp_fim_canto = NOW() WHERE id = ? AND id_tenants = ? AND id_eventos = ?");
+            // Alterado: Usa as constantes ID_TENANTS e ID_EVENTO_ATIVO
+            $successFilaUpdate = $stmt->execute([$status, $filaId, ID_TENANTS, ID_EVENTO_ATIVO]);
             error_log("DEBUG: Resultado do UPDATE fila_rodadas (cantou): " . ($successFilaUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmt->rowCount());
 
             $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'cantou' WHERE id = ? AND id_eventos = ?");
@@ -777,9 +774,9 @@ function atualizarStatusMusicaFila(PDO $pdo, $filaId, $status) {
             }
 
             // Atualiza o status na tabela fila_rodadas para 'pulou'
-            $stmt = $pdo->prepare("UPDATE fila_rodadas SET status = ?, timestamp_fim_canto = NOW() WHERE id = ? AND id_tenants = ?");
-            // Alterado: Usa a constante ID_TENANTS
-            $successFilaUpdate = $stmt->execute([$status, $filaId, ID_TENANTS]);
+            $stmt = $pdo->prepare("UPDATE fila_rodadas SET status = ?, timestamp_fim_canto = NOW() WHERE id = ? AND id_tenants = ? AND id_eventos = ?");
+            // Alterado: Usa as constantes ID_TENANTS e ID_EVENTO_ATIVO
+            $successFilaUpdate = $stmt->execute([$status, $filaId, ID_TENANTS, ID_EVENTO_ATIVO]);
             error_log("DEBUG: Resultado do UPDATE fila_rodadas (pulou): " . ($successFilaUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmt->rowCount());
 
             $stmtUpdateMusicasCantor = $pdo->prepare("UPDATE musicas_cantor SET status = 'aguardando' WHERE id = ? AND id_eventos = ?");
@@ -1185,9 +1182,8 @@ function getRodadaAtual(PDO $pdo) {
     // Removido o parâmetro $id_tenants_logado e o global, usamos a constante ID_TENANTS diretamente
     try {
         // 1. Tenta obter a rodada_atual da tabela de controle.
-        $stmt = $pdo->prepare("SELECT rodada_atual FROM controle_rodada WHERE id_tenants = ?");
-        // Alterado: Usa a constante ID_TENANTS
-        $stmt->execute([ID_TENANTS]);
+        $stmt = $pdo->prepare("SELECT rodada_atual FROM controle_rodada WHERE id_tenants = ? AND id_mc = ?");
+        $stmt->execute([ID_TENANTS, ID_USUARIO]);
         $rodadaAtualFromDB = $stmt->fetchColumn();
 
         $rodadaAtualFromDB = ($rodadaAtualFromDB === false || $rodadaAtualFromDB === null) ? 0 : (int)$rodadaAtualFromDB;
@@ -1260,13 +1256,13 @@ function getProximaMusicaFila(PDO $pdo) {
             JOIN usuarios u ON c.id_usuario = u.id
             JOIN musicas m ON fr.id_musica = m.id
             JOIN mesas me ON c.id_mesa = me.id
-            WHERE fr.rodada = ? AND fr.status = 'aguardando' AND fr.id_tenants = ?
+            WHERE fr.rodada = ? AND fr.status = 'aguardando' AND fr.id_tenants = ? AND fr.id_eventos = ?
             ORDER BY fr.ordem_na_rodada ASC
             LIMIT 1";
 
         $stmt = $pdo->prepare($sql);
-        // Alterado: Usa a constante ID_TENANTS
-        $stmt->execute([$rodadaAtual, ID_TENANTS]);
+        // Alterado: Usa as constantes ID_TENANTS e ID_EVENTO_ATIVO
+        $stmt->execute([$rodadaAtual, ID_TENANTS, ID_EVENTO_ATIVO]);
         return $stmt->fetch();
     } catch (\PDOException $e) {
         error_log("Erro ao obter próxima música da fila: " . $e->getMessage());
@@ -1303,12 +1299,12 @@ function getMusicaEmExecucao(PDO $pdo) {
             JOIN usuarios u ON c.id_usuario = u.id
             JOIN musicas m ON fr.id_musica = m.id
             JOIN mesas me ON c.id_mesa = me.id
-            WHERE fr.rodada = ? AND fr.status = 'em_execucao' AND fr.id_tenants = ?
+            WHERE fr.rodada = ? AND fr.status = 'em_execucao' AND fr.id_tenants = ? AND fr.id_eventos = ?
             LIMIT 1";
 
         $stmt = $pdo->prepare($sql);
-        // Alterado: Usa a constante ID_TENANTS
-        $stmt->execute([$rodadaAtual, ID_TENANTS]);
+        // Alterado: Usa as constantes ID_TENANTS e ID_EVENTO_ATIVO
+        $stmt->execute([$rodadaAtual, ID_TENANTS, ID_EVENTO_ATIVO]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     } catch (\PDOException $e) {
         error_log("Erro ao obter música em execução: " . $e->getMessage());
@@ -1449,11 +1445,11 @@ function atualizarOrdemFila(PDO $pdo, int $rodada, array $novaOrdemFila): bool {
     try {
         $pdo->beginTransaction();
 
-        $stmt = $pdo->prepare("UPDATE fila_rodadas SET ordem_na_rodada = ? WHERE id = ? AND rodada = ? AND id_tenants = ?");
-        // Alterado: Usa a constante ID_TENANTS
+        $stmt = $pdo->prepare("UPDATE fila_rodadas SET ordem_na_rodada = ? WHERE id = ? AND rodada = ? AND id_tenants = ? AND id_eventos = ?");
+        // Alterado: Usa as constantes ID_TENANTS e ID_EVENTO_ATIVO
         foreach ($novaOrdemFila as $filaItemId => $novaPosicao) {
             $novaPosicaoInt = (int)$novaPosicao;
-            if (!$stmt->execute([$novaPosicaoInt, $filaItemId, $rodada, ID_TENANTS])) {
+            if (!$stmt->execute([$novaPosicaoInt, $filaItemId, $rodada, ID_TENANTS, ID_EVENTO_ATIVO])) {
                 error_log("ERRO: Falha ao atualizar ordem do item " . $filaItemId . " para posição " . $novaPosicaoInt);
                 $pdo->rollBack();
                 return false;
@@ -1591,7 +1587,7 @@ function getFilaCompleta(PDO $pdo) {
                 JOIN usuarios u ON c.id_usuario = u.id
                 JOIN musicas m ON fr.id_musica = m.id
                 JOIN mesas me ON c.id_mesa = me.id
-                WHERE fr.rodada = ? AND fr.id_tenants = ?
+                WHERE fr.rodada = ? AND fr.id_tenants = ? AND fr.id_eventos = ?
                 ORDER BY
                     CASE
                         WHEN fr.status = 'em_execucao' THEN 0
@@ -1604,11 +1600,11 @@ function getFilaCompleta(PDO $pdo) {
                     fr.ordem_na_rodada ASC";
 
         $stmt = $pdo->prepare($sql);
-        // Alterado: Usa a constante ID_TENANTS
-        $stmt->execute([$rodadaAtual, ID_TENANTS]);
+        // Alterado: Usa as constantes ID_TENANTS e ID_EVENTO_ATIVO
+        $stmt->execute([$rodadaAtual, ID_TENANTS, ID_EVENTO_ATIVO]);
         return $stmt->fetchAll();
     } catch (\PDOException $e) {
-        error_log("Erro ao obter fila completa para o tenant " . ID_TENANTS . ": " . $e->getMessage());
+        error_log("Erro ao obter fila completa para o tenant " . ID_TENANTS . " e evento " . ID_EVENTO_ATIVO . ": " . $e->getMessage());
         return [];
     }
 }
@@ -1671,11 +1667,10 @@ function resetarSistema(PDO $pdo): bool {
         $stmtFila->execute([ID_TENANTS, ID_EVENTO_ATIVO]);
         error_log("DEBUG: Tabela 'fila_rodadas' do tenant " . ID_TENANTS . " e evento " . ID_EVENTO_ATIVO . " limpa.");
 
-        // 5. Resetar controle_rodada (somente do tenant logado)
-        $stmtControle = $pdo->prepare("UPDATE controle_rodada SET rodada_atual = 1 WHERE id_tenants = ?");
-        // Alterado: Usa a constante ID_TENANTS
-        $stmtControle->execute([ID_TENANTS]);
-        error_log("DEBUG: Tabela 'controle_rodada' do tenant " . ID_TENANTS . " resetada com rodada 1.");
+        // 5. Resetar controle_rodada (somente do tenant e MC logados)
+        $stmtControle = $pdo->prepare("UPDATE controle_rodada SET rodada_atual = 1 WHERE id_tenants = ? AND id_mc = ?");
+        $stmtControle->execute([ID_TENANTS, ID_USUARIO]);
+        error_log("DEBUG: Tabela 'controle_rodada' do tenant " . ID_TENANTS . " e MC " . ID_USUARIO . " resetada com rodada 1.");
 
         $pdo->commit();
         error_log("DEBUG: Reset completo da fila (cantores, musicas_cantor, fila_rodadas, controle_rodada) realizado com sucesso para o tenant " . ID_TENANTS . ".");
