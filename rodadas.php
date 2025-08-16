@@ -1,6 +1,7 @@
 <?php
 require_once 'init.php';
 require_once 'funcoes_fila.php';
+require_once 'funcoes_music_history.php';
 
 
 if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {

@@ -7,10 +7,44 @@ require_once 'init.php';
 require_once 'funcoes_fila.php'; // Inclui as funções e a conexão PDO
 require_once 'funcoes_cantores_novo.php'; // Inclui as novas funções de cantores
 require_once 'funcoes_login.php'; // Inclui as funções e a conexão PDO
+require_once 'funcoes_music_history.php'; // Inclui as funções de histórico de músicas
 
 header('Content-Type: application/json; charset=utf-8'); // Garante que a resposta seja JSON UTF-8
 
+// Processar dados JSON se enviados no corpo da requisição
+$input = json_decode(file_get_contents('php://input'), true);
+if ($input && is_array($input)) {
+    $_POST = array_merge($_POST, $input);
+    $_REQUEST = array_merge($_REQUEST, $input);
+}
+
 $action = $_REQUEST['action'] ?? '';
+
+// Definir constantes necessárias se não estiverem definidas (para chamadas API sem sessão)
+if (!defined('ID_TENANTS')) {
+    // Buscar o primeiro tenant ativo como padrão
+    $stmt = $pdo->prepare("SELECT id FROM tenants LIMIT 1");
+    $stmt->execute();
+    $tenantId = $stmt->fetchColumn();
+    if ($tenantId) {
+        define('ID_TENANTS', $tenantId);
+    }
+}
+
+if (!defined('ID_EVENTO_ATIVO')) {
+    // Buscar o primeiro evento ativo como padrão
+    $stmt = $pdo->prepare("SELECT id FROM eventos WHERE status = 'ativo' LIMIT 1");
+    $stmt->execute();
+    $eventoId = $stmt->fetchColumn();
+    if ($eventoId) {
+        define('ID_EVENTO_ATIVO', $eventoId);
+    }
+}
+
+if (!defined('ID_USUARIO')) {
+    // Definir um usuário padrão para operações da API
+    define('ID_USUARIO', 1);
+}
 
 $response = ['success' => false, 'message' => 'Requisição inválida ou ação não especificada.'];
 

@@ -763,6 +763,24 @@ function atualizarStatusMusicaFila(PDO $pdo, $filaId, $status) {
             $successMusicasCantorUpdate = $stmtUpdateMusicasCantor->execute([$musicaCantorId, ID_EVENTO_ATIVO]);
             error_log("DEBUG: Resultado do UPDATE musicas_cantor (cantou): " . ($successMusicasCantorUpdate ? 'true' : 'false') . ", linhas afetadas: " . $stmtUpdateMusicasCantor->rowCount());
             
+            // Registrar no histórico de músicas cantadas
+            if ($successFilaUpdate && $successMusicasCantorUpdate) {
+                // Obter o código da música
+                $stmtGetCodigo = $pdo->prepare("SELECT codigo FROM musicas WHERE id = ? AND id_tenants = ?");
+                $stmtGetCodigo->execute([$idMusica, ID_TENANTS]);
+                $codigoMusica = $stmtGetCodigo->fetchColumn();
+                
+                if ($codigoMusica) {
+                    // Registrar no histórico de músicas cantadas
+                    $successHistorico = registrarHistoricoMusica($pdo, ID_TENANTS, ID_EVENTO_ATIVO, $codigoMusica);
+                    if (!$successHistorico) {
+                        error_log("Alerta: Falha ao registrar histórico da música código {$codigoMusica} no tenant " . ID_TENANTS . " e evento " . ID_EVENTO_ATIVO);
+                    }
+                } else {
+                    error_log("Alerta: Não foi possível obter o código da música ID {$idMusica} para registrar no histórico.");
+                }
+            }
+            
             // Move a música cantada para o final da fila do cantor
             if ($successMusicasCantorUpdate) {
                 // Commit da transação atual antes de chamar a função que cria sua própria transação
