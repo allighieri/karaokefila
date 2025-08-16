@@ -16,8 +16,14 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
     // Alterado: Usa a constante real do tenant
     error_log("DEBUG: ID do tenant: " . ID_TENANTS);
 
+    // PRIMEIRO: Verificar se há um evento ativo
+    if (ID_EVENTO_ATIVO === null) {
+        $mensagemErro = "Você não tem nenhum evento ativo! <a href='#' data-bs-toggle='modal' data-bs-target='#modalEventos'>Ativar Evento</a>";
+        error_log("ERRO: " . strip_tags($mensagemErro));
+        return $mensagemErro;
+    }
 
-    // PRIMEIRO: Verificar se a rodada atual está finalizada
+    // SEGUNDO: Verificar se a rodada atual está finalizada
     // Alterado: Usa a constante ID_TENANTS
     if (!isRodadaAtualFinalizada($pdo, ID_TENANTS)) {
         error_log("INFO: Não foi possível montar a próxima rodada. A rodada atual ainda não foi finalizada para o tenant " . ID_TENANTS);
@@ -189,15 +195,33 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
             }
 
             if (empty($eligibleMesasWithScores)) {
-
-
-                $mensagemErro = "Todas as músicas das filas de cada cantor já foram cantadas. Solicite que escolham novas músicas!";
+                // Verificar se há cantores sem nenhuma música cadastrada
+                $cantoresSemMusicas = 0;
+                $cantoresComMusicasCantadas = 0;
+                
+                foreach ($cantoresDisponiveisGlobal as $cantor) {
+                    // Verificar se o cantor tem alguma música cadastrada
+                    $stmtVerificarMusicas = $pdo->prepare("SELECT COUNT(*) as total FROM musicas_cantor WHERE id_cantor = ? AND id_eventos = ?");
+                    $stmtVerificarMusicas->execute([$cantor['id_cantor'], ID_EVENTO_ATIVO]);
+                    $totalMusicas = $stmtVerificarMusicas->fetch(PDO::FETCH_ASSOC)['total'];
+                    
+                    if ($totalMusicas == 0) {
+                        $cantoresSemMusicas++;
+                    } else {
+                        $cantoresComMusicasCantadas++;
+                    }
+                }
+                
+                // Definir mensagem baseada na situação
+                if ($cantoresSemMusicas > 0 && $cantoresComMusicasCantadas == 0) {
+                    $mensagemErro = "Adicione pelo menos uma música a um cantor para iniciar a rodada.";
+                } else {
+                    $mensagemErro = "Todas as músicas das filas de cada cantor já foram cantadas. Solicite que escolham novas músicas!";
+                }
+                
                 error_log("ERRO: " . $mensagemErro);
                 $pdo->rollBack();
                 return $mensagemErro; // Retorna a mensagem de erro
-
-
-
             }
 
             $mesaMaisPrioritariaId = array_keys($eligibleMesasWithScores, max($eligibleMesasWithScores))[0];
