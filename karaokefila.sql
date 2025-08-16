@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Tempo de geração: 16/08/2025 às 18:01
+-- Tempo de geração: 16/08/2025 às 20:33
 -- Versão do servidor: 10.4.32-MariaDB
 -- Versão do PHP: 8.2.12
 
@@ -40,12 +40,14 @@ CREATE TABLE `cantores` (
 --
 
 INSERT INTO `cantores` (`id`, `id_usuario`, `id_tenants`, `id_mesa`, `proximo_ordem_musica`) VALUES
-(1, 9, 1, 71, 1),
-(2, 10, 1, 71, 2),
-(3, 11, 1, 73, 2),
-(4, 19, 10, 77, 1),
-(5, 20, 10, 78, 1),
-(6, 8, 10, 77, 1);
+(1, 9, 1, 1, 1),
+(2, 10, 1, 5, 1),
+(3, 9, 1, 5, 1),
+(4, 9, 1, 6, 1),
+(5, 12, 1, 5, 1),
+(6, 9, 1, 7, 1),
+(7, 10, 1, 8, 1),
+(8, 11, 1, 8, 1);
 
 -- --------------------------------------------------------
 
@@ -70,13 +72,12 @@ INSERT INTO `configuracao_regras_mesa` (`id`, `id_tenants`, `min_pessoas`, `max_
 (65, 4, 3, 4, 2),
 (66, 4, 5, 6, 3),
 (67, 4, 7, NULL, 4),
-(77, 1, 1, 2, 2),
-(78, 1, 3, 4, 3),
-(79, 1, 5, 6, 4),
-(80, 1, 7, NULL, 5),
 (81, 10, 1, 2, 1),
 (82, 10, 3, 4, 2),
-(83, 10, 5, NULL, 3);
+(83, 10, 5, NULL, 3),
+(105, 1, 1, 2, 1),
+(106, 1, 3, 4, 2),
+(107, 1, 5, NULL, 10);
 
 -- --------------------------------------------------------
 
@@ -97,8 +98,8 @@ CREATE TABLE `controle_rodada` (
 --
 
 INSERT INTO `controle_rodada` (`id`, `id_tenants`, `id_mc`, `rodada_atual`, `ultima_atualizacao`) VALUES
-(1, 10, 8, 1, '2025-08-16 12:56:23'),
-(2, 1, 7, 6, '2025-08-15 21:34:55');
+(1, 1, 13, 1, '2025-08-16 14:15:58'),
+(2, 1, 7, 3, '2025-08-16 14:23:44');
 
 -- --------------------------------------------------------
 
@@ -121,11 +122,13 @@ CREATE TABLE `eventos` (
 --
 
 INSERT INTO `eventos` (`id`, `id_tenants`, `id_usuario_mc`, `nome`, `status`, `created_at`, `updated_at`) VALUES
-(1, 1, 7, 'evento1 dani', 'ativo', '2025-08-15 05:01:17', '2025-08-15 05:01:17'),
-(2, 1, 13, 'Evento1 claudio', 'ativo', '2025-08-15 05:01:45', '2025-08-15 05:01:45'),
+(1, 1, 7, 'evento1 dani', 'inativo', '2025-08-15 05:01:17', '2025-08-15 05:01:17'),
+(2, 1, 13, 'Evento1 claudio', 'inativo', '2025-08-15 05:01:45', '2025-08-15 05:01:45'),
 (3, 1, 7, 'evento2 dani', 'inativo', '2025-08-15 05:01:55', '2025-08-15 05:01:55'),
 (4, 10, 8, 'Oke Dani', 'inativo', '2025-08-15 22:05:27', '2025-08-15 22:05:27'),
-(5, 10, 8, 'Oke Dani 2', 'ativo', '2025-08-15 22:05:36', '2025-08-15 22:05:36');
+(5, 10, 8, 'Oke Dani 2', 'inativo', '2025-08-15 22:05:36', '2025-08-15 22:05:36'),
+(6, 1, 13, 'Evento 2 claudio', 'ativo', '2025-08-16 17:14:53', '2025-08-16 17:14:53'),
+(7, 1, 7, 'teste', 'ativo', '2025-08-16 17:54:42', '2025-08-16 17:54:42');
 
 -- --------------------------------------------------------
 
@@ -154,14 +157,11 @@ CREATE TABLE `fila_rodadas` (
 --
 
 INSERT INTO `fila_rodadas` (`id`, `id_tenants`, `id_eventos`, `id_cantor`, `id_musica`, `ordem_na_rodada`, `rodada`, `status`, `timestamp_adicao`, `timestamp_inicio_canto`, `timestamp_fim_canto`, `musica_cantor_id`, `id_mesa`) VALUES
-(73, 1, 1, 1, 3, 1, 1, 'cantou', '2025-08-15 21:33:56', '2025-08-15 21:33:56', '2025-08-15 21:34:18', 21, 71),
-(74, 1, 1, 3, 10604, 3, 1, 'cantou', '2025-08-15 21:33:56', '2025-08-15 21:34:18', '2025-08-15 21:34:25', 6, 73),
-(75, 1, 1, 2, 640, 4, 1, 'cantou', '2025-08-15 21:33:56', '2025-08-15 21:34:25', '2025-08-15 21:34:30', 3, 71),
-(80, 1, 1, 1, 526, 1, 2, 'cantou', '2025-08-15 21:34:35', '2025-08-15 21:34:35', '2025-08-15 21:34:45', 26, 71),
-(81, 1, 1, 1, 222, 1, 3, 'cantou', '2025-08-15 21:34:47', '2025-08-15 21:34:47', '2025-08-15 21:34:48', 1, 71),
-(82, 1, 1, 1, 2268, 1, 4, 'cantou', '2025-08-15 21:34:49', '2025-08-15 21:34:49', '2025-08-15 21:34:50', 2, 71),
-(83, 1, 1, 1, 1, 1, 5, 'cantou', '2025-08-15 21:34:52', '2025-08-15 21:34:52', '2025-08-15 21:34:53', 16, 71),
-(84, 1, 1, 1, 2, 1, 6, 'cantou', '2025-08-15 21:34:55', '2025-08-15 21:34:55', '2025-08-15 21:34:56', 20, 71);
+(2, 1, 3, 3, 527, 1, 1, 'cantou', '2025-08-16 14:18:29', '2025-08-16 14:18:29', '2025-08-16 14:18:40', 3, 5),
+(3, 1, 3, 3, 222, 1, 2, 'cantou', '2025-08-16 14:18:41', '2025-08-16 14:18:41', '2025-08-16 14:18:43', 2, 5),
+(4, 1, 1, 6, 10606, 1, 1, 'cantou', '2025-08-16 14:23:39', '2025-08-16 14:23:39', '2025-08-16 14:23:41', 4, 7),
+(5, 1, 1, 6, 405, 1, 2, 'cantou', '2025-08-16 14:23:42', '2025-08-16 14:23:42', '2025-08-16 14:23:43', 5, 7),
+(6, 1, 1, 6, 6250, 1, 3, 'cantou', '2025-08-16 14:23:44', '2025-08-16 14:23:44', '2025-08-16 14:23:44', 6, 7);
 
 -- --------------------------------------------------------
 
@@ -172,6 +172,7 @@ INSERT INTO `fila_rodadas` (`id`, `id_tenants`, `id_eventos`, `id_cantor`, `id_m
 CREATE TABLE `mesas` (
   `id` int(11) NOT NULL,
   `id_tenants` int(11) NOT NULL,
+  `id_eventos` int(11) NOT NULL,
   `nome_mesa` varchar(255) NOT NULL,
   `tamanho_mesa` int(11) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -180,16 +181,13 @@ CREATE TABLE `mesas` (
 -- Despejando dados para a tabela `mesas`
 --
 
-INSERT INTO `mesas` (`id`, `id_tenants`, `nome_mesa`, `tamanho_mesa`) VALUES
-(71, 1, 'Mesa 01', 5),
-(72, 1, 'Mesa 02', 1),
-(73, 1, 'Mesa 03', 2),
-(74, 1, 'Mesa 04', 3),
-(75, 4, 'Mesa Julia 01', 1),
-(76, 4, 'Mesa Julia 02', 1),
-(77, 10, 'Mesa Oke 01', 2),
-(78, 10, 'Mesa Oke 02', 1),
-(79, 10, 'Mesa Oke 03', 0);
+INSERT INTO `mesas` (`id`, `id_tenants`, `id_eventos`, `nome_mesa`, `tamanho_mesa`) VALUES
+(1, 1, 2, 'Mesa 01', 1),
+(2, 1, 2, 'Mesa 02', 0),
+(5, 1, 3, 'Mesa 03', 3),
+(6, 1, 6, 'Mesa Weder', 1),
+(7, 1, 1, 'Mesa Cabulosa', 1),
+(8, 1, 1, 'Mesa 01', 2);
 
 -- --------------------------------------------------------
 
@@ -38350,26 +38348,12 @@ CREATE TABLE `musicas_cantor` (
 --
 
 INSERT INTO `musicas_cantor` (`id`, `id_eventos`, `id_cantor`, `id_musica`, `ordem_na_lista`, `status`, `timestamp_ultima_execucao`) VALUES
-(1, 1, 1, 222, 3, 'cantou', '2025-08-15 21:34:47'),
-(2, 1, 1, 2268, 4, 'cantou', '2025-08-15 21:34:49'),
-(3, 1, 2, 640, 1, 'cantou', '2025-08-15 21:34:25'),
-(4, 2, 3, 10606, 1, 'aguardando', NULL),
-(5, 2, 3, 6147, 2, 'aguardando', NULL),
-(6, 1, 3, 10604, 1, 'cantou', '2025-08-15 21:34:18'),
-(7, 2, 2, 222, 1, 'aguardando', NULL),
-(9, 5, 4, 37646, 5, 'aguardando', NULL),
-(12, 5, 6, 29036, 1, 'aguardando', NULL),
-(14, 5, 4, 25884, 2, 'aguardando', NULL),
-(16, 1, 1, 1, 5, 'cantou', '2025-08-15 21:34:52'),
-(19, 5, 4, 27718, 4, 'aguardando', NULL),
-(20, 1, 1, 2, 6, 'cantou', '2025-08-15 21:34:55'),
-(21, 1, 1, 3, 1, 'cantou', '2025-08-15 21:33:56'),
-(22, 5, 4, 27991, 3, 'aguardando', NULL),
-(23, 5, 5, 37488, 2, 'aguardando', NULL),
-(24, 5, 4, 35511, 6, 'aguardando', NULL),
-(25, 5, 4, 27980, 1, 'aguardando', NULL),
-(26, 1, 1, 526, 2, 'cantou', NULL),
-(27, 5, 5, 25580, 1, 'aguardando', NULL);
+(1, 6, 4, 222, 1, 'aguardando', NULL),
+(2, 3, 3, 222, 2, 'cantou', '2025-08-16 14:18:41'),
+(3, 3, 3, 527, 1, 'cantou', NULL),
+(4, 1, 6, 10606, 1, 'cantou', '2025-08-16 14:23:39'),
+(5, 1, 6, 405, 2, 'cantou', '2025-08-16 14:23:42'),
+(6, 1, 6, 6250, 3, 'cantou', '2025-08-16 14:23:44');
 
 -- --------------------------------------------------------
 
@@ -38450,7 +38434,6 @@ CREATE TABLE `usuarios` (
 
 INSERT INTO `usuarios` (`id`, `id_tenants`, `nome`, `email`, `password`, `telefone`, `cidade`, `uf`, `status`, `nivel`, `created_at`, `updated_at`) VALUES
 (1, 1, 'Weder Monteiro', 'agenciaolhardigital@gmail.com', '$2y$10$JPXMAntQt1C.o.7ayJYDve.ctGW44COcRaCuMTxN6F82qsA5Z/aUm', '(61) 99253-0902', 'Brasília', 'DF', 1, 'super_admin', '2025-08-04 19:52:40', '2025-08-14 21:28:19'),
-(2, 4, 'Rosana', 'dnovaescastro@gmail.com', '$2y$10$M50WEhmPL8mMlvpW9zN5eO1DDfrV64f5umwS866/yxKLzeBrpP9yK', '(61) 99253-0902', 'Morrinhos', 'GO', 1, 'super_admin', '2025-08-04 22:14:20', '2025-08-14 01:17:25'),
 (7, 1, 'Dani MC', 'dnovaescastro@gmail.com', '$2y$10$7eMFm9OTWGBz8WEG2TXghOJWs1AuQlsAVu3swfQwsRnwOT7PRMLTC', '(61) 99253-0902', 'Planaltina', 'RO', 1, 'mc', '2025-08-13 10:54:58', '2025-08-15 05:00:59'),
 (8, 10, 'Maxwell', 'maxwell@gmail.com', '$2y$10$9GXh9F4IvGdgzni7iJo00OqtE4ILSIOyvPPdF.GE6ZdWvbIckznbK', '(61) 99253-0902', 'Rio Grande do Norte', 'RN', 1, 'mc', '2025-08-14 21:04:40', '2025-08-14 21:05:28'),
 (9, 1, 'Cantor 1', 'user1@gmail.com', '$2y$10$Zvi2ZgFIM3os2ec8ZfZEAuPshOHS.IUh39d.f.462VHZ1Fg/qBEnq', '(99) 99999-9999', 'Cidade 1', 'C1', 1, 'user', '2025-08-14 22:09:11', '2025-08-15 22:11:13'),
@@ -38524,8 +38507,9 @@ ALTER TABLE `fila_rodadas`
 --
 ALTER TABLE `mesas`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `uk_mesa_tenants` (`nome_mesa`,`id_tenants`),
-  ADD KEY `id_tenants` (`id_tenants`);
+  ADD KEY `id_tenants` (`id_tenants`),
+  ADD KEY `idx_mesas_tenant_evento` (`id_tenants`,`id_eventos`),
+  ADD KEY `id_eventos` (`id_eventos`);
 
 --
 -- Índices de tabela `musicas`
@@ -38575,13 +38559,13 @@ ALTER TABLE `usuarios`
 -- AUTO_INCREMENT de tabela `cantores`
 --
 ALTER TABLE `cantores`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT de tabela `configuracao_regras_mesa`
 --
 ALTER TABLE `configuracao_regras_mesa`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=84;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=108;
 
 --
 -- AUTO_INCREMENT de tabela `controle_rodada`
@@ -38593,19 +38577,19 @@ ALTER TABLE `controle_rodada`
 -- AUTO_INCREMENT de tabela `eventos`
 --
 ALTER TABLE `eventos`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT de tabela `fila_rodadas`
 --
 ALTER TABLE `fila_rodadas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=105;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT de tabela `mesas`
 --
 ALTER TABLE `mesas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=80;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT de tabela `musicas`
@@ -38617,7 +38601,7 @@ ALTER TABLE `musicas`
 -- AUTO_INCREMENT de tabela `musicas_cantor`
 --
 ALTER TABLE `musicas_cantor`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT de tabela `tenants`
@@ -38684,7 +38668,8 @@ ALTER TABLE `fila_rodadas`
 -- Restrições para tabelas `mesas`
 --
 ALTER TABLE `mesas`
-  ADD CONSTRAINT `mesas_ibfk_1` FOREIGN KEY (`id_tenants`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `mesas_ibfk_1` FOREIGN KEY (`id_tenants`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `mesas_ibfk_2` FOREIGN KEY (`id_eventos`) REFERENCES `eventos` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Restrições para tabelas `musicas`
