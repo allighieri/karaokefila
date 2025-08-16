@@ -1177,24 +1177,27 @@ function excluirMesa(PDO $pdo, int $mesaId): array {
  * Adiciona uma nova mesa ao sistema.
  * @param PDO $pdo Objeto de conexão PDO.
  * @param string $nomeMesa Nome/identificador da mesa.
- * @return bool True em caso de sucesso, false caso contrário.
+ * @return array Array com 'success' (bool) e 'message' (string).
  */
 function adicionarMesa(PDO $pdo, $nomeMesa) {
-    // Removido: Não é mais necessário usar 'global' para a constante ID_TENANTS
+    // Verificar se há um evento ativo
+    if (ID_EVENTO_ATIVO === null) {
+        return ['success' => false, 'message' => 'Você precisa ter um evento ativo para criar mesas. <a href="#" data-bs-toggle="modal" data-bs-target="#modalEventos">Criar/Ativar Evento</a>'];
+    }
+    
     try {
-        // 1. Verificar se a mesa já existe para ESTE MC (através do evento)
+        // 1. Verificar se a mesa já existe para ESTE EVENTO específico
         $stmtCheck = $pdo->prepare("
             SELECT COUNT(*) 
             FROM mesas m 
-            JOIN eventos e ON m.id_eventos = e.id 
-            WHERE m.nome_mesa = ? AND m.id_tenants = ? AND e.id_usuario_mc = ?
+            WHERE m.nome_mesa = ? AND m.id_tenants = ? AND m.id_eventos = ?
         ");
-        // Alterado: Verifica por tenant e MC (através do evento)
-        $stmtCheck->execute([$nomeMesa, ID_TENANTS, ID_USUARIO]);
+        // Alterado: Verifica por tenant e evento específico
+        $stmtCheck->execute([$nomeMesa, ID_TENANTS, ID_EVENTO_ATIVO]);
         $count = $stmtCheck->fetchColumn();
 
         if ($count > 0) {
-            return ['success' => false, 'message' => "Já existe uma mesa com esse nome para você!"];
+            return ['success' => false, 'message' => "Já existe uma mesa com esse nome neste evento!"];
         }
     } catch (\PDOException $e) {
         error_log("Erro ao verificar existência da mesa: " . $e->getMessage());

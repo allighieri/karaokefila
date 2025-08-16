@@ -90,19 +90,18 @@ switch ($action) {
                 break;
             }
 
-            // Verificar se já existe uma mesa com esse nome para o mesmo MC
+            // Verificar se já existe uma mesa com esse nome no mesmo evento
             try {
                 $stmtCheck = $pdo->prepare("
                     SELECT COUNT(*) 
                     FROM mesas m 
-                    JOIN eventos e ON m.id_eventos = e.id 
-                    WHERE m.nome_mesa = ? AND m.id_tenants = ? AND e.id_usuario_mc = ? AND m.id != ?
+                    WHERE m.nome_mesa = ? AND m.id_tenants = ? AND m.id_eventos = ? AND m.id != ?
                 ");
-                $stmtCheck->execute([$novoNomeMesa, ID_TENANTS, ID_USUARIO, $mesaId]);
+                $stmtCheck->execute([$novoNomeMesa, ID_TENANTS, ID_EVENTO_ATIVO, $mesaId]);
                 $count = $stmtCheck->fetchColumn();
 
                 if ($count > 0) {
-                    $response['message'] = 'Já existe uma mesa com esse nome para você!';
+                    $response['message'] = 'Já existe uma mesa com esse nome neste evento!';
                     break;
                 }
             } catch (Exception $e) {

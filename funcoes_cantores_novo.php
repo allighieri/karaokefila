@@ -42,6 +42,14 @@ function getAllCantoresComUsuario(PDO $pdo): array {
  * @return array Resultado da operação
  */
 function adicionarCantorPorUsuario(PDO $pdo, $idUsuario, $idMesa) {
+    // Verificar se há um evento ativo
+    if (ID_EVENTO_ATIVO === null) {
+        return [
+            'success' => false, 
+            'message' => 'Você precisa ter um evento ativo para adicionar cantores. <a href="eventos.php">Clique aqui para criar/ativar um evento</a>.'
+        ];
+    }
+    
     try {
         $pdo->beginTransaction();
 
@@ -111,6 +119,14 @@ function adicionarCantorPorUsuario(PDO $pdo, $idUsuario, $idMesa) {
  * @return array Resultado da operação
  */
 function removerCantorPorId(PDO $pdo, $idCantor): array {
+    // Verificar se há um evento ativo
+    if (ID_EVENTO_ATIVO === null) {
+        return [
+            'success' => false, 
+            'message' => 'Você precisa ter um evento ativo para remover cantores. <a href="eventos.php">Clique aqui para criar/ativar um evento</a>.'
+        ];
+    }
+    
     try {
         $pdo->beginTransaction();
 
@@ -224,6 +240,14 @@ function obterUsuariosDisponiveis(PDO $pdo): array {
  * @return array Resultado da operação
  */
 function editarCantor(PDO $pdo, $idCantor, $novoIdUsuario, $novaIdMesa): array {
+    // Verificar se há um evento ativo
+    if (ID_EVENTO_ATIVO === null) {
+        return [
+            'success' => false, 
+            'message' => 'Você precisa ter um evento ativo para editar cantores. <a href="eventos.php">Clique aqui para criar/ativar um evento</a>.'
+        ];
+    }
+    
     try {
         $pdo->beginTransaction();
 
