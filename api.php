@@ -56,6 +56,27 @@ switch ($action) {
                 break;
             }
 
+            // Verificar se já existe uma mesa com esse nome para o mesmo MC
+            try {
+                $stmtCheck = $pdo->prepare("
+                    SELECT COUNT(*) 
+                    FROM mesas m 
+                    JOIN eventos e ON m.id_eventos = e.id 
+                    WHERE m.nome_mesa = ? AND m.id_tenants = ? AND e.id_usuario_mc = ? AND m.id != ?
+                ");
+                $stmtCheck->execute([$novoNomeMesa, ID_TENANTS, ID_USUARIO, $mesaId]);
+                $count = $stmtCheck->fetchColumn();
+
+                if ($count > 0) {
+                    $response['message'] = 'Já existe uma mesa com esse nome para você!';
+                    break;
+                }
+            } catch (Exception $e) {
+                $response['message'] = 'Erro ao verificar nome da mesa: ' . $e->getMessage();
+                error_log("ERRO (API - Check Mesa): " . $e->getMessage());
+                break;
+            }
+
             try {
                 $stmt = $pdo->prepare("UPDATE mesas SET nome_mesa = :nome_mesa WHERE id = :id");
                 $stmt->bindParam(':nome_mesa', $novoNomeMesa, PDO::PARAM_STR);
@@ -131,13 +152,17 @@ switch ($action) {
                 // 3. Lógica para atualizar tamanho_mesa nas tabelas de mesas
                 if ($oldMesaId !== false && (int)$oldMesaId !== $novaMesaId) { // Se a mesa foi realmente alterada
                     // Decrementar tamanho_mesa da mesa antiga
-                    $stmtDecrement = $pdo->prepare("UPDATE mesas SET tamanho_mesa = GREATEST(0, tamanho_mesa - 1) WHERE id = :old_mesa_id");
+                    $stmtDecrement = $pdo->prepare("UPDATE mesas SET tamanho_mesa = GREATEST(0, tamanho_mesa - 1) WHERE id = :old_mesa_id AND id_tenants = :id_tenants AND id_eventos = :id_eventos");
                     $stmtDecrement->bindParam(':old_mesa_id', $oldMesaId, PDO::PARAM_INT);
+                    $stmtDecrement->bindParam(':id_tenants', ID_TENANTS, PDO::PARAM_INT);
+                    $stmtDecrement->bindParam(':id_eventos', ID_EVENTO_ATIVO, PDO::PARAM_INT);
                     $stmtDecrement->execute();
 
                     // Incrementar tamanho_mesa da nova mesa
-                    $stmtIncrement = $pdo->prepare("UPDATE mesas SET tamanho_mesa = tamanho_mesa + 1 WHERE id = :new_mesa_id");
+                    $stmtIncrement = $pdo->prepare("UPDATE mesas SET tamanho_mesa = tamanho_mesa + 1 WHERE id = :new_mesa_id AND id_tenants = :id_tenants AND id_eventos = :id_eventos");
                     $stmtIncrement->bindParam(':new_mesa_id', $novaMesaId, PDO::PARAM_INT);
+                    $stmtIncrement->bindParam(':id_tenants', ID_TENANTS, PDO::PARAM_INT);
+                    $stmtIncrement->bindParam(':id_eventos', ID_EVENTO_ATIVO, PDO::PARAM_INT);
                     $stmtIncrement->execute();
                 }
 

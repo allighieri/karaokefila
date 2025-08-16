@@ -81,19 +81,20 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
 
     <form method="GET" action="musicas_cantores.php" id="form-selecao">
         <input type="hidden" name="action" value="add_cantor">
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <label for="evento_id" class="form-label">Evento:</label>
-                <select id="evento_id" name="evento_id" class="form-select" onchange="this.form.submit()" required>
-                    <option value="">Selecione um evento</option>
-                    <?php foreach ($eventos_ativos as $evento): ?>
-                        <option value="<?php echo htmlspecialchars($evento['id']); ?>"
-                            <?php echo ($evento_selecionado_id == $evento['id']) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($evento['nome'] . ' - MC: ' . $evento['nome_mc']); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+        <?php 
+        // Como cada MC só pode ter um evento ativo, usamos o primeiro da lista
+        $evento_ativo_mc = !empty($eventos_ativos) ? $eventos_ativos[0] : null;
+        $evento_selecionado_id = $evento_ativo_mc ? $evento_ativo_mc['id'] : null;
+        ?>
+        <input type="hidden" name="evento_id" value="<?php echo $evento_selecionado_id ? htmlspecialchars($evento_selecionado_id) : ''; ?>">
+        
+        <?php if ($evento_ativo_mc): ?>
+            <div class="alert alert-info mb-3">
+                <strong>Evento Ativo:</strong> <?php echo htmlspecialchars($evento_ativo_mc['nome'] . ' - MC: ' . $evento_ativo_mc['nome_mc']); ?>
             </div>
+        <?php endif; ?>
+        
+        <div class="row mb-3">
             <div class="col-md-6">
                 <label for="cantor_id" class="form-label">Cantor(a):</label>
                 <select id="cantor_id" name="cantor_id" class="form-select" onchange="this.form.submit()" <?php echo !$evento_selecionado_id ? 'disabled' : ''; ?>>
@@ -108,9 +109,9 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                     <?php endif; ?>
                 </select>
             </div>
-        </div>
+         </div>
     </form>
-    <p>Primeiro selecione um evento, depois um(a) cantor(a) para exibir ou adicionar músicas para ele(a)</p>
+    <p>Selecione um(a) cantor(a) para exibir ou adicionar músicas para ele(a)</p>
 
     <?php if ($cantor_selecionado_id && !empty($cantores_disponiveis)): ?>
         <?php

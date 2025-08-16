@@ -89,7 +89,7 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
                 FROM cantores c
                 JOIN usuarios u ON c.id_usuario = u.id
                 JOIN mesas m ON c.id_mesa = m.id
-                WHERE c.id_tenants = :id_tenants_c AND m.id_tenants = :id_tenants_m
+                WHERE c.id_tenants = :id_tenants_c AND m.id_tenants = :id_tenants_m AND m.id_eventos = :id_eventos_m
             ) AS t
             ORDER BY
                 t.total_cantos_cantor ASC,
@@ -106,7 +106,8 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
             ':id_eventos_sub2' => ID_EVENTO_ATIVO,
             ':id_eventos_sub' => ID_EVENTO_ATIVO,
             ':id_tenants_c' => ID_TENANTS,
-            ':id_tenants_m' => ID_TENANTS
+            ':id_tenants_m' => ID_TENANTS,
+            ':id_eventos_m' => ID_EVENTO_ATIVO
         ]);
         $cantoresDisponiveisGlobal = $stmtTodosCantores->fetchAll(PDO::FETCH_ASSOC);
 
@@ -1084,9 +1085,9 @@ function getAllRegrasMesa(PDO $pdo): array
 function getTodasMesas(PDO $pdo) {
     // Removido: Não é mais necessário usar 'global' para a constante ID_TENANTS
     try {
-        $stmt = $pdo->prepare("SELECT id, nome_mesa, tamanho_mesa FROM mesas WHERE id_tenants = ? ORDER BY nome_mesa");
-        // Alterado: Usa a constante ID_TENANTS
-        $stmt->execute([ID_TENANTS]);
+        $stmt = $pdo->prepare("SELECT id, nome_mesa, tamanho_mesa FROM mesas WHERE id_tenants = ? AND id_eventos = ? ORDER BY nome_mesa");
+        // Alterado: Usa as constantes ID_TENANTS e ID_EVENTO_ATIVO
+        $stmt->execute([ID_TENANTS, ID_EVENTO_ATIVO]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (\PDOException $e) {
         error_log("Erro ao buscar mesas: " . $e->getMessage());
@@ -1127,16 +1128,16 @@ function excluirMesa(PDO $pdo, int $mesaId): array {
         }
 
         // 2. Se a verificação passou, obtenha o nome da mesa para a mensagem de sucesso/erro
-        $stmtGetMesaNome = $pdo->prepare("SELECT nome_mesa FROM mesas WHERE id = :mesaId AND id_tenants = :id_tenants");
-        // Alterado: Usa a constante ID_TENANTS
-        $stmtGetMesaNome->execute([':mesaId' => $mesaId, ':id_tenants' => ID_TENANTS]);
+        $stmtGetMesaNome = $pdo->prepare("SELECT nome_mesa FROM mesas WHERE id = :mesaId AND id_tenants = :id_tenants AND id_eventos = :id_eventos");
+        // Alterado: Usa as constantes ID_TENANTS e ID_EVENTO_ATIVO
+        $stmtGetMesaNome->execute([':mesaId' => $mesaId, ':id_tenants' => ID_TENANTS, ':id_eventos' => ID_EVENTO_ATIVO]);
         $mesaInfo = $stmtGetMesaNome->fetch(PDO::FETCH_ASSOC);
         $nomeMesa = $mesaInfo['nome_mesa'] ?? 'Mesa Desconhecida';
 
         // 3. Exclua a mesa
-        $stmtDeleteMesa = $pdo->prepare("DELETE FROM mesas WHERE id = :id AND id_tenants = :id_tenants");
-        // Alterado: Usa a constante ID_TENANTS
-        $stmtDeleteMesa->execute([':id' => $mesaId, ':id_tenants' => ID_TENANTS]);
+        $stmtDeleteMesa = $pdo->prepare("DELETE FROM mesas WHERE id = :id AND id_tenants = :id_tenants AND id_eventos = :id_eventos");
+        // Alterado: Usa as constantes ID_TENANTS e ID_EVENTO_ATIVO
+        $stmtDeleteMesa->execute([':id' => $mesaId, ':id_tenants' => ID_TENANTS, ':id_eventos' => ID_EVENTO_ATIVO]);
 
         if ($stmtDeleteMesa->rowCount() > 0) {
             $pdo->commit();
@@ -1163,25 +1164,30 @@ function excluirMesa(PDO $pdo, int $mesaId): array {
 function adicionarMesa(PDO $pdo, $nomeMesa) {
     // Removido: Não é mais necessário usar 'global' para a constante ID_TENANTS
     try {
-        // 1. Verificar se a mesa já existe para ESTE tenant
-        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM mesas WHERE nome_mesa = ? AND id_tenants = ?");
-        // Alterado: Usa a constante ID_TENANTS
-        $stmtCheck->execute([$nomeMesa, ID_TENANTS]);
+        // 1. Verificar se a mesa já existe para ESTE MC (através do evento)
+        $stmtCheck = $pdo->prepare("
+            SELECT COUNT(*) 
+            FROM mesas m 
+            JOIN eventos e ON m.id_eventos = e.id 
+            WHERE m.nome_mesa = ? AND m.id_tenants = ? AND e.id_usuario_mc = ?
+        ");
+        // Alterado: Verifica por tenant e MC (através do evento)
+        $stmtCheck->execute([$nomeMesa, ID_TENANTS, ID_USUARIO]);
         $count = $stmtCheck->fetchColumn();
 
         if ($count > 0) {
-            return ['success' => false, 'message' => "Já existe uma mesa com esse nome para este tenant!"];
+            return ['success' => false, 'message' => "Já existe uma mesa com esse nome para você!"];
         }
     } catch (\PDOException $e) {
         error_log("Erro ao verificar existência da mesa: " . $e->getMessage());
         return ['success' => false, 'message' => "Erro ao verificar existência da mesa."];
     }
 
-    // 2. Se não existe, inserir a nova mesa com o id_tenants
+    // 2. Se não existe, inserir a nova mesa com o id_tenants e id_eventos
     try {
-        $stmtInsert = $pdo->prepare("INSERT INTO mesas (id_tenants, nome_mesa) VALUES (?, ?)");
-        // Alterado: Usa a constante ID_TENANTS
-        if ($stmtInsert->execute([ID_TENANTS, $nomeMesa])) {
+        $stmtInsert = $pdo->prepare("INSERT INTO mesas (id_tenants, id_eventos, nome_mesa) VALUES (?, ?, ?)");
+        // Alterado: Usa as constantes ID_TENANTS e ID_EVENTO_ATIVO
+        if ($stmtInsert->execute([ID_TENANTS, ID_EVENTO_ATIVO, $nomeMesa])) {
             return ['success' => true, 'message' => "Mesa <strong>{$nomeMesa}</strong> adicionada!"];
         } else {
             return ['success' => false, 'message' => "Não foi possível adicionar a mesa <strong>{$nomeMesa}</strong> por um motivo desconhecido."];

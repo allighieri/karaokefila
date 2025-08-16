@@ -23,10 +23,10 @@ function getAllCantoresComUsuario(PDO $pdo): array {
             FROM cantores c
             JOIN usuarios u ON c.id_usuario = u.id
             JOIN mesas m ON c.id_mesa = m.id
-            WHERE c.id_tenants = ? AND m.id_tenants = ?
+            WHERE c.id_tenants = ? AND m.id_tenants = ? AND m.id_eventos = ?
             ORDER BY m.nome_mesa, u.nome
         ");
-        $stmt->execute([ID_TENANTS, ID_TENANTS]);
+        $stmt->execute([ID_TENANTS, ID_TENANTS, ID_EVENTO_ATIVO]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         error_log("Erro ao obter cantores: " . $e->getMessage());
@@ -45,14 +45,14 @@ function adicionarCantorPorUsuario(PDO $pdo, $idUsuario, $idMesa) {
     try {
         $pdo->beginTransaction();
 
-        // Verificar se a mesa existe e pertence ao tenant
-        $stmtGetMesa = $pdo->prepare("SELECT nome_mesa FROM mesas WHERE id = ? AND id_tenants = ?");
-        $stmtGetMesa->execute([$idMesa, ID_TENANTS]);
+        // Verificar se a mesa existe e pertence ao tenant e evento
+        $stmtGetMesa = $pdo->prepare("SELECT nome_mesa FROM mesas WHERE id = ? AND id_tenants = ? AND id_eventos = ?");
+        $stmtGetMesa->execute([$idMesa, ID_TENANTS, ID_EVENTO_ATIVO]);
         $mesaInfo = $stmtGetMesa->fetch(PDO::FETCH_ASSOC);
 
         if (!$mesaInfo) {
             $pdo->rollBack();
-            return ['success' => false, 'message' => "Mesa não encontrada ou não pertence ao seu estabelecimento."];
+            return ['success' => false, 'message' => 'Mesa não encontrada ou não pertence ao evento atual.'];
         }
         $nomeMesa = $mesaInfo['nome_mesa'];
 
@@ -81,8 +81,8 @@ function adicionarCantorPorUsuario(PDO $pdo, $idUsuario, $idMesa) {
 
         if ($success) {
             // Incrementar o tamanho_mesa
-            $stmtUpdateMesa = $pdo->prepare("UPDATE mesas SET tamanho_mesa = tamanho_mesa + 1 WHERE id = ? AND id_tenants = ?");
-            $updateSuccess = $stmtUpdateMesa->execute([$idMesa, ID_TENANTS]);
+            $stmtUpdateMesa = $pdo->prepare("UPDATE mesas SET tamanho_mesa = tamanho_mesa + 1 WHERE id = ? AND id_tenants = ? AND id_eventos = ?");
+            $updateSuccess = $stmtUpdateMesa->execute([$idMesa, ID_TENANTS, ID_EVENTO_ATIVO]);
 
             if ($updateSuccess) {
                 $pdo->commit();
@@ -164,8 +164,8 @@ function removerCantorPorId(PDO $pdo, $idCantor): array {
 
         if ($deleteSuccess) {
             // Decrementar o tamanho_mesa
-            $stmtUpdateMesa = $pdo->prepare("UPDATE mesas SET tamanho_mesa = tamanho_mesa - 1 WHERE id = ? AND id_tenants = ?");
-            $updateSuccess = $stmtUpdateMesa->execute([$idMesa, ID_TENANTS]);
+            $stmtUpdateMesa = $pdo->prepare("UPDATE mesas SET tamanho_mesa = tamanho_mesa - 1 WHERE id = ? AND id_tenants = ? AND id_eventos = ?");
+            $updateSuccess = $stmtUpdateMesa->execute([$idMesa, ID_TENANTS, ID_EVENTO_ATIVO]);
 
             if ($updateSuccess) {
                 $pdo->commit();
@@ -202,11 +202,12 @@ function obterUsuariosDisponiveis(PDO $pdo): array {
             AND u.id NOT IN (
                 SELECT DISTINCT c.id_usuario 
                 FROM cantores c 
-                WHERE c.id_tenants = ?
+                JOIN mesas m ON c.id_mesa = m.id
+                WHERE c.id_tenants = ? AND m.id_eventos = ?
             )
             ORDER BY u.nome
         ");
-        $stmt->execute([ID_TENANTS, ID_TENANTS]);
+        $stmt->execute([ID_TENANTS, ID_TENANTS, ID_EVENTO_ATIVO]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         error_log("Erro ao obter usuários disponíveis: " . $e->getMessage());
@@ -250,14 +251,14 @@ function editarCantor(PDO $pdo, $idCantor, $novoIdUsuario, $novaIdMesa): array {
         }
         $nomeUsuario = $usuarioInfo['nome'];
 
-        // Verificar se a nova mesa existe e pertence ao tenant
-        $stmtGetMesa = $pdo->prepare("SELECT nome_mesa FROM mesas WHERE id = ? AND id_tenants = ?");
-        $stmtGetMesa->execute([$novaIdMesa, ID_TENANTS]);
+        // Verificar se a nova mesa existe e pertence ao tenant e evento
+        $stmtGetMesa = $pdo->prepare("SELECT nome_mesa FROM mesas WHERE id = ? AND id_tenants = ? AND id_eventos = ?");
+        $stmtGetMesa->execute([$novaIdMesa, ID_TENANTS, ID_EVENTO_ATIVO]);
         $mesaInfo = $stmtGetMesa->fetch(PDO::FETCH_ASSOC);
 
         if (!$mesaInfo) {
             $pdo->rollBack();
-            return ['success' => false, 'message' => 'Mesa não encontrada ou não pertence ao seu estabelecimento.'];
+            return ['success' => false, 'message' => 'Mesa não encontrada ou não pertence ao evento atual.'];
         }
         $nomeMesa = $mesaInfo['nome_mesa'];
 
@@ -283,12 +284,12 @@ function editarCantor(PDO $pdo, $idCantor, $novoIdUsuario, $novaIdMesa): array {
         // Atualizar tamanho das mesas se a mesa foi alterada
         if ($mesaAntigaId != $novaIdMesa) {
             // Decrementar tamanho da mesa antiga
-            $stmtDecrement = $pdo->prepare("UPDATE mesas SET tamanho_mesa = GREATEST(0, tamanho_mesa - 1) WHERE id = ? AND id_tenants = ?");
-            $stmtDecrement->execute([$mesaAntigaId, ID_TENANTS]);
+            $stmtDecrement = $pdo->prepare("UPDATE mesas SET tamanho_mesa = GREATEST(0, tamanho_mesa - 1) WHERE id = ? AND id_tenants = ? AND id_eventos = ?");
+            $stmtDecrement->execute([$mesaAntigaId, ID_TENANTS, ID_EVENTO_ATIVO]);
 
             // Incrementar tamanho da nova mesa
-            $stmtIncrement = $pdo->prepare("UPDATE mesas SET tamanho_mesa = tamanho_mesa + 1 WHERE id = ? AND id_tenants = ?");
-            $stmtIncrement->execute([$novaIdMesa, ID_TENANTS]);
+            $stmtIncrement = $pdo->prepare("UPDATE mesas SET tamanho_mesa = tamanho_mesa + 1 WHERE id = ? AND id_tenants = ? AND id_eventos = ?");
+            $stmtIncrement->execute([$novaIdMesa, ID_TENANTS, ID_EVENTO_ATIVO]);
         }
 
         $pdo->commit();
@@ -320,10 +321,11 @@ function getCantoresDaMesa(PDO $pdo, $idMesa): array {
                 u.email
             FROM cantores c
             JOIN usuarios u ON c.id_usuario = u.id
-            WHERE c.id_mesa = ? AND c.id_tenants = ?
+            JOIN mesas m ON c.id_mesa = m.id
+            WHERE c.id_mesa = ? AND c.id_tenants = ? AND m.id_eventos = ?
             ORDER BY u.nome
         ");
-        $stmt->execute([$idMesa, ID_TENANTS]);
+        $stmt->execute([$idMesa, ID_TENANTS, ID_EVENTO_ATIVO]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         error_log("Erro ao obter cantores da mesa: " . $e->getMessage());

@@ -106,16 +106,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 // Removido: global $id_tenants_logado;
-// Obter cantores para o select, filtrando pelo id_tenants
+// Obter cantores para o select, filtrando pelo id_tenants e evento ativo
 $stmtCantores = $pdo->prepare("
     SELECT c.id, u.nome as nome_cantor 
     FROM cantores c 
     JOIN usuarios u ON c.id_usuario = u.id 
-    WHERE c.id_tenants = ? 
+    JOIN mesas m ON c.id_mesa = m.id
+    WHERE c.id_tenants = ? AND m.id_eventos = ?
     ORDER BY u.nome ASC
 ");
-// Alterado: Usa a constante ID_TENANTS
-$stmtCantores->execute([ID_TENANTS]);
+// Alterado: Usa a constante ID_TENANTS e ID_EVENTO_ATIVO
+$stmtCantores->execute([ID_TENANTS, ID_EVENTO_ATIVO]);
 $cantores_disponiveis = $stmtCantores->fetchAll(PDO::FETCH_ASSOC);
 
 
@@ -311,9 +312,9 @@ function obterEventosAtivosPorTenant($id_tenants) {
         SELECT e.id, e.nome, u.nome as nome_mc
         FROM eventos e
         JOIN usuarios u ON e.id_usuario_mc = u.id
-        WHERE e.id_tenants = ? AND e.status = 'ativo'
+        WHERE e.id_tenants = ? AND e.status = 'ativo' AND e.id_usuario_mc = ?
         ORDER BY e.nome ASC
     ");
-    $stmt->execute([$id_tenants]);
+    $stmt->execute([$id_tenants, ID_USUARIO]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }

@@ -22,8 +22,8 @@ if (!empty($pdo)) {
 $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 
 // Obter lista de mesas para formulário de adicionar cantor
-$stmtMesas = $pdo->prepare("SELECT id, nome_mesa, tamanho_mesa FROM mesas WHERE id_tenants = ? ORDER BY nome_mesa ASC");
-$stmtMesas->execute([ID_TENANTS]);
+$stmtMesas = $pdo->prepare("SELECT id, nome_mesa, tamanho_mesa FROM mesas WHERE id_tenants = ? AND id_eventos = ? ORDER BY nome_mesa ASC");
+$stmtMesas->execute([ID_TENANTS, ID_EVENTO_ATIVO]);
 $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
 
 
