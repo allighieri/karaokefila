@@ -1315,30 +1315,29 @@ function getMusicaEmExecucao(PDO $pdo) {
 
 /**
  * Troca a música de um item na fila de rodadas.
+ * Se a nova música não estiver na lista do cantor para o evento, ela será adicionada.
+ *
  * @param PDO $pdo Objeto de conexão PDO.
  * @param int $filaId ID do item na fila_rodadas a ser atualizado.
  * @param int $novaMusicaId ID da nova música a ser definida para o item da fila.
  * @return bool True em caso de sucesso, false caso contrário.
  */
 function trocarMusicaNaFilaAtual(PDO $pdo, $filaId, $novaMusicaId) {
-    // Removido o global
     try {
         $pdo->beginTransaction();
 
-        // 1. Obter informações do item da fila original, JOIN com cantores para filtrar por tenant
-        // CORREÇÃO: Usamos um JOIN para acessar o id_tenants na tabela 'cantores'.
+        // 1. Obter informações do item da fila original, JOIN com cantores para filtrar por tenant E evento
         $stmtGetOldMusicInfo = $pdo->prepare("
             SELECT fr.id_cantor, fr.id_musica, fr.musica_cantor_id, c.id_tenants
             FROM fila_rodadas fr
             JOIN cantores c ON fr.id_cantor = c.id
-            WHERE fr.id = ? AND c.id_tenants = ? AND (fr.status = 'aguardando' OR fr.status = 'em_execucao')
+            WHERE fr.id = ? AND fr.id_eventos = ? AND c.id_tenants = ? AND (fr.status = 'aguardando' OR fr.status = 'em_execucao')
         ");
-        // Alterado: Usa a constante ID_TENANTS
-        $stmtGetOldMusicInfo->execute([$filaId, ID_TENANTS]);
+        $stmtGetOldMusicInfo->execute([$filaId, ID_EVENTO_ATIVO, ID_TENANTS]);
         $filaItem = $stmtGetOldMusicInfo->fetch(PDO::FETCH_ASSOC);
 
         if (!$filaItem) {
-            error_log("Alerta: Tentativa de trocar música em item da fila inexistente ou já finalizado (ID: " . $filaId . ") para o tenant " . ID_TENANTS . ".");
+            error_log("Alerta: Tentativa de trocar música em item da fila inexistente ou já finalizado (ID: " . $filaId . ") para o tenant " . ID_TENANTS . " e evento " . ID_EVENTO_ATIVO . ".");
             $pdo->rollBack();
             return false;
         }
@@ -1349,26 +1348,20 @@ function trocarMusicaNaFilaAtual(PDO $pdo, $filaId, $novaMusicaId) {
 
         // --- Lógica para a MÚSICA ORIGINAL (saindo da fila) ---
         if ($musicaCantorOriginalId !== null) {
-            // CORREÇÃO: Usamos um JOIN para acessar o id_tenants na tabela 'cantores'.
-            // A tabela musicas_cantor não tem id_tenants, então filtramos pelo cantor.
-            $stmtGetOriginalOrder = $pdo->prepare("SELECT ordem_na_lista FROM musicas_cantor WHERE id = ? AND id_cantor = ?");
-            $stmtGetOriginalOrder->execute([$musicaCantorOriginalId, $idCantor]);
+            $stmtGetOriginalOrder = $pdo->prepare("SELECT ordem_na_lista FROM musicas_cantor WHERE id = ? AND id_cantor = ? AND id_eventos = ?");
+            $stmtGetOriginalOrder->execute([$musicaCantorOriginalId, $idCantor, ID_EVENTO_ATIVO]);
             $ordemMusicaOriginal = $stmtGetOriginalOrder->fetchColumn();
 
             if ($ordemMusicaOriginal !== false) {
-                // Esta query já estava correta, pois a tabela cantores tem id_tenants
                 $stmtUpdateCantorOrder = $pdo->prepare("UPDATE cantores SET proximo_ordem_musica = ? WHERE id = ? AND id_tenants = ?");
-                // Alterado: Usa a constante ID_TENANTS
                 $stmtUpdateCantorOrder->execute([$ordemMusicaOriginal, $idCantor, ID_TENANTS]);
                 error_log("DEBUG: Cantor " . $idCantor . " teve proximo_ordem_musica resetado para " . $ordemMusicaOriginal . " após troca de música (fila_id: " . $filaId . ").");
 
-                // CORREÇÃO: A tabela musicas_cantor não tem id_tenants, então filtramos pelo cantor.
-                $stmtUpdateOriginalMusicaCantorStatus = $pdo->prepare("UPDATE musicas_cantor SET status = 'aguardando' WHERE id = ? AND id_cantor = ?");
-                $stmtUpdateOriginalMusicaCantorStatus->execute([$musicaCantorOriginalId, $idCantor]);
+                $stmtUpdateOriginalMusicaCantorStatus = $pdo->prepare("UPDATE musicas_cantor SET status = 'aguardando' WHERE id = ? AND id_cantor = ? AND id_eventos = ?");
+                $stmtUpdateOriginalMusicaCantorStatus->execute([$musicaCantorOriginalId, $idCantor, ID_EVENTO_ATIVO]);
                 error_log("DEBUG: Status da música original (musicas_cantor_id: " . $musicaCantorOriginalId . ") do cantor " . $idCantor . " resetado para 'aguardando' na tabela musicas_cantor.");
-
             } else {
-                error_log("Alerta: ID de musica_cantor_id (" . $musicaCantorOriginalId . ") para o item da fila (ID: " . $filaId . ") não encontrado na tabela musicas_cantor (tenant " . ID_TENANTS . "). Não foi possível resetar o proximo_ordem_musica ou o status.");
+                error_log("Alerta: ID de musica_cantor_id (" . $musicaCantorOriginalId . ") para o item da fila (ID: " . $filaId . ") não encontrado na tabela musicas_cantor para o evento " . ID_EVENTO_ATIVO . ". Não foi possível resetar o proximo_ordem_musica ou o status.");
             }
         } else {
             error_log("DEBUG: Música original (ID: " . $musicaOriginalId . ") do item da fila (ID: " . $filaId . ") não possui um musica_cantor_id associado, não há status para resetar em musicas_cantor.");
@@ -1376,39 +1369,56 @@ function trocarMusicaNaFilaAtual(PDO $pdo, $filaId, $novaMusicaId) {
 
         // --- Lógica para a NOVA MÚSICA (entrando na fila) ---
         $novaMusicaCantorId = null;
-        $novaMusicaStatusExistente = null;
 
-        // CORREÇÃO: A tabela musicas_cantor não tem id_tenants, então filtramos pelo cantor.
-        $stmtCheckNewMusicInCantorList = $pdo->prepare("SELECT id, status FROM musicas_cantor WHERE id_cantor = ? AND id_musica = ? LIMIT 1");
-        $stmtCheckNewMusicInCantorList->execute([$idCantor, $novaMusicaId]);
+        // Tenta encontrar a nova música na lista do cantor para o evento
+        $stmtCheckNewMusicInCantorList = $pdo->prepare("SELECT id, status FROM musicas_cantor WHERE id_cantor = ? AND id_musica = ? AND id_eventos = ? LIMIT 1");
+        $stmtCheckNewMusicInCantorList->execute([$idCantor, $novaMusicaId, ID_EVENTO_ATIVO]);
         $newMusicInCantorList = $stmtCheckNewMusicInCantorList->fetch(PDO::FETCH_ASSOC);
 
         if ($newMusicInCantorList) {
+            // Se a música já existe na lista, move ela para a primeira posição
             $novaMusicaCantorId = $newMusicInCantorList['id'];
-            $novaMusicaStatusExistente = $newMusicInCantorList['status'];
-
-            if ($novaMusicaStatusExistente == 'aguardando') {
-                // CORREÇÃO: A tabela musicas_cantor não tem id_tenants, então filtramos pelo cantor.
-                $stmtUpdateNewMusicaCantorStatus = $pdo->prepare("UPDATE musicas_cantor SET status = 'selecionada_para_rodada' WHERE id = ? AND id_cantor = ?");
-                $stmtUpdateNewMusicaCantorStatus->execute([$novaMusicaCantorId, $idCantor]);
-                error_log("DEBUG: Status da nova música (musicas_cantor_id: " . $novaMusicaCantorId . ") do cantor " . $idCantor . " atualizado para 'selecionada_para_rodada' na tabela musicas_cantor.");
-            } else {
-                error_log("DEBUG: Status da nova música (musicas_cantor_id: " . $novaMusicaCantorId . ", status: " . $novaMusicaStatusExistente . ") do cantor " . $idCantor . " NÃO foi alterado em musicas_cantor.");
+            
+            // Move a música selecionada para a primeira posição e atualiza o status
+            $stmtMoveToFirst = $pdo->prepare("UPDATE musicas_cantor SET ordem_na_lista = 1, status = 'selecionada_para_rodada' WHERE id = ? AND id_cantor = ? AND id_eventos = ?");
+            $stmtMoveToFirst->execute([$novaMusicaCantorId, $idCantor, ID_EVENTO_ATIVO]);
+            
+            // Reorganiza todos os índices sequencialmente
+            $stmtGetAllMusics = $pdo->prepare("SELECT id FROM musicas_cantor WHERE id_cantor = ? AND id_eventos = ? AND id != ? ORDER BY ordem_na_lista ASC");
+            $stmtGetAllMusics->execute([$idCantor, ID_EVENTO_ATIVO, $novaMusicaCantorId]);
+            $otherMusics = $stmtGetAllMusics->fetchAll(PDO::FETCH_COLUMN);
+            
+            // Atualiza a ordem das outras músicas sequencialmente (2, 3, 4, ...)
+            $ordem = 2;
+            foreach ($otherMusics as $musicId) {
+                $stmtUpdateOrder = $pdo->prepare("UPDATE musicas_cantor SET ordem_na_lista = ? WHERE id = ?");
+                $stmtUpdateOrder->execute([$ordem, $musicId]);
+                $ordem++;
             }
+            
+            error_log("DEBUG: Música existente (musicas_cantor_id: " . $novaMusicaCantorId . ") do cantor " . $idCantor . " movida para primeira posição e fila reorganizada sequencialmente.");
         } else {
-            error_log("DEBUG: Nova música (ID: " . $novaMusicaId . ") não encontrada na lista musicas_cantor para o cantor " . $idCantor . " no tenant " . ID_TENANTS . ".");
+            // Se a música NÃO existe na lista, reorganiza a fila para colocá-la na primeira posição
+            
+            // Primeiro, incrementa a ordem_na_lista de todas as músicas existentes do cantor
+            $stmtIncrementOrder = $pdo->prepare("UPDATE musicas_cantor SET ordem_na_lista = ordem_na_lista + 1 WHERE id_cantor = ? AND id_eventos = ?");
+            $stmtIncrementOrder->execute([$idCantor, ID_EVENTO_ATIVO]);
+            
+            // Depois, insere a nova música na primeira posição (ordem_na_lista = 1)
+            $stmtInsertNewMusic = $pdo->prepare("INSERT INTO musicas_cantor (id_eventos, id_cantor, id_musica, ordem_na_lista, status) VALUES (?, ?, ?, 1, 'selecionada_para_rodada')");
+            $stmtInsertNewMusic->execute([ID_EVENTO_ATIVO, $idCantor, $novaMusicaId]);
+            $novaMusicaCantorId = $pdo->lastInsertId();
+            error_log("DEBUG: Nova música (ID: " . $novaMusicaId . ") inserida na primeira posição da lista do cantor " . $idCantor . " no evento " . ID_EVENTO_ATIVO . ". Novo musica_cantor_id: " . $novaMusicaCantorId . ".");
         }
 
         // 4. Atualiza o id_musica e musica_cantor_id na tabela fila_rodadas com a nova música
-        // CORREÇÃO: A tabela fila_rodadas não tem id_tenants. Usamos um JOIN com a tabela cantores para filtrar.
         $stmtUpdateFila = $pdo->prepare("
             UPDATE fila_rodadas fr
             JOIN cantores c ON fr.id_cantor = c.id
             SET fr.id_musica = ?, fr.musica_cantor_id = ?
-            WHERE fr.id = ? AND c.id_tenants = ?
+            WHERE fr.id = ? AND fr.id_eventos = ? AND c.id_tenants = ?
         ");
-        // Alterado: Usa a constante ID_TENANTS
-        $result = $stmtUpdateFila->execute([$novaMusicaId, $novaMusicaCantorId, $filaId, ID_TENANTS]);
+        $result = $stmtUpdateFila->execute([$novaMusicaId, $novaMusicaCantorId, $filaId, ID_EVENTO_ATIVO, ID_TENANTS]);
 
         if ($result) {
             $pdo->commit();

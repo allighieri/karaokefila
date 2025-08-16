@@ -176,9 +176,12 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                             data-status="<?php echo $statusSortable; ?>">
                             <div>
                                 <span class="ordem-numero"><?php echo htmlspecialchars($musica['ordem_na_lista']); ?>.</span>
-                                <span><?php echo htmlspecialchars($musica['titulo']); ?> (<?php echo htmlspecialchars($musica['artista']); ?>) - Código: <?php echo htmlspecialchars($musica['codigo']); ?></span>
+                                <span><?php echo htmlspecialchars($musica['titulo']); ?> (<?php echo htmlspecialchars($musica['artista']); ?>)</span>
                                 <br>
-                                <small><span class="status-text badge <?php echo $statusClass; ?>"><?php echo $statusText; ?></span></small>
+                                <small>
+                                    <span class="badge bg-secondary me-1" style="width: 47px; text-align: right;"><strong><?php echo htmlspecialchars($musica['codigo']); ?></strong></span>
+                                    <span class="status-text badge <?php echo $statusClass; ?>"><?php echo $statusText; ?></span>
+                                </small>
                             </div>
                             <form method="POST">
                                 <input type="hidden" name="action" value="remove_musica_cantor">
@@ -281,7 +284,7 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                                 } else {
                                     response($.map(data, function(item) {
                                         return {
-                                            label: item.titulo + ' (' + item.artista + ') - Código: ' + item.codigo,
+                                            label: '<strong style="display: inline-block; width: 47px; text-align: right; padding-right:4px;">' + item.codigo + '</strong> ' + item.titulo + ' - ' + item.artista,
                                             value: item.id_musica,
                                             titulo: item.titulo,
                                             artista: item.artista,
@@ -593,7 +596,7 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                                             <span class="ordem-numero"></span>
                                             <span></span>
                                             <br>
-                                            <small><strong>Status:</strong> <span class="status-text badge"></span></small>
+                                            <small><strong></strong> <span class="status-text badge"></span></small>
                                         </div>
                                         <form method="POST">
                                             <input type="hidden" name="action" value="remove_musica_cantor">
@@ -607,8 +610,18 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
 
                                         // Atualiza o conteúdo e classes do item existente ou recém-criado
                                         $item.find('.ordem-numero').text(musica.ordem_na_lista + '.');
-                                        $item.find('div > span:eq(1)').text(`${musica.titulo} (${musica.artista}) - Código: ${musica.codigo}`);
+                                        $item.find('div > span:eq(1)').text(`${musica.titulo} (${musica.artista})`);
                                         $item.find('.status-text').text(statusText).removeClass().addClass(`status-text badge ${statusClass}`);
+                                        
+                                        // Atualiza o badge do código
+                                        let $codeBadge = $item.find('.badge.bg-secondary');
+                                        if ($codeBadge.length === 0) {
+                                            // Se não existe o badge do código, cria um novo antes do status
+                                            $item.find('small').prepend(`<span class="badge bg-secondary me-2" style="width: 60px; text-align: right;"><strong>${musica.codigo}</strong></span>`);
+                                        } else {
+                                            // Se já existe, apenas atualiza o conteúdo
+                                            $codeBadge.html(`<strong>${musica.codigo}</strong>`);
+                                        }
 
                                         // As linhas cruciais para atualizar o data-status no HTML
                                         $item.data('status', statusSortable); // Atualiza o cache do jQuery
