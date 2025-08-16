@@ -60,6 +60,7 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
 
     <div id="alertContainer" class="mt-3"></div>
 
+    <?php if (!empty($mesas_disponiveis)): ?>
         <h3>Adicionar Cantores</h3>
         <form method="POST" id="addCantores">
             <input type="hidden" name="action" value="add_cantor">
@@ -102,6 +103,14 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
                 </div>
             </div>
         </form>
+    <?php else: ?>
+        <div class="alert alert-warning" role="alert">
+            <h4 class="alert-heading">Nenhuma mesa cadastrada</h4>
+            <p>Você precisa cadastrar uma mesa para o estabelecimento <strong><?php echo NOME_TENANT; ?></strong></p>
+            <hr>
+            <p class="mb-0"><a href="mesas.php" class="alert-link">Clique aqui</a> para cadastrar uma nova mesa.</p>
+        </div>
+    <?php endif; ?>
 
     <hr class="my-4">
     <h3>Cantores Cadastrados</h3>

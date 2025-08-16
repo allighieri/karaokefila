@@ -113,7 +113,8 @@ function montarProximaRodada(PDO $pdo, $modoFila) {
         if (empty($cantoresDisponiveisGlobal)) {
 
 
-            $mensagemErro = "Não há cantores cadastrados para montar a rodada para o tenant " . ID_TENANTS;
+            $mensagemErro = "Não há cantores cadastrados para montar a rodada para " . "<strong>" . NOME_TENANT . "</strong>";
+
             error_log("ERRO: " . $mensagemErro);
             $pdo->rollBack();
             return $mensagemErro; // Retorna a mensagem de erro
