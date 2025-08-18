@@ -625,7 +625,85 @@ switch ($action) {
         }
         break;
 
+    case 'buscar_musicas':
+        $termo = $_POST['termo'] ?? '';
+        $evento_id = filter_var($_POST['evento_id'] ?? ID_EVENTO_ATIVO, FILTER_VALIDATE_INT);
+        
+        if (strlen($termo) < 2) {
+            $response = ['success' => false, 'message' => 'Digite pelo menos 2 caracteres para buscar.'];
+            break;
+        }
+        
+        try {
+            $stmt = $pdo->prepare("
+                SELECT id, titulo, artista, codigo
+                FROM musicas
+                WHERE id_tenants = ? 
+                  AND (titulo LIKE ? OR artista LIKE ? OR codigo LIKE ?)
+                ORDER BY titulo ASC
+                LIMIT 20
+            ");
+            
+            $termoBusca = '%' . $termo . '%';
+            $stmt->execute([ID_TENANTS, $termoBusca, $termoBusca, $termoBusca]);
+            $musicas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            $response = [
+                'success' => true,
+                'musicas' => $musicas,
+                'total' => count($musicas)
+            ];
+            
+        } catch (PDOException $e) {
+            error_log("Erro ao buscar músicas: " . $e->getMessage());
+            $response = ['success' => false, 'message' => 'Erro ao buscar músicas.'];
+        }
+        break;
 
+    case 'get_fila_rodadas_atualizada':
+        require_once 'funcoes_fila.php';
+        
+        $rodada = filter_var($_GET['rodada'] ?? ID_EVENTO_ATIVO, FILTER_VALIDATE_INT);
+        
+        if ($rodada === false || $rodada <= 0) {
+            $response = ['success' => false, 'message' => 'Rodada inválida.'];
+            break;
+        }
+        
+        try {
+             // Buscar a fila completa atualizada
+             $fila_completa = getFilaCompleta($pdo);
+             
+             // Buscar música em execução
+             $musica_em_execucao = getMusicaEmExecucao($pdo);
+            
+            $response = [
+                'success' => true,
+                'fila_completa' => $fila_completa,
+                'musica_em_execucao' => $musica_em_execucao,
+                'timestamp' => time()
+            ];
+            
+        } catch (Exception $e) {
+            error_log("Erro ao obter fila de rodadas atualizada: " . $e->getMessage());
+            $response = ['success' => false, 'message' => 'Erro ao obter dados da fila.'];
+        }
+        break;
+
+    case 'trocar_musica_cantor':
+        require_once 'funcoes_lista_cantor.php';
+        
+        $musica_cantor_id = filter_var($_POST['musica_cantor_id'] ?? 0, FILTER_VALIDATE_INT);
+        $nova_musica_id = filter_var($_POST['nova_musica_id'] ?? 0, FILTER_VALIDATE_INT);
+        
+        if ($musica_cantor_id === false || $nova_musica_id === false || $musica_cantor_id <= 0 || $nova_musica_id <= 0) {
+            $response = ['success' => false, 'message' => 'Dados inválidos para a troca de música.'];
+            break;
+        }
+        
+        $resultado = trocarMusicaCantor($musica_cantor_id, $nova_musica_id);
+        $response = $resultado;
+        break;
 
     default:
         // Se a ação não for reconhecida, a $response padrão já é retornada

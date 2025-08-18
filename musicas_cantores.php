@@ -184,13 +184,24 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                                     <span class="status-text badge <?php echo $statusClass; ?>"><?php echo $statusText; ?></span>
                                 </small>
                             </div>
-                            <form method="POST">
-                                <input type="hidden" name="action" value="remove_musica_cantor">
-                                <input type="hidden" name="musica_cantor_id" value="<?php echo htmlspecialchars($musica['musica_cantor_id']); ?>">
-                                <input type="hidden" name="cantor_id" value="<?php echo htmlspecialchars($cantor_selecionado_id); ?>">
-                                <input type="hidden" name="evento_id" value="<?php echo htmlspecialchars($evento_selecionado_id); ?>">
-                                <button class="btn btn-sm btn-danger" type="submit"><i class="bi bi-trash-fill"></i></button>
-                            </form>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-info" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#trocarMusicaModal" 
+                                        data-musica-cantor-id="<?php echo htmlspecialchars($musica['musica_cantor_id']); ?>"
+                                        data-current-music-title="<?php echo htmlspecialchars($musica['titulo'] . ' (' . $musica['artista'] . ')'); ?>"
+                                        title="Trocar Música"
+                                        <?php if ($musica['status'] === 'em_execucao' || $musica['status'] === 'cantou'): ?>disabled<?php endif; ?>>
+                                    <i class="bi bi-arrow-left-right"></i>
+                                </button>
+                                <form method="POST" class="d-inline">
+                                    <input type="hidden" name="action" value="remove_musica_cantor">
+                                    <input type="hidden" name="musica_cantor_id" value="<?php echo htmlspecialchars($musica['musica_cantor_id']); ?>">
+                                    <input type="hidden" name="cantor_id" value="<?php echo htmlspecialchars($cantor_selecionado_id); ?>">
+                                    <input type="hidden" name="evento_id" value="<?php echo htmlspecialchars($evento_selecionado_id); ?>">
+                                    <button class="btn btn-sm btn-danger" type="submit"><i class="bi bi-trash-fill"></i></button>
+                                </form>
+                            </div>
                         </li>
                     <?php endforeach; ?>
                 </ul>
@@ -215,6 +226,22 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
     <script src="/fila/js/gerenciar_codigo.js"></script>
     <script src="/fila/js/add_repertorio.js"></script>
 
+
+    <style>
+        /* Garantir que o autocomplete apareça acima da modal */
+        .ui-autocomplete {
+            z-index: 9999 !important;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        /* Estilo para indicador de carregamento */
+        .loading {
+            background-image: url('data:image/gif;base64,R0lGODlhEAAQAPIAAP///wAAAMLCwkJCQgAAAGJiYoKCgpKSkiH/C05FVFNDQVBFMi4wAwEAAAAh/hpDcmVhdGVkIHdpdGggYWpheGxvYWQuaW5mbwAh+QQJCgAAACwAAAAAEAAQAAADMwi63P4wyklrE2MIOggZnAdOmGYJRbExwroUmcG2LmDEwnHQLVsYOd2mBzkYDAdKa+dIAAAh+QQJCgAAACwAAAAAEAAQAAADNAi63P5OjCEgG4QMu7DmikRxQlFUYDEZIGBMRVsaqHwctXXf7WEYB4Ag1xjihkMZsiUkKhIAIfkECQoAAAAsAAAAABAAEAAAAzYIujIjK8pByJDMlFYvBoVjHA70GU7xSUJhmKtwHPAKzLO9HMaoKwJZ7Rf8AYPDDzKpZBqfvwQAIfkECQoAAAAsAAAAABAAEAAAAzMIumIlK8oyhpHsnFZfhYumCYUhDAQxRIdhHBGqRoKw0R8DYlJd8z0fMDgsGo/IpHI5TAAAIfkECQoAAAAsAAAAABAAEAAAAzIIunInK0rnZBTwGPNMgQwmdsNgXGJUlIWEuR5oWUIpz8pAEAMe6TwfwyYsGo/IpFKSAAAh+QQJCgAAACwAAAAAEAAQAAADMwi6IMKQORfjdOe82p4wGccc4CEuQradylesojEMBgsUc2G7sDX3lQGBMLAJibufbSlKAAAh+QQJCgAAACwAAAAAEAAQAAADMgi63P7wjRLEuQRNnGt7QpVdNhHJBkaK0VGJQCdHjyOHcn9TItNT6cnKBBIAIfkECQoAAAAsAAAAABAAEAAAAzQIujIjK8pByJDMlFYvBoVjHA70GU7xSUJhmKtwHPAKzLO9HMaoKwJZ7Rf8AYPDDzKpZBqfvwQAIfkECQoAAAAsAAAAABAAEAAAAzMIumIlK8oyhpHsnFZfhYumCYUhDAQxRIdhHBGqRoKw0R8DYlJd8z0fMDgsGo/IpHI5TAAAIfkECQoAAAAsAAAAABAAEAAAAzIIunInK0rnZBTwGPNMgQwmdsNgXGJUlIWEuR5oWUIpz8pAEAMe6TwfwyYsGo/IpFKSAAAh+QQJCgAAACwAAAAAEAAQAAADMwi6IMKQORfjdOe82p4wGccc4CEuQradylesojEMBgsUc2G7sDX3lQGBMLAJibufbSlKAAAh+QQJCgAAACwAAAAAEAAQAAADMgi63P7wjRLEuQRNnGt7QpVdNhHJBkaK0VGJQCdHjyOHcn9TItNT6cnKBBIAOw==') !important;
+            background-repeat: no-repeat !important;
+            background-position: right 10px center !important;
+        }
+    </style>
 
     <script>
         $(document).ready(function() {
@@ -592,6 +619,18 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
 
                                         if (!$item) {
                                             // Cria um novo item se não existir no DOM
+                                            // Criar botão de troca (sempre visível, mas desabilitado quando necessário)
+                                            const isDisabled = (musica.status === 'em_execucao' || musica.status === 'cantou');
+                                            const trocarButton = `<button class="btn btn-sm btn-info" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#trocarMusicaModal" 
+                                                        data-musica-cantor-id="${musicaCantorId}"
+                                                        data-current-music-title="${musica.titulo} (${musica.artista})"
+                                                        title="Trocar Música"
+                                                        ${isDisabled ? 'disabled' : ''}>
+                                                    <i class="bi bi-arrow-left-right"></i>
+                                                </button>`;
+                                            
                                             $item = $(`<li class="queue-item fade-in" data-musica-cantor-id="${musicaCantorId}" data-id-musica="${musica.id_musica}" data-id-cantor="${musica.id_cantor}" data-status="${statusSortable}">
                                         <div>
                                             <span class="ordem-numero"></span>
@@ -599,12 +638,15 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                                             <br>
                                             <small><strong></strong> <span class="status-text badge"></span></small>
                                         </div>
-                                        <form method="POST">
-                                            <input type="hidden" name="action" value="remove_musica_cantor">
-                                            <input type="hidden" name="musica_cantor_id" value="${musicaCantorId}">
-                                            <input type="hidden" name="cantor_id" value="${idCantorAtual}">
-                                            <button type="submit" class="btn btn-sm btn-danger" title="Remover música"><i class="bi bi-trash-fill"></i></button>
-                                        </form>
+                                        <div class="d-flex gap-1">
+                                            ${trocarButton}
+                                            <form method="POST" class="d-inline">
+                                                <input type="hidden" name="action" value="remove_musica_cantor">
+                                                <input type="hidden" name="musica_cantor_id" value="${musicaCantorId}">
+                                                <input type="hidden" name="cantor_id" value="${idCantorAtual}">
+                                                <button type="submit" class="btn btn-sm btn-danger" title="Remover música"><i class="bi bi-trash-fill"></i></button>
+                                            </form>
+                                        </div>
                                     </li>`);
                                             currentDomItems[musicaCantorId] = $item;
                                         }
@@ -627,6 +669,15 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                                         // As linhas cruciais para atualizar o data-status no HTML
                                         $item.data('status', statusSortable); // Atualiza o cache do jQuery
                                         $item.attr('data-status', statusSortable); // Atualiza o atributo no DOM
+
+                                        // Atualiza o estado do botão de trocar música
+                                        const isDisabled = (musica.status === 'em_execucao' || musica.status === 'cantou');
+                                        const $trocarButton = $item.find('button[data-bs-target="#trocarMusicaModal"]');
+                                        if (isDisabled) {
+                                            $trocarButton.prop('disabled', true).attr('disabled', 'disabled');
+                                        } else {
+                                            $trocarButton.prop('disabled', false).removeAttr('disabled');
+                                        }
 
                                         if (isCurrentlyPlaying) {
                                             $item.addClass('list-group-item-danger');
@@ -710,6 +761,209 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
                 // Configure o intervalo para atualizações futuras
                 refreshIntervalId = setInterval(atualizarListaMusicasCantor, 5000); // A cada 3 segundos
             }
+        });
+    </script>
+
+    <!-- Modal para trocar música -->
+    <div class="modal fade" id="trocarMusicaModal" tabindex="-1" aria-labelledby="trocarMusicaModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="trocarMusicaModalLabel">Trocar Música</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Container para mensagens de erro na modal -->
+                    <div id="modalErrorContainer"></div>
+                    
+                    <p><strong>Música atual:</strong> <span id="currentMusicInfo"></span></p>
+                    <hr>
+                    <div class="mb-3">
+                        <label for="searchNovaMusica" class="form-label">Buscar nova música:</label>
+                        <input type="text" class="form-control" id="searchNovaMusica" placeholder="Digite o título, artista ou código da música...">
+                    </div>
+                    
+                    <!-- Campos hidden para armazenar os IDs -->
+                    <input type="hidden" id="musicaCantorIdParaTrocar">
+                    <input type="hidden" id="idNovaMusicaSelecionada">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btnConfirmarTrocaMusica">Trocar Música</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configurar autocomplete para busca de músicas na modal de troca
+        let searchTimerModal;
+        let isSearchingModal = false;
+        const searchDelayModal = 300;
+
+        $("#searchNovaMusica").autocomplete({
+            source: function(request, response) {
+                // Limpa o timer anterior se existir
+                clearTimeout(searchTimerModal);
+                
+                // Define um novo timer para a busca
+                searchTimerModal = setTimeout(function() {
+                    // Verifica se já está fazendo uma busca
+                    if (isSearchingModal) {
+                        return;
+                    }
+                    
+                    isSearchingModal = true;
+                    
+                    $.ajax({
+                        url: 'api.php',
+                        type: 'POST',
+                        dataType: 'json',
+                        data: {
+                            action: 'search_musicas',
+                            term: request.term
+                        },
+                        beforeSend: function() {
+                            // Adiciona indicador visual de carregamento
+                            $('#searchNovaMusica').addClass('loading');
+                        },
+                        success: function(data) {
+                            if (data.length === 0) {
+                                response([{ label: "Nenhum resultado encontrado para '" + request.term + "'", value: "" }]);
+                            } else {
+                                response($.map(data, function(item) {
+                                    return {
+                                        label: '<strong style="display: inline-block; width: 47px; text-align: right; padding-right:4px;">' + item.codigo + '</strong> ' + item.titulo + ' - ' + item.artista,
+                                        value: item.id_musica,
+                                        titulo: item.titulo,
+                                        artista: item.artista,
+                                        codigo: item.codigo
+                                    };
+                                }));
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error("Erro na busca de músicas:", {
+                                status: status,
+                                error: error,
+                                responseText: xhr.responseText
+                            });
+                            response([{ label: "Erro ao buscar resultados. Tente novamente.", value: "" }]);
+                        },
+                        complete: function() {
+                            $('#searchNovaMusica').removeClass('loading');
+                            isSearchingModal = false;
+                        }
+                    });
+                }, searchDelayModal);
+            },
+            minLength: 2,
+            delay: 0,
+            select: function(event, ui) {
+                if (ui.item.value === "") {
+                    return false;
+                }
+                
+                // Armazena o ID da música selecionada
+                $('#idNovaMusicaSelecionada').val(ui.item.value);
+                
+                // Atualiza o campo com o título e artista
+                $(this).val(ui.item.titulo + ' - ' + ui.item.artista);
+                
+                return false;
+            },
+            focus: function(event, ui) {
+                return false;
+            }
+        });
+
+        // Customizar renderização dos itens do autocomplete para modal
+        setTimeout(function() {
+            if ($("#searchNovaMusica").length > 0 && $("#searchNovaMusica").data("ui-autocomplete")) {
+                $("#searchNovaMusica").data("ui-autocomplete")._renderItem = function(ul, item) {
+                    if (item.value === "") {
+                        return $("<li>")
+                            .append($("<div>").text(item.label))
+                            .appendTo(ul);
+                    }
+                    var highlightedLabel = item.label;
+                    return $("<li>")
+                        .append($("<div>").html(highlightedLabel))
+                        .appendTo(ul);
+                };
+            }
+        }, 100);
+
+        // Limpar seleção quando o usuário digita novamente
+        $('#searchNovaMusica').on('input', function() {
+            if ($(this).val() === '') {
+                $('#idNovaMusicaSelecionada').val('');
+            }
+        });
+
+        // Evento que ocorre quando o modal de troca de música é exibido
+        $('#trocarMusicaModal').on('show.bs.modal', function (event) {
+            var button = $(event.relatedTarget);
+            var musicaCantorId = button.data('musica-cantor-id');
+            var currentMusicTitle = button.data('current-music-title');
+
+            var modal = $(this);
+            modal.find('#musicaCantorIdParaTrocar').val(musicaCantorId);
+            modal.find('#currentMusicInfo').text(currentMusicTitle);
+
+            // Limpa o campo de busca e o hidden ID da música selecionada ao abrir o modal
+            $('#searchNovaMusica').val('');
+            $('#idNovaMusicaSelecionada').val('');
+            
+            // Limpar mensagens de erro anteriores
+            $('#modalErrorContainer').empty();
+        });
+
+        // Evento de clique do botão "Trocar Música" dentro do modal
+        $('#btnConfirmarTrocaMusica').on('click', function() {
+            var musicaCantorId = $('#musicaCantorIdParaTrocar').val();
+            var novaMusicaId = $('#idNovaMusicaSelecionada').val();
+
+            if (!musicaCantorId || !novaMusicaId) {
+                // Exibir erro na modal
+                $('#modalErrorContainer').html('<div class="alert alert-warning alert-dismissible fade show" role="alert">Por favor, selecione uma música.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+                return;
+            }
+
+            // Limpar mensagens anteriores
+            $('#modalErrorContainer').empty();
+
+            // Requisição AJAX para o backend (api.php)
+            $.ajax({
+                url: 'api.php',
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'trocar_musica_cantor',
+                    musica_cantor_id: musicaCantorId,
+                    nova_musica_id: novaMusicaId
+                },
+                success: function(response) {
+                    if (response.success && response.redirect) {
+                        // Redirecionar para recarregar a página e exibir a mensagem de sucesso
+                        window.location.reload();
+                    } else if (response.success) {
+                        $('#trocarMusicaModal').modal('hide');
+                        // Atualiza a lista de músicas
+                        atualizarListaMusicasCantor();
+                        // Exibir sucesso na página principal
+                        showAlert('Música trocada com sucesso!', 'success');
+                    } else {
+                        // Exibir erro na modal
+                        $('#modalErrorContainer').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + response.message + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Erro na requisição AJAX:", status, error);
+                    // Exibir erro na modal
+                    $('#modalErrorContainer').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Erro na comunicação com o servidor.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+                }
+            });
         });
     </script>
 </body>

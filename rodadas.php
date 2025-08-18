@@ -587,6 +587,70 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
             });
         }
 
+        // Sistema de polling para atualizar a fila automaticamente
+        var refreshIntervalId;
+        var filaHash = '';
+        
+        function calcularHashFila(fila) {
+            if (!fila || fila.length === 0) return '';
+            return fila.map(function(item) {
+                return item.fila_id + '_' + item.titulo_musica + '_' + item.status;
+            }).join('|');
+        }
+        
+        function atualizarFilaRodadas() {
+            var rodadaAtual = <?php echo json_encode($rodada_atual); ?>;
+            
+            $.ajax({
+                url: 'api.php',
+                type: 'GET',
+                dataType: 'json',
+                data: {
+                    action: 'get_fila_rodadas_atualizada',
+                    rodada: rodadaAtual
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Calcular hash da nova fila
+                        var novoHash = calcularHashFila(response.fila_completa);
+                        
+                        // Se o hash mudou, recarregar a página
+                        if (filaHash !== '' && filaHash !== novoHash) {
+                            location.reload();
+                            return;
+                        }
+                        
+                        // Atualizar o hash para a próxima comparação
+                        filaHash = novoHash;
+                        
+                        // Verificar mudança na música em execução
+                        if (response.musica_em_execucao) {
+                            var musicaAtual = $('.music-info h3').text().trim();
+                            var novaMusicaTitulo = response.musica_em_execucao.titulo + ' (' + response.musica_em_execucao.artista + ')';
+                            
+                            if (musicaAtual !== '' && musicaAtual !== novaMusicaTitulo) {
+                                location.reload();
+                                return;
+                            }
+                        }
+                    }
+                },
+                error: function(xhr, status, error) {
+                    // Silenciar erros para não poluir o console
+                }
+            });
+        }
+        
+        // Iniciar polling a cada 3 segundos
+        refreshIntervalId = setInterval(atualizarFilaRodadas, 5000);
+        
+        // Parar polling quando a página for descarregada
+        $(window).on('beforeunload', function() {
+            if (refreshIntervalId) {
+                clearInterval(refreshIntervalId);
+            }
+        });
+
     })
 </script>
 </body>

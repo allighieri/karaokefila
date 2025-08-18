@@ -304,6 +304,122 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// Função para trocar música na lista do cantor
+function trocarMusicaCantor($musica_cantor_id, $nova_musica_id) {
+    global $pdo;
+    
+    try {
+        $pdo->beginTransaction();
+        
+        // 1. Verificar se a música atual existe e obter informações
+        $stmtMusicaAtual = $pdo->prepare("
+            SELECT mc.id_cantor, mc.id_eventos, mc.ordem_na_lista, mc.status,
+                   m.titulo as titulo_atual, m.artista as artista_atual
+            FROM musicas_cantor mc
+            JOIN musicas m ON mc.id_musica = m.id
+            WHERE mc.id = ? AND mc.id_cantor IN (
+                SELECT id FROM cantores WHERE id_tenants = ?
+            )
+        ");
+        $stmtMusicaAtual->execute([$musica_cantor_id, ID_TENANTS]);
+        $musicaAtual = $stmtMusicaAtual->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$musicaAtual) {
+            $pdo->rollBack();
+            return ['success' => false, 'message' => 'Música não encontrada ou não pertence ao seu tenant.'];
+        }
+        
+        // 2. Verificar se a música não está em execução ou já foi cantada
+        if ($musicaAtual['status'] === 'em_execucao') {
+            $pdo->rollBack();
+            return ['success' => false, 'message' => 'Não é possível trocar uma música que está em execução.'];
+        }
+        
+        if ($musicaAtual['status'] === 'cantou') {
+            $pdo->rollBack();
+            return ['success' => false, 'message' => 'Não é possível trocar uma música que já foi cantada.'];
+        }
+        
+        // 3. Verificar se a nova música existe e pertence ao mesmo tenant
+        $stmtNovaMusica = $pdo->prepare("
+            SELECT id, titulo, artista, codigo
+            FROM musicas
+            WHERE id = ? AND id_tenants = ?
+        ");
+        $stmtNovaMusica->execute([$nova_musica_id, ID_TENANTS]);
+        $novaMusica = $stmtNovaMusica->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$novaMusica) {
+            $pdo->rollBack();
+            return ['success' => false, 'message' => 'Nova música não encontrada ou não pertence ao seu tenant.'];
+        }
+        
+        // 4. Verificar se a nova música já está na lista do cantor (excluindo a música atual)
+        $stmtVerificarDuplicata = $pdo->prepare("
+            SELECT COUNT(*) FROM musicas_cantor
+            WHERE id_cantor = ? AND id_musica = ? AND id_eventos = ? AND id != ?
+        ");
+        $stmtVerificarDuplicata->execute([
+            $musicaAtual['id_cantor'], 
+            $nova_musica_id, 
+            $musicaAtual['id_eventos'],
+            $musica_cantor_id
+        ]);
+        
+        if ($stmtVerificarDuplicata->fetchColumn() > 0) {
+            $pdo->rollBack();
+            return ['success' => false, 'message' => 'Esta música já está na lista do cantor.'];
+        }
+        
+        // 5. Atualizar a música mantendo a mesma posição e status
+        $stmtTrocarMusica = $pdo->prepare("
+            UPDATE musicas_cantor 
+            SET id_musica = ?
+            WHERE id = ?
+        ");
+        
+        if (!$stmtTrocarMusica->execute([$nova_musica_id, $musica_cantor_id])) {
+            $pdo->rollBack();
+            return ['success' => false, 'message' => 'Erro ao atualizar a música na lista.'];
+        }
+        
+        // 6. Atualizar também a referência na tabela fila_rodadas se existir
+        $stmtTrocarFilaRodadas = $pdo->prepare("
+            UPDATE fila_rodadas 
+            SET id_musica = ?
+            WHERE musica_cantor_id = ? AND id_tenants = ? AND id_eventos = ?
+        ");
+        
+        $stmtTrocarFilaRodadas->execute([
+            $nova_musica_id, 
+            $musica_cantor_id, 
+            ID_TENANTS, 
+            $musicaAtual['id_eventos']
+        ]);
+        
+        // Log para debug
+        $linhasAfetadasFila = $stmtTrocarFilaRodadas->rowCount();
+        error_log("DEBUG: Troca de música - Linhas afetadas na fila_rodadas: " . $linhasAfetadasFila);
+        
+        $pdo->commit();
+        
+        $_SESSION['mensagem_sucesso'] = 'Música trocada com sucesso!';
+        return [
+            'success' => true, 
+            'redirect' => true,
+            'musica_anterior' => $musicaAtual['titulo_atual'] . ' (' . $musicaAtual['artista_atual'] . ')',
+            'nova_musica' => $novaMusica['titulo'] . ' (' . $novaMusica['artista'] . ')'
+        ];
+        
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log("Erro ao trocar música do cantor: " . $e->getMessage());
+        return ['success' => false, 'message' => 'Erro de banco de dados: ' . $e->getMessage()];
+    }
+}
+
 // Função para buscar eventos ativos por tenant
 function obterEventosAtivosPorTenant($id_tenants) {
     global $pdo;

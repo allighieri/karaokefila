@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste de Sincronização</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h1>Teste de Sincronização</h1>
+    <button id="testarAPI">Testar API</button>
+    <button id="simularTroca">Simular Troca de Música</button>
+    <div id="resultado"></div>
+    
+    <script>
+    $(document).ready(function() {
+        $('#testarAPI').click(function() {
+            $.ajax({
+                url: 'api.php',
+                type: 'GET',
+                dataType: 'json',
+                data: {
+                    action: 'get_fila_rodadas_atualizada',
+                    rodada: 1
+                },
+                success: function(response) {
+                    console.log('Resposta da API:', response);
+                    $('#resultado').html('<pre>' + JSON.stringify(response, null, 2) + '</pre>');
+                },
+                error: function(xhr, status, error) {
+                    console.error('Erro:', status, error);
+                    $('#resultado').html('Erro: ' + error);
+                }
+            });
+        });
+        
+        $('#simularTroca').click(function() {
+            // Simular uma troca de música
+            $.ajax({
+                url: 'api.php',
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'trocar_musica_cantor',
+                    musica_cantor_id: 1,
+                    nova_musica_id: 2
+                },
+                success: function(response) {
+                    console.log('Troca realizada:', response);
+                    $('#resultado').append('<br><strong>Troca:</strong> ' + JSON.stringify(response));
+                },
+                error: function(xhr, status, error) {
+                    console.error('Erro na troca:', status, error);
+                    $('#resultado').append('<br><strong>Erro na troca:</strong> ' + error);
+                }
+            });
+        });
+    });
+    </script>
+</body>
+</html>
