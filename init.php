@@ -39,10 +39,14 @@ if (isset($_SESSION['usuario_logado'])) {
     define('NOME_TENANT', $dados_sessao['tenant']['nome']);
 
     // Para MCs, buscar evento ativo específico do MC
-    // Para outros níveis, buscar por tenant (compatibilidade)
+    // Para admins/super_admins, verificar se há evento selecionado na sessão
     if (NIVEL_ACESSO === 'mc') {
         $idEventoAtivo = get_id_evento_ativo_mc($pdo, ID_USUARIO);
+    } elseif (in_array(NIVEL_ACESSO, ['admin', 'super_admin']) && isset($_SESSION['admin_evento_selecionado'])) {
+        // Admin tem evento específico selecionado
+        $idEventoAtivo = $_SESSION['admin_evento_selecionado']['id'];
     } else {
+        // Fallback para buscar por tenant (compatibilidade)
         $idEventoAtivo = get_id_evento_ativo($pdo, ID_TENANTS);
     }
 

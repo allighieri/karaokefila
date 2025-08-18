@@ -72,7 +72,9 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 
     <h1><?php echo NOME_TENANT ;?></h1>
 
-
+    <?php if (in_array(NIVEL_ACESSO, ['admin', 'super_admin'])): ?>
+        <?php include_once 'inc/seletor_evento_admin.php'; ?>
+    <?php endif; ?>
 
     <div id="alertContainer" class="mt-3"></div>
     <?php if (!$musica_em_execucao): ?>

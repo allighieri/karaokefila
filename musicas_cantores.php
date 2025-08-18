@@ -70,6 +70,9 @@ if (!check_access(NIVEL_ACESSO, ['admin', 'mc'])) {
 
     <h3>Gerenciar Músicas por Cantor</h3>
 
+    <?php if (in_array(NIVEL_ACESSO, ['admin', 'super_admin'])): ?>
+        <?php include_once 'inc/seletor_evento_admin.php'; ?>
+    <?php endif; ?>
 
     <?php if ($mensagem_sucesso != ''): ?>
         <div class="alert success"><?php echo htmlspecialchars($mensagem_sucesso); ?></div>
