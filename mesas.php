@@ -39,6 +39,8 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 
     <div id="alertContainer" class="mt-3"></div>
 
+    
+
     <h3>Adicionar Mesa</h3>
 
     <?php if (in_array(NIVEL_ACESSO, ['admin', 'super_admin'])): ?>

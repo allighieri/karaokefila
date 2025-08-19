@@ -71,6 +71,33 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
 <div class="container">
 
     <h1><?php echo NOME_TENANT ;?></h1>
+    
+    <?php
+    // Obter nome do evento ativo
+    $nomeEventoAtivo = 'Nenhum evento ativo';
+    
+    if (ID_EVENTO_ATIVO !== null) {
+        try {
+            if (in_array(NIVEL_ACESSO, ['admin', 'super_admin']) && isset($_SESSION['admin_evento_selecionado'])) {
+                // Admin tem evento específico selecionado
+                $nomeEventoAtivo = $_SESSION['admin_evento_selecionado']['nome'];
+            } else {
+                // MC ou fallback - buscar nome do evento ativo
+                $stmt = $pdo->prepare("SELECT nome FROM eventos WHERE id = ?");
+                $stmt->execute([ID_EVENTO_ATIVO]);
+                $evento = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($evento) {
+                    $nomeEventoAtivo = $evento['nome'];
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Erro ao obter nome do evento ativo: " . $e->getMessage());
+        }
+    }
+    ?>
+    
+    <p class="text-muted mb-3"><strong>Evento Ativo:</strong> <?php echo htmlspecialchars($nomeEventoAtivo); ?></p>
 
     <?php if (in_array(NIVEL_ACESSO, ['admin', 'super_admin'])): ?>
         <?php include_once 'inc/seletor_evento_admin.php'; ?>
