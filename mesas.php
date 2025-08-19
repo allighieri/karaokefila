@@ -40,6 +40,10 @@ $current_page = pathinfo($_SERVER['PHP_SELF'], PATHINFO_BASENAME);
     <div id="alertContainer" class="mt-3"></div>
 
     <h3>Adicionar Mesa</h3>
+
+    <?php if (in_array(NIVEL_ACESSO, ['admin', 'super_admin'])): ?>
+        <?php include_once 'inc/seletor_evento_admin.php'; ?>
+    <?php endif; ?>
     <form method="POST" id="addMesas">
         <input type="hidden" name="action" value="add_mesa">
         <div class="row">

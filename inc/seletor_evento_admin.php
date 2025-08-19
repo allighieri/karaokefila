@@ -10,9 +10,14 @@ if (NIVEL_ACESSO === 'admin' || NIVEL_ACESSO === 'super_admin') {
         <div class="row align-items-center">
             <div class="col-md-6">
                 <label for="seletor-evento-admin" class="form-label">Selecione o evento para gerenciar:</label>
-                <select class="form-select" id="seletor-evento-admin">
-                    <option value="">Carregando eventos...</option>
-                </select>
+                <div class="input-group">
+                    <select class="form-select" id="seletor-evento-admin">
+                        <option value="">Carregando eventos...</option>
+                    </select>
+                    <button class="btn btn-outline-secondary" type="button" id="limpar-evento-admin" title="Limpar seleção">
+                        <i class="bi bi-x-circle"></i>
+                    </button>
+                </div>
             </div>
             <div class="col-md-6">
                 <div id="info-evento-selecionado" class="mt-2">
@@ -43,6 +48,10 @@ function inicializarSeletorEventos() {
                 selecionarEventoAdmin(eventoId);
             }
         });
+        
+        $('#limpar-evento-admin').on('click', function() {
+            limparEventoSelecionado();
+        });
     });
 }
 
@@ -55,7 +64,9 @@ function carregarEventosParaSelecao() {
         method: 'POST',
         data: { action: 'listar_eventos_para_admin' },
         dataType: 'json',
+        cache: false,
         success: function(response) {
+            console.log('Resposta da API listar_eventos_para_admin:', response);
             if (response.success) {
                 var select = $('#seletor-evento-admin');
                 select.empty();
@@ -103,6 +114,7 @@ function selecionarEventoAdmin(eventoId) {
             evento_id: eventoId
         },
         dataType: 'json',
+        cache: false,
         success: function(response) {
             if (response.success) {
                 var eventoSelecionado = $('#seletor-evento-admin option:selected').data('evento');
@@ -128,6 +140,7 @@ function verificarEventoSelecionado() {
         method: 'POST',
         data: { action: 'obter_evento_selecionado' },
         dataType: 'json',
+        cache: false,
         success: function(response) {
             if (response.success && response.evento_selecionado) {
                 $('#seletor-evento-admin').val(response.evento_selecionado.id);
@@ -149,6 +162,32 @@ function atualizarInfoEventoSelecionado(evento) {
     } else {
         $('#info-evento-selecionado').html('<small class="text-muted">Nenhum evento selecionado</small>');
     }
+}
+
+function limparEventoSelecionado() {
+    $.ajax({
+        url: 'api_admin_eventos.php',
+        method: 'POST',
+        data: { action: 'limpar_evento_selecionado' },
+        dataType: 'json',
+        cache: false,
+        success: function(response) {
+            if (response.success) {
+                $('#seletor-evento-admin').val('');
+                atualizarInfoEventoSelecionado(null);
+                
+                // Recarregar a página para aplicar as mudanças
+                setTimeout(function() {
+                    location.reload();
+                }, 1000);
+            } else {
+                alert('Erro ao limpar seleção: ' + response.message);
+            }
+        },
+        error: function() {
+            alert('Erro ao limpar seleção de evento');
+        }
+    });
 }
 </script>
 

@@ -60,6 +60,10 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
 
     <div id="alertContainer" class="mt-3"></div>
 
+    <?php if (in_array(NIVEL_ACESSO, ['admin', 'super_admin'])): ?>
+        <?php include_once 'inc/seletor_evento_admin.php'; ?>
+    <?php endif; ?>
+
     <?php if (!empty($mesas_disponiveis)): ?>
         <h3>Adicionar Cantores</h3>
         <form method="POST" id="addCantores">
@@ -89,6 +93,9 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
                                     <?php echo htmlspecialchars($usuario['nome']); ?>
                                     <?php if ($usuario['nivel'] !== 'user'): ?>
                                         (<?php echo htmlspecialchars($usuario['nivel']); ?>)
+                                    <?php endif; ?>
+                                    <?php if (NIVEL_ACESSO === 'super_admin' && isset($usuario['nome_tenant'])): ?>
+                                        - <?php echo htmlspecialchars($usuario['nome_tenant']); ?>
                                     <?php endif; ?>
                                 </option>
                             <?php endforeach;
@@ -192,8 +199,15 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
                             <option value="">Selecione um usuário</option>
                             <?php
                             // Carrega todos os usuários disponíveis para edição
-                            $stmtTodosUsuarios = $pdo->prepare("SELECT id, nome, nivel FROM usuarios WHERE id_tenants = ? ORDER BY nome ASC");
-                            $stmtTodosUsuarios->execute([ID_TENANTS]);
+                            if (NIVEL_ACESSO === 'super_admin') {
+                                // Super admin vê usuários de todos os tenants
+                                $stmtTodosUsuarios = $pdo->prepare("SELECT u.id, u.nome, u.nivel, t.nome as nome_tenant FROM usuarios u JOIN tenants t ON u.id_tenants = t.id ORDER BY t.nome, u.nome ASC");
+                                $stmtTodosUsuarios->execute();
+                            } else {
+                                // Admin e MC veem apenas usuários do seu tenant
+                                $stmtTodosUsuarios = $pdo->prepare("SELECT id, nome, nivel FROM usuarios WHERE id_tenants = ? ORDER BY nome ASC");
+                                $stmtTodosUsuarios->execute([ID_TENANTS]);
+                            }
                             $todos_usuarios = $stmtTodosUsuarios->fetchAll(PDO::FETCH_ASSOC);
                             
                             if (isset($todos_usuarios)) {
@@ -202,6 +216,9 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
                                         <?php echo htmlspecialchars($usuario['nome']); ?>
                                         <?php if ($usuario['nivel'] !== 'user'): ?>
                                             (<?php echo htmlspecialchars($usuario['nivel']); ?>)
+                                        <?php endif; ?>
+                                        <?php if (NIVEL_ACESSO === 'super_admin' && isset($usuario['nome_tenant'])): ?>
+                                            - <?php echo htmlspecialchars($usuario['nome_tenant']); ?>
                                         <?php endif; ?>
                                     </option>
                                 <?php endforeach;
@@ -272,7 +289,14 @@ $mesas_disponiveis = $stmtMesas->fetchAll(PDO::FETCH_ASSOC);
                         if (response.usuarios && response.usuarios.length > 0) {
                             response.usuarios.forEach(function(usuario) {
                                 var nivelText = usuario.nivel !== 'user' ? ' (' + usuario.nivel + ')' : '';
-                                select.append('<option value="' + usuario.id + '">' + usuario.nome + nivelText + '</option>');
+                                var tenantText = '';
+                                
+                                // Adicionar nome do tenant se disponível
+                                if (usuario.nome_tenant) {
+                                    tenantText = ' - ' + usuario.nome_tenant;
+                                }
+                                
+                                select.append('<option value="' + usuario.id + '">' + usuario.nome + tenantText + nivelText + '</option>');
                             });
                         }
                     } else {

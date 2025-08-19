@@ -424,6 +424,17 @@ function trocarMusicaCantor($musica_cantor_id, $nova_musica_id) {
 function obterEventosAtivosPorTenant($id_tenants) {
     global $pdo;
     
+    // Se for admin e tiver um evento selecionado, usar esse evento
+    if (in_array(NIVEL_ACESSO, ['admin', 'super_admin']) && isset($_SESSION['admin_evento_selecionado'])) {
+        $evento_selecionado = $_SESSION['admin_evento_selecionado'];
+        return [[
+            'id' => $evento_selecionado['id'],
+            'nome' => $evento_selecionado['nome'],
+            'nome_mc' => $evento_selecionado['nome_mc']
+        ]];
+    }
+    
+    // Para MCs, buscar apenas seus próprios eventos ativos
     $stmt = $pdo->prepare("
         SELECT e.id, e.nome, u.nome as nome_mc
         FROM eventos e

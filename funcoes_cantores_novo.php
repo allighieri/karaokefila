@@ -210,20 +210,69 @@ function removerCantorPorId(PDO $pdo, $idCantor): array {
  */
 function obterUsuariosDisponiveis(PDO $pdo): array {
     try {
-        $stmt = $pdo->prepare("
-            SELECT u.id, u.nome, u.email, u.nivel
-            FROM usuarios u
-            WHERE u.id_tenants = ? 
-            AND u.status = 1
-            AND u.id NOT IN (
-                SELECT DISTINCT c.id_usuario 
-                FROM cantores c 
-                JOIN mesas m ON c.id_mesa = m.id
-                WHERE c.id_tenants = ? AND m.id_eventos = ?
-            )
-            ORDER BY u.nome
-        ");
-        $stmt->execute([ID_TENANTS, ID_TENANTS, ID_EVENTO_ATIVO]);
+        // Verificar se há evento ativo
+        $eventoAtivo = defined('ID_EVENTO_ATIVO') ? ID_EVENTO_ATIVO : null;
+        
+        if (NIVEL_ACESSO === 'super_admin') {
+            // Super admin vê usuários de todos os tenants
+            if ($eventoAtivo) {
+                $stmt = $pdo->prepare("
+                    SELECT u.id, u.nome, u.email, u.nivel, t.nome as nome_tenant
+                    FROM usuarios u
+                    JOIN tenants t ON u.id_tenants = t.id
+                    WHERE u.status = 1
+                    AND u.id NOT IN (
+                        SELECT DISTINCT c.id_usuario 
+                        FROM cantores c 
+                        JOIN mesas m ON c.id_mesa = m.id
+                        WHERE m.id_eventos = ?
+                    )
+                    ORDER BY t.nome, u.nome
+                ");
+                $stmt->execute([$eventoAtivo]);
+            } else {
+                // Sem evento ativo, mostrar todos os usuários
+                $stmt = $pdo->prepare("
+                    SELECT u.id, u.nome, u.email, u.nivel, t.nome as nome_tenant
+                    FROM usuarios u
+                    JOIN tenants t ON u.id_tenants = t.id
+                    WHERE u.status = 1
+                    ORDER BY t.nome, u.nome
+                ");
+                $stmt->execute();
+            }
+        } else {
+            // Admin e MC veem apenas usuários do seu tenant - INCLUINDO nome do tenant
+            if ($eventoAtivo) {
+                $stmt = $pdo->prepare("
+                    SELECT u.id, u.nome, u.email, u.nivel, t.nome as nome_tenant
+                    FROM usuarios u
+                    JOIN tenants t ON u.id_tenants = t.id
+                    WHERE u.id_tenants = ? 
+                    AND u.status = 1
+                    AND u.id NOT IN (
+                        SELECT DISTINCT c.id_usuario 
+                        FROM cantores c 
+                        JOIN mesas m ON c.id_mesa = m.id
+                        WHERE c.id_tenants = ? AND m.id_eventos = ?
+                    )
+                    ORDER BY u.nome
+                ");
+                $stmt->execute([ID_TENANTS, ID_TENANTS, $eventoAtivo]);
+            } else {
+                // Sem evento ativo, mostrar todos os usuários do tenant
+                $stmt = $pdo->prepare("
+                    SELECT u.id, u.nome, u.email, u.nivel, t.nome as nome_tenant
+                    FROM usuarios u
+                    JOIN tenants t ON u.id_tenants = t.id
+                    WHERE u.id_tenants = ? 
+                    AND u.status = 1
+                    ORDER BY u.nome
+                ");
+                $stmt->execute([ID_TENANTS]);
+            }
+        }
+        
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         error_log("Erro ao obter usuários disponíveis: " . $e->getMessage());

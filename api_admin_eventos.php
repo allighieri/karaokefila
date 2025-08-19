@@ -32,15 +32,16 @@ switch ($action) {
                 $stmt->execute();
             } else {
                 // Admin vê apenas eventos do seu tenant
+                // Consulta mais restritiva para garantir que apenas eventos do tenant correto sejam retornados
                 $stmt = $pdo->prepare("
                     SELECT e.*, u.nome as nome_mc, t.nome as nome_tenant
                     FROM eventos e 
                     JOIN usuarios u ON e.id_usuario_mc = u.id 
                     JOIN tenants t ON e.id_tenants = t.id 
-                    WHERE e.id_tenants = ?
+                    WHERE e.id_tenants = ? AND t.id = ? AND u.id_tenants = ?
                     ORDER BY e.status DESC, e.nome ASC
                 ");
-                $stmt->execute([ID_TENANTS]);
+                $stmt->execute([ID_TENANTS, ID_TENANTS, ID_TENANTS]);
             }
             
             $eventos = $stmt->fetchAll(PDO::FETCH_ASSOC);
